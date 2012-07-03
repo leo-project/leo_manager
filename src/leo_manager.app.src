@@ -1,0 +1,19 @@
+{application, leo_manager,
+  [
+    {description, "LeoFS Manager"},
+    {vsn, "0.9.0"},
+    {id,  "leo_manager"},
+    {registered,   []},
+    {applications, [kernel, stdlib]},
+    {mod, {leo_manager_app, []}},
+    {env, [{system, [{n, 2},
+                     {w, 1},
+                     {r, 1},
+                     {d, 1},
+                     {bit_of_ring, 128}]},
+           {log_level,        0},
+           {metadata_storage, 'leveldb'},
+           {log_appender,     [file]}
+          ]}
+  ]
+}.

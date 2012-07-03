@@ -1,6 +1,6 @@
-.eunit
-deps
-priv
-*.o
-*.beam
-*.plt
+deps/
+ebin/
+*.sh
+*.ets
+snmp/*/db
+.eunit/

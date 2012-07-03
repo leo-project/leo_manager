@@ -1,0 +1,188 @@
+%%======================================================================
+%% LeoFS Manager - TEST Case
+%% @author yosuke hara
+%% @doc
+%% @end
+%%======================================================================
+-module(leo_manager_mnesia_tests).
+-author('yosuke hara').
+-vsn('0.9.0').
+
+-include("leo_manager.hrl").
+-include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
+%%--------------------------------------------------------------------
+%% TEST FUNCTIONS
+%%--------------------------------------------------------------------
+-ifdef(EUNIT).
+
+manager_mnesia_test_() ->
+    {foreach, fun setup/0, fun teardown/1,
+     [{with, [T]} || T <- [fun all_/1
+                          ]]}.
+
+setup() ->
+    application:start(mnesia),
+    ok.
+
+teardown(_) ->
+    application:stop(mnesia),
+    ok.
+
+%%--------------------------------------------------------------------
+%%% TEST FUNCTIONS
+%%--------------------------------------------------------------------
+all_(_) ->
+    %% create tables
+    {atomic,ok} = leo_manager_mnesia:create_storage_nodes(ram_copies, [node()]),
+    {atomic,ok} = leo_manager_mnesia:create_gateway_nodes(ram_copies, [node()]),
+    {atomic,ok} = leo_manager_mnesia:create_system_config(ram_copies, [node()]),
+    {atomic,ok} = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
+    {atomic,ok} = leo_manager_mnesia:create_credentials(ram_copies, [node()]),
+    {atomic,ok} = leo_manager_mnesia:create_buckets(ram_copies, [node()]),
+    ?assertEqual(true, length(mnesia:system_info(tables)) > 1),
+
+    %% get-1 > not_found
+    not_found = leo_manager_mnesia:get_storage_nodes_all(),
+    not_found = leo_manager_mnesia:get_storage_node_by_name(node()),
+    not_found = leo_manager_mnesia:get_storage_nodes_by_status('running'),
+    not_found = leo_manager_mnesia:get_gateway_nodes_all(),
+    not_found = leo_manager_mnesia:get_gateway_node_by_name(node()),
+    not_found = leo_manager_mnesia:get_system_config(),
+    not_found = leo_manager_mnesia:get_rebalance_info_all(),
+    not_found = leo_manager_mnesia:get_rebalance_info_by_node(node()),
+    not_found = leo_manager_mnesia:get_credentials_all(),
+    not_found = leo_manager_mnesia:get_credential_by_access_key("12345"),
+
+    not_found = leo_manager_mnesia:get_buckets_all(),
+    not_found = leo_manager_mnesia:get_bucket_by_name("bucket"),
+    not_found = leo_manager_mnesia:get_bucket_by_access_key("12345"),
+
+    %% put
+    %%
+    %% (1) storage-node
+    Node0  = 'test0@127.0.0.1',
+    State0 = 'running',
+    NodeState0 = #node_state{node  = Node0,
+                             state = State0},
+
+    ok = leo_manager_mnesia:update_storage_node_status(NodeState0),
+    Res0 = leo_manager_mnesia:get_storage_nodes_all(),
+    ?assertEqual(not_found, Res0),
+
+    ok = leo_manager_mnesia:update_storage_node_status(update, NodeState0),
+    {ok, Res1} = leo_manager_mnesia:get_storage_nodes_all(),
+    ?assertEqual([#node_state{node  = Node0,
+                              state = State0,
+                              ring_hash_new = "-1",
+                              ring_hash_old = "-1",
+                              when_is       = 0,
+                              error         = 0}], Res1),
+
+    ok = leo_manager_mnesia:update_storage_node_status(keep_state, NodeState0),
+    {ok, Res2} = leo_manager_mnesia:get_storage_nodes_all(),
+    ?assertEqual(true, length(Res2) == 1),
+
+    ok = leo_manager_mnesia:update_storage_node_status(update_chksum, NodeState0#node_state{ring_hash_new = "12345",
+                                                                                              ring_hash_old = "67890"}),
+    {ok, Res3} = leo_manager_mnesia:get_storage_nodes_all(),
+    ?assertEqual(true, length(Res3) == 1),
+
+    ok = leo_manager_mnesia:update_storage_node_status(increment_error, NodeState0),
+    {ok, Res4} = leo_manager_mnesia:get_storage_nodes_all(),
+    ?assertEqual(true, length(Res4) == 1),
+
+    ok = leo_manager_mnesia:update_storage_node_status(init_error, NodeState0),
+    {ok, Res5} = leo_manager_mnesia:get_storage_nodes_all(),
+    ?assertEqual(true, length(Res5) == 1),
+
+    [NewNodeState0|_] = Res5,
+
+
+    {error,  badarg} = leo_manager_mnesia:update_storage_node_status(badarg, NodeState0),
+
+    %% (2) gateway-node
+    Node1  = 'test1@127.0.0.1',
+    State1 = 'running',
+    NodeState1 = #node_state{node = Node1,
+                            state = State1},
+    ok = leo_manager_mnesia:update_gateway_node(NodeState1),
+    {ok, Res6} = leo_manager_mnesia:get_gateway_nodes_all(),
+    ?assertEqual([#node_state{node  = Node1,
+                              state = State1,
+                              ring_hash_new = "-1",
+                              ring_hash_old = "-1",
+                              when_is       = 0,
+                              error         = 0}], Res6),
+
+    %% (3) system-config
+    SystemConf = #system_conf{n = 3, w = 2, r = 1, d = 2},
+    ok = leo_manager_mnesia:update_system_config(SystemConf),
+    {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
+    ?assertEqual(SystemConf, ReceivedSystemConf),
+
+    %% (4) rebalance-info
+    RebalanceInfo = #rebalance_info{vnode_id         = 255,
+                                    node             = Node1,
+                                    total_of_objects = 128,
+                                    num_of_remains   = 64,
+                                    when_is          = 0},
+    ok = leo_manager_mnesia:update_rebalance_info(RebalanceInfo),
+    {ok, [Res7|_]} = leo_manager_mnesia:get_rebalance_info_all(),
+    ?assertEqual(RebalanceInfo, Res7),
+
+    {ok, [Res8|_]} = leo_manager_mnesia:get_rebalance_info_by_node(Node1),
+    ?assertEqual(RebalanceInfo, Res8),
+
+    not_found = leo_manager_mnesia:get_rebalance_info_by_node(Node0),
+
+
+    %% (5) rebalance-info
+    AccessKeyId = "access-key-a-z1-9",
+    Credential = #credential{access_key_id     = AccessKeyId,
+                             secret_access_key = "secret-key-a-z1-9",
+                             created           = 1},
+    ok = leo_manager_mnesia:update_credential(Credential),
+    {ok, [Res9|_]} = leo_manager_mnesia:get_credentials_all(),
+    ?assertEqual(Credential, Res9),
+
+    {ok, [Res10|_]} = leo_manager_mnesia:get_credential_by_access_key(AccessKeyId),
+    ?assertEqual(Credential, Res10),
+
+    not_found = leo_manager_mnesia:get_credential_by_access_key("dummy"),
+
+
+    %% (6) bucket
+    BucketName = "bucket-0",
+    Bucket = #bucket{name = BucketName,
+                     access_key_id = AccessKeyId,
+                     permission = "all"
+                    },
+    ok = leo_manager_mnesia:update_bucket(Bucket),
+    {ok, [Res11|_]} = leo_manager_mnesia:get_buckets_all(),
+    {ok, [Res12|_]} = leo_manager_mnesia:get_bucket_by_access_key(AccessKeyId),
+    {ok, [Res13|_]} = leo_manager_mnesia:get_bucket_by_name(BucketName),
+    ?assertEqual(Bucket, Res11),
+    ?assertEqual(Bucket, Res12),
+    ?assertEqual(Bucket, Res13),
+
+
+    %% delete
+    %% (1) storage-node
+    ok = leo_manager_mnesia:delete_storage_node_by_name(NewNodeState0),
+    not_found = leo_manager_mnesia:get_storage_nodes_all(),
+
+    %% (2) credential
+    not_found = leo_manager_mnesia:delete_credential_by_access_key("dummy"),
+
+    ok = leo_manager_mnesia:delete_credential_by_access_key(AccessKeyId),
+    not_found = leo_manager_mnesia:get_credentials_all(),
+
+    %% (3) bucket
+    ok = leo_manager_mnesia:delete_bucket_by_name(BucketName),
+    not_found = leo_manager_mnesia:get_buckets_all(),
+    ok.
+
+-endif.
