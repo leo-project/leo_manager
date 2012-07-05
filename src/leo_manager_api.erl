@@ -358,7 +358,7 @@ distribute_members(Error, _Node) ->
     Error.
 
 
-%% @doc Launch the ARIA, but exclude Gateway(s).
+%% @doc Launch the leo-storage, but exclude Gateway(s).
 %%
 -spec(start() ->
              ok | {error, any()}).
