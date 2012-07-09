@@ -69,6 +69,9 @@ setup() ->
     net_kernel:start([Node0, shortnames]),
     {ok, Node1} = slave:start_link(list_to_atom(Hostname), 'node_1'),
 
+    true = rpc:call(Node0, code, add_path, ["../deps/meck/ebin"]),
+    true = rpc:call(Node1, code, add_path, ["../deps/meck/ebin"]),
+
     leo_manager_controller:start_link(#tcp_server_params{num_of_listeners = 36}),
     {ok, Sock} = gen_tcp:connect("127.0.0.1", 11211,[binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
     {Node0, Node1, Sock}.
