@@ -64,13 +64,12 @@ start_link() ->
         {ok, Pid} ->
             %% Launch Logger
             DefLogDir = "./log/",
-
-            case application:get_env(log_appender) of
-                {ok, [{file, Options}|_]} ->
-                    LogDir = proplists:get_value(path, Options,  DefLogDir);
-                _ ->
-                    LogDir = DefLogDir
-            end,
+            LogDir    = case application:get_env(log_appender) of
+                            {ok, [{file, Options}|_]} ->
+                                proplists:get_value(path, Options,  DefLogDir);
+                            _ ->
+                                DefLogDir
+                        end,
             ok = leo_logger_client_message:new(LogDir, ?env_log_level(leo_manager), log_file_appender()),
 
             %% Launch Statistics
@@ -94,20 +93,21 @@ inspect(master = Mode, []) ->
     inspect1(Mode, [], Nodes);
 inspect(slave, []) ->
     {error, badarg};
-inspect(Mode, [RedundantNode|_]) ->
-    case is_atom(RedundantNode) of
-        true  -> NewRedundantNode = RedundantNode;
-        false -> NewRedundantNode = list_to_atom(RedundantNode)
-    end,
+inspect(Mode, [RedundantNode0|_]) ->
+    RedundantNode1 =
+        case is_atom(RedundantNode0) of
+            true  -> RedundantNode0;
+            false -> list_to_atom(RedundantNode0)
+        end,
 
-    case net_adm:ping(NewRedundantNode) of
+    case net_adm:ping(RedundantNode1) of
         pong ->
-            inspect1(Mode, NewRedundantNode, [node(), NewRedundantNode]);
+            inspect1(Mode, RedundantNode1, [node(), RedundantNode1]);
         pang ->
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, inspect, [Mode, [RedundantNode]])
+            timer:apply_after(?CHECK_INTERVAL, ?MODULE, inspect, [Mode, [RedundantNode0]])
     end.
 
-inspect1(master = Mode, RedundantNode, Nodes) ->
+inspect1(master = Mode, RedundantNode0, Nodes) ->
     case mnesia:create_schema(Nodes) of
         ok ->
             try
@@ -140,7 +140,7 @@ inspect1(master = Mode, RedundantNode, Nodes) ->
         {error,{_,{already_exists, _}}} ->
             inspect2(Mode, Nodes);
         {_, Cause} ->
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, inspect, [Mode, [RedundantNode]]),
+            timer:apply_after(?CHECK_INTERVAL, ?MODULE, inspect, [Mode, [RedundantNode0]]),
             ?error("inspect1/3", "cause:~p", [Cause]),
             {error, Cause}
     end;

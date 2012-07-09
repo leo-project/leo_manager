@@ -583,12 +583,11 @@ update_bucket(Bucket) ->
              ok | {error, any()}).
 insert_history(Command) ->
     [NewCommand|_] = string:tokens(binary_to_list(Command), "\r\n"),
-
-    case get_histories_all() of
-        {ok, List} -> Id = length(List) + 1;
-        not_found  -> Id = 1;
-        {_, Cause} -> Id = {error, Cause}
-    end,
+    Id = case get_histories_all() of
+             {ok, List} -> length(List) + 1;
+             not_found  -> 1;
+             {_, Cause} -> {error, Cause}
+         end,
 
     case Id of
         {error, Reason} ->

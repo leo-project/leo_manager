@@ -336,11 +336,10 @@ get_remote_node_proc_fun(storage, Node) ->
         true ->
             Mod = leo_storage_api,
             case rpc:call(Node, Mod, register_in_monitor, [again]) of
-                ok              -> Ret = ok;
-                {_, Cause}      -> Ret = {error, Cause};
-                timeout = Cause -> Ret = {error, Cause}
-            end,
-            Ret;
+                ok              -> ok;
+                {_, Cause}      -> {error, Cause};
+                timeout = Cause -> {error, Cause}
+            end;
         false ->
             {error, 'not_connected'}
     end;
@@ -352,11 +351,10 @@ get_remote_node_proc_fun(gateway, Node) ->
         true ->
             Mod = leo_gateway_api,
             case rpc:call(Node, Mod, register_in_monitor, [again]) of
-                ok              -> Ret = ok;
-                {_, Cause}      -> Ret = {error, Cause};
-                timeout = Cause -> Ret = {error, Cause}
-            end,
-            Ret;
+                ok              -> ok;
+                {_, Cause}      -> {error, Cause};
+                timeout = Cause -> {error, Cause}
+            end;
         false ->
             {error, 'not_connected'}
     end.

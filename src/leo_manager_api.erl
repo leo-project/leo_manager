@@ -89,22 +89,22 @@ get_members() ->
 %%
 -spec(get_cluster_node_status(atom()) ->
              ok | {error, any()}).
-get_cluster_node_status(Node) ->
-    NodeAtom = list_to_atom(Node),
-    case leo_manager_mnesia:get_gateway_node_by_name(NodeAtom) of
-        {ok, _} -> Mod = leo_gateway_api;
-        _ ->
-            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                {ok, _} -> Mod = leo_storage_api;
-                _       -> Mod = undefined
-            end
-    end,
+get_cluster_node_status(Node0) ->
+    Node1 = list_to_atom(Node0),
+    Mod   = case leo_manager_mnesia:get_gateway_node_by_name(Node1) of
+                {ok, _} -> leo_gateway_api;
+                _ ->
+                    case leo_manager_mnesia:get_storage_node_by_name(Node1) of
+                        {ok, _} -> leo_storage_api;
+                        _       -> undefined
+                    end
+            end,
 
     case Mod of
         undefined ->
             {error, not_found};
         _ ->
-            case rpc:call(list_to_atom(Node), Mod, get_cluster_node_status, [], ?DEF_TIMEOUT) of
+            case rpc:call(Node1, Mod, get_cluster_node_status, [], ?DEF_TIMEOUT) of
                 {ok, Status} ->
                     {ok, Status};
                 {_, Cause} ->
@@ -134,24 +134,25 @@ get_routing_table_chksum() ->
 -spec(get_cluster_nodes() ->
              {ok, list()}).
 get_cluster_nodes() ->
-    case catch leo_manager_mnesia:get_gateway_nodes_all() of
-        {ok, R1} ->
-            Nodes0 = lists:map(fun(#node_state{node  = Node,
+    Nodes0 = case catch leo_manager_mnesia:get_gateway_nodes_all() of
+                 {ok, R1} ->
+                     lists:map(fun(#node_state{node  = Node,
                                                state = State}) ->
                                        {gateway, Node, State}
                                end, R1);
-        _ ->
-            Nodes0 = []
-    end,
-    case catch leo_manager_mnesia:get_storage_nodes_all() of
-        {ok, R2} ->
-            Nodes1 = lists:map(fun(#node_state{node  = Node,
+                 _ ->
+                     []
+             end,
+
+    Nodes1 = case catch leo_manager_mnesia:get_storage_nodes_all() of
+                 {ok, R2} ->
+                     lists:map(fun(#node_state{node  = Node,
                                                state = State}) ->
                                        {storage, Node, State}
                                end, R2);
-        _Error ->
-            Nodes1 = []
-    end,
+                 _Error ->
+                     []
+             end,
     {ok, Nodes0 ++ Nodes1}.
 
 
@@ -297,12 +298,12 @@ resume(is_state, Error, _Node) ->
 
 
 resume(sync, ok, Node) ->
-    case leo_redundant_manager_api:get_members() of
-        {ok, Members} ->
-            Res = synchronize(?CHECKSUM_RING, Node, Members);
-        Error ->
-            Res = Error
-    end,
+    Res = case leo_redundant_manager_api:get_members() of
+              {ok, Members} ->
+                  synchronize(?CHECKSUM_RING, Node, Members);
+              Error ->
+                  Error
+          end,
 
     case distribute_members(Res, Node) of
         ok ->
@@ -334,21 +335,23 @@ distribute_members(ok, Node0) ->
                           Acc
                   end,
             StorageNodes = lists:foldl(Fun, [], Members),
-
-            case leo_manager_mnesia:get_gateway_nodes_all() of
-                {ok, GatewayNodes} ->
-                    DestNodes = lists:foldl(fun(#node_state{node = Node2}, Acc) ->
-                                                    [Node2|Acc]
-                                            end, StorageNodes, GatewayNodes);
-                _ ->
-                    DestNodes = StorageNodes
-            end,
+            DestNodes    = case leo_manager_mnesia:get_gateway_nodes_all() of
+                               {ok, GatewayNodes} ->
+                                   lists:foldl(fun(#node_state{node = Node2}, Acc) ->
+                                                       [Node2|Acc]
+                                               end, StorageNodes, GatewayNodes);
+                               _ ->
+                                   StorageNodes
+                           end,
 
             case rpc:multicall(DestNodes, leo_redundant_manager_api, update_members,
                                [Members], ?DEF_TIMEOUT) of
-                {_, []      } -> void;
-                {_, BadNodes} -> ?warn("resume/3", "bad_nodes:~p", [BadNodes]);
-                _ -> void
+                {_, []      } ->
+                    void;
+                {_, BadNodes} ->
+                    ?warn("resume/3", "bad_nodes:~p", [BadNodes]);
+                _ ->
+                    void
             end,
             ok;
         Error ->
@@ -507,7 +510,7 @@ rebalance4(_Members, [], []) ->
 rebalance4(_Members, [], Errors) ->
     {error, Errors};
 rebalance4(Members, [#member{node  = Node,
-                             state = ?STATE_RUNNING}|T], Errors) ->
+                             state = ?STATE_RUNNING}|T], Errors0) ->
     %% already-started node -> ring(cur) + member
     %%
     {ok, Ring}    = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
@@ -519,37 +522,40 @@ rebalance4(Members, [#member{node  = Node,
                                         Acc
                                 end, null, Members),
 
-    case rpc:call(Node, leo_redundant_manager_api, synchronize,
-                  [ObjectOfRings, Ring], ?DEF_TIMEOUT) of
-        {ok, {RingHash0, RingHash1}} ->
-            _ = leo_manager_mnesia:update_storage_node_status(
-                  update_chksum, #node_state{node  = Node,
-                                             ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                             ring_hash_old = leo_hex:integer_to_hex(RingHash1)}),
-            NewErrors = Errors;
-        {_, Cause} ->
-            NewErrors = [{Node, Cause}|Errors];
-        timeout = Cause ->
-            NewErrors = [{Node, Cause}|Errors]
-    end,
-    rebalance4(Members, T, NewErrors);
-rebalance4(Members, [_|T], Errors) ->
-    rebalance4(Members, T, Errors).
+    Errors1 =
+        case rpc:call(Node, leo_redundant_manager_api, synchronize,
+                      [ObjectOfRings, Ring], ?DEF_TIMEOUT) of
+            {ok, {RingHash0, RingHash1}} ->
+                _ = leo_manager_mnesia:update_storage_node_status(
+                      update_chksum, #node_state{node  = Node,
+                                                 ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                                                 ring_hash_old = leo_hex:integer_to_hex(RingHash1)}),
+                Errors0;
+            {_, Cause} ->
+                [{Node, Cause}|Errors0];
+            timeout = Cause ->
+                [{Node, Cause}|Errors0]
+        end,
+    rebalance4(Members, T, Errors1);
+
+rebalance4(Members, [_|T], Errors0) ->
+    rebalance4(Members, T, Errors0).
+
 
 rebalance5([], []) ->
     ok;
-rebalance5([], Errors) ->
-    {error, Errors};
-rebalance5([{Node, Info}|T], Errors) ->
+rebalance5([], Errors0) ->
+    {error, Errors0};
+rebalance5([{Node, Info}|T], Errors0) ->
     case rpc:call(Node, leo_storage_api, rebalance, [Info], ?DEF_TIMEOUT) of
         ok ->
-            rebalance5(T, Errors);
+            rebalance5(T, Errors0);
         {_, Cause}->
             ?error("rebalance5/2", "node:~w, cause:~p", [Node, Cause]),
-            rebalance5(T, [{Node, Cause}|Errors]);
+            rebalance5(T, [{Node, Cause}|Errors0]);
         timeout = Cause ->
             ?error("rebalance5/2", "node:~w, cause:~p", [Node, Cause]),
-            rebalance5(T, [{Node, Cause}|Errors])
+            rebalance5(T, [{Node, Cause}|Errors0])
     end.
 
 
@@ -684,24 +690,21 @@ whereis1(_, _, [],Acc) ->
     {ok, lists:reverse(Acc)};
 
 whereis1(AddrId, Key, [{Node, true }|T], Acc) ->
-
-
     NodeStr = atom_to_list(Node),
     RPCKey  = rpc:async_call(Node, leo_storage_handler_object,
                              head, [AddrId, Key]),
-
-    case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
-        {value, {ok, #metadata{addr_id   = AddrId,
-                               dsize     = DSize,
-                               clock     = Clock,
-                               timestamp = Timestamp,
-                               checksum  = Checksum,
-                               del       = DelFlag}}} ->
-            Res = {NodeStr, AddrId, DSize, Clock, Timestamp, Checksum, DelFlag};
-        _ ->
-            Res = {NodeStr, not_found}
-    end,
-    whereis1(AddrId, Key, T, [Res | Acc]);
+    Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
+                  {value, {ok, #metadata{addr_id   = AddrId,
+                                         dsize     = DSize,
+                                         clock     = Clock,
+                                         timestamp = Timestamp,
+                                         checksum  = Checksum,
+                                         del       = DelFlag}}} ->
+                      {NodeStr, AddrId, DSize, Clock, Timestamp, Checksum, DelFlag};
+                  _ ->
+                      {NodeStr, not_found}
+              end,
+    whereis1(AddrId, Key, T, [Reply | Acc]);
 
 whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
     whereis1(AddrId, Key, T, [{atom_to_list(Node), not_found} | Acc]).
