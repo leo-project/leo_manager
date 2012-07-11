@@ -16,7 +16,7 @@
 %% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 %% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
-%% under the License.    
+%% under the License.
 %%
 %% ---------------------------------------------------------------------
 %% TCP Server - Supervisor
@@ -37,7 +37,7 @@
          stop/0]).
 
 %% Callbacks
--export([init/1]). 
+-export([init/1]).
 
 %%-----------------------------------------------------------------------
 %% External API
@@ -84,16 +84,8 @@ init_result(Socket, State, {Locale, Name}, Module, Option) ->
                        time          = Time} = Option,
 
     MonitorName = list_to_atom(?TCP_SERVER_MONITOR_NAME),
-
     {ok, {{one_for_one, MaxRestarts, Time},
-          [gen_tcp_monitor_spec({Locale, MonitorName}) |
-           gen_tcp_acceptor_specs(Socket, State, {Locale, Name}, MonitorName, Module, Option)]}}.
-
-gen_tcp_monitor_spec({Locale, MonitorName}) ->
-    {MonitorName, {tcp_server_monitor,
-                   start_link,
-                   [{Locale, MonitorName}]},
-     permanent, brutal_kill, worker, []}.
+          gen_tcp_acceptor_specs(Socket, State, {Locale, Name}, MonitorName, Module, Option)}}.
 
 gen_tcp_acceptor_specs(Socket, State, {Locale,_Name}, MonitorName, Module, Option) ->
     NewMonitorName = case Locale of
