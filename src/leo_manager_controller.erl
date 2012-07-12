@@ -512,7 +512,7 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
 
 format_where_is(AssignedInfo) ->
     CellColumns =
-        [{"del?",5}, {"node",28},{"ring address",36},{"size",8},{"checksum",10},{"vclock",14},{"when",28},{"END",0}],
+        [{"del?",5}, {"node",28},{"ring address",36},{"size",8},{"checksum",12},{"clock",14},{"when",28},{"END",0}],
     LenPerCol = lists:map(fun(C)->{_, Len} = C, Len end, CellColumns),
     Fun1 = fun(Col, {Type,Str}) ->
                    {Name, Len} = Col,
@@ -546,7 +546,9 @@ format_where_is(AssignedInfo) ->
                                      ++ string:left(Node,                              lists:nth(2,LenPerCol))
                                      ++ string:left(leo_hex:integer_to_hex(VNodeId),   lists:nth(3,LenPerCol))
                                      ++ string:left(dsize(DSize),                      lists:nth(4,LenPerCol))
-                                     ++ string:left(leo_hex:integer_to_hex(Checksum),  lists:nth(5,LenPerCol))
+                                     ++ string:left(
+                                          string:sub_string(
+                                            leo_hex:integer_to_hex(Checksum), 1, 10),  lists:nth(5,LenPerCol))
                                      ++ string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol))
                                      ++ string:left(FormattedDate,                     lists:nth(7,LenPerCol))
                                      ++ ?CRLF
