@@ -26,7 +26,7 @@
 -module(leo_manager_api).
 
 -author('Yosuke Hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").

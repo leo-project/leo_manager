@@ -24,7 +24,7 @@
 -module(tcp_server_acceptor).
 
 -author('Yosuke Hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 %% External API
 -export([start_link/6]).
@@ -53,7 +53,6 @@ start_link({Locale, Name}, Socket, State, MonitorName, Module, Option) ->
 %% ---------------------------------------------------------------------
 init(Parent, Socket, State, MonitorName, Module, Option) ->
     proc_lib:init_ack(Parent, {ok, self()}),
-    tcp_server_monitor:register(MonitorName, self()),
     accept(Socket, State, MonitorName, Module, Option).
 
 
@@ -61,7 +60,6 @@ accept(ListenSocket, State, MonitorName, Module, Option) ->
     case gen_tcp:accept(ListenSocket, Option#tcp_server_params.accept_timeout) of 
         {ok, Socket} ->
             try
-                tcp_server_monitor:increment(MonitorName, self()),
                 recv(proplists:get_value(
                        active, Option#tcp_server_params.listen),
                      Socket, State, Module, Option)
@@ -70,7 +68,6 @@ accept(ListenSocket, State, MonitorName, Module, Option) ->
                     io:format("[error] ~p:~p - ~p,~p,~p~n",
                               [?MODULE, "accept/5a", Module, Type, Reason])
             after
-                tcp_server_monitor:decrement(MonitorName, self()),
                 gen_tcp:close(Socket)
             end;
         {error, Reason} ->
