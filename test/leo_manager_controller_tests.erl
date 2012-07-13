@@ -25,7 +25,7 @@
 %%======================================================================
 -module(leo_manager_controller_tests).
 -author('yosuke hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include("tcp_server.hrl").

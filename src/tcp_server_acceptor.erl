@@ -24,7 +24,7 @@
 -module(tcp_server_acceptor).
 
 -author('Yosuke Hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 %% External API
 -export([start_link/6]).

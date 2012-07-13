@@ -1,7 +1,7 @@
 {application, leo_manager,
   [
     {description, "LeoFS Manager"},
-    {vsn, "0.9.0"},
+    {vsn, "0.9.1"},
     {id,  "leo_manager"},
     {registered,   []},
     {applications, [kernel, stdlib]},

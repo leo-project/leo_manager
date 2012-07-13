@@ -26,7 +26,7 @@
 -module(leo_manager_cluster_monitor).
 
 -author('Yosuke Hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 -behaviour(gen_server).
 

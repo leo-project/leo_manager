@@ -6,7 +6,7 @@
 %%======================================================================
 -module(leo_manager_mnesia_tests).
 -author('yosuke hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
