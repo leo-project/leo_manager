@@ -9,6 +9,7 @@
 -vsn('0.9.1').
 
 -include("leo_manager.hrl").
+-include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -49,6 +50,14 @@ all_(Node) ->
                               {gateway, Node,                  ?STATE_RUNNING}
                              ]}
                 end),
+    meck:expect(leo_manager_api, get_system_status,
+                fun() ->
+                        ?STATE_STOP
+                end),
+    meck:expect(leo_manager_api, attach,
+                fun(_,_,_) ->
+                        ok
+                end),
 
     meck:new(leo_storage_api),
     meck:expect(leo_storage_api, register_in_monitor, fun(again) ->
@@ -64,10 +73,10 @@ all_(Node) ->
                 fun('storage_1@127.0.0.1') -> {ok, [#node_state{state = ?STATE_SUSPEND}]};
                    ('storage_2@127.0.0.1') -> {ok, [#node_state{state = ?STATE_DOWNED}]};
                    ('storage_3@127.0.0.1') -> {ok, [#node_state{state = ?STATE_STOP}]};
-                   ('storage_4@127.0.0.1') -> {ok, [#node_state{state = ?STATE_IDLING}]};
                    ('storage_5@127.0.0.1') -> {ok, [#node_state{state = ?STATE_ATTACHED}]};
                    ('storage_6@127.0.0.1') -> {ok, [#node_state{state = ?STATE_DETACHED}]};
                    ('storage_7@127.0.0.1') -> {ok, [#node_state{state = ?STATE_RESTARTED}]};
+                   ('storage_n@127.0.0.1') -> not_found;
                    (_) ->
                         {ok, [#node_state{state = ?STATE_RUNNING}]}
                 end),
@@ -79,6 +88,11 @@ all_(Node) ->
                 fun(_,_) ->
                         ok
                 end),
+    meck:expect(leo_manager_mnesia, get_system_config,
+                fun() ->
+                        {ok, #system_conf{}}
+                end),
+
 
     {ok, _Pid} = leo_manager_cluster_monitor:start_link(),
     timer:sleep(1000),
@@ -92,11 +106,13 @@ all_(Node) ->
     Res3 = leo_manager_cluster_monitor:register(first, self(), 'storage_1@127.0.0.1', storage),
     Res4 = leo_manager_cluster_monitor:register(first, self(), 'storage_2@127.0.0.1', storage),
     Res5 = leo_manager_cluster_monitor:register(first, self(), 'storage_3@127.0.0.1', storage),
-    Res6 = leo_manager_cluster_monitor:register(first, self(), 'storage_4@127.0.0.1', storage),
-    Res7 = leo_manager_cluster_monitor:register(first, self(), 'storage_5@127.0.0.1', storage),
-    Res8 = leo_manager_cluster_monitor:register(first, self(), 'storage_6@127.0.0.1', storage),
-    Res9 = leo_manager_cluster_monitor:register(first, self(), 'storage_7@127.0.0.1', storage),
-    ?assertEqual({ok,ok,ok,ok,ok,ok,ok,ok,ok,ok}, {Res0,Res1,Res2,Res3,Res4,Res5,Res6,Res7,Res8,Res9}),
+    Res6 = leo_manager_cluster_monitor:register(first, self(), 'storage_5@127.0.0.1', storage),
+    Res7 = leo_manager_cluster_monitor:register(first, self(), 'storage_6@127.0.0.1', storage),
+    Res8 = leo_manager_cluster_monitor:register(first, self(), 'storage_7@127.0.0.1', storage),
+    Res9 = leo_manager_cluster_monitor:register(first, self(), 'storage_n@127.0.0.1', storage),
+    ?debugVal(Res9),
+
+    ?assertEqual({ok,ok,ok,ok,ok,ok,ok,ok,ok}, {Res0,Res1,Res2,Res3,Res4,Res5,Res6,Res7,Res8}),
     ok.
 
 -endif.

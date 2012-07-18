@@ -155,7 +155,24 @@ handle_call({register, _RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Ht
                         {ok, [#node_state{state = State}|_]} ->
                             update_node_state(start, State, Node);
                         not_found = State ->
-                            update_node_state(start, State, Node);
+                            case update_node_state(start, State, Node) of
+                                ok ->
+                                    case leo_manager_api:get_system_status() of
+                                        ?STATE_RUNNING ->
+                                            leo_manager_api:attach(add, Node);
+                                        ?STATE_STOP ->
+                                            case  leo_manager_mnesia:get_system_config() of
+                                                {ok, SystemConf} ->
+                                                    leo_manager_api:attach(new, Node, SystemConf);
+                                                _ ->
+                                                    ?error("handle_call/3 - register", "cause:~p",
+                                                           ["Could not get System-conf"])
+                                            end
+                                    end;
+                                _ ->
+                                    ?error("handle_call/3 - register", "cause:~p",
+                                           ["Could not update node-state"])
+                            end;
                         {error, Cause} ->
                             ?error("handle_call/3 - register", "cause:~p", [Cause])
                     end
@@ -279,7 +296,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%
 -spec(update_node_state(start|down, leo_redundant_manger:node_state(), atom()) ->
              ok | delete | {error, any()}).
-update_node_state(start, ?STATE_IDLING,   _Node) -> ok;
 update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;
 update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state1(?STATE_RESTARTED, Node);
@@ -287,9 +303,8 @@ update_node_state(start, ?STATE_RUNNING,  _Node) -> ok;
 update_node_state(start, ?STATE_DOWNED,    Node) -> update_node_state1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_STOP,      Node) -> update_node_state1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RESTARTED,_Node) -> ok;
-update_node_state(start, not_found,        Node) -> update_node_state1(?STATE_IDLING,    Node);
+update_node_state(start, not_found,        Node) -> update_node_state1(?STATE_ATTACHED,  Node);
 
-update_node_state(down,  ?STATE_IDLING,   _Node) -> delete;
 update_node_state(down,  ?STATE_ATTACHED, _Node) -> delete;
 update_node_state(down,  ?STATE_DETACHED, _Node) -> ok;
 update_node_state(down,  ?STATE_SUSPEND,  _Node) -> ok;

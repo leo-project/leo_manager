@@ -67,18 +67,17 @@ handle_call(_Socket, <<?HELP>>, State) ->
     Commands =
         io_lib:format(" 1. ~s\r\n",["version"])
         ++ io_lib:format(" 2. ~s\r\n",["status"])
-        ++ io_lib:format(" 3. ~s\r\n",["attach ${NODE}"])
-        ++ io_lib:format(" 4. ~s\r\n",["detach ${NODE}"])
-        ++ io_lib:format(" 5. ~s\r\n",["suspend ${NODE}"])
-        ++ io_lib:format(" 6. ~s\r\n",["resume ${NODE}"])
-        ++ io_lib:format(" 7. ~s\r\n",["start"])
-        ++ io_lib:format(" 8. ~s\r\n",["rebalance"])
-        ++ io_lib:format(" 9. ~s\r\n",["du ${NODE}"])
-        ++ io_lib:format("10. ~s\r\n",["compact ${NODE}"])
-        ++ io_lib:format("11. ~s\r\n",["whereis ${PATH}"])
-        ++ io_lib:format("12. ~s\r\n",["purge ${PATH}"])
-        ++ io_lib:format("13. ~s\r\n",["history"])
-        ++ io_lib:format("14. ~s\r\n",["quit"])
+        ++ io_lib:format(" 3. ~s\r\n",["detach ${NODE}"])
+        ++ io_lib:format(" 4. ~s\r\n",["suspend ${NODE}"])
+        ++ io_lib:format(" 5. ~s\r\n",["resume ${NODE}"])
+        ++ io_lib:format(" 6. ~s\r\n",["start"])
+        ++ io_lib:format(" 7. ~s\r\n",["rebalance"])
+        ++ io_lib:format(" 8. ~s\r\n",["du ${NODE}"])
+        ++ io_lib:format(" 9. ~s\r\n",["compact ${NODE}"])
+        ++ io_lib:format("10. ~s\r\n",["whereis ${PATH}"])
+        ++ io_lib:format("11. ~s\r\n",["purge ${PATH}"])
+        ++ io_lib:format("12. ~s\r\n",["history"])
+        ++ io_lib:format("13. ~s\r\n",["quit"])
         ++ ?CRLF,
     {reply, Commands, State};
 
@@ -107,51 +106,6 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
                             format_cluster_node_state(Status);
                         {error, Cause} ->
                             io_lib:format("[ERROR] ~s\r\n", [Cause])
-                    end
-            end,
-    {reply, Reply, State};
-
-
-handle_call(_Socket, <<?ATTACH_SERVER, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-    {ok, SystemConf}  = leo_manager_mnesia:get_system_config(),
-
-    Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
-                [NodeStr|_] ->
-                    Node = list_to_atom(NodeStr),
-                    Ret  = case leo_manager_mnesia:get_storage_node_by_name(Node) of
-                               {ok, [#node_state{state = NodeState}|_]} ->
-                                   Exist       = leo_redundant_manager_api:has_member(Node),
-                                   SystemState = leo_manager_api:get_system_status(),
-
-                                   case NodeState of
-                                       ?STATE_IDLING when Exist       == true,
-                                                          SystemState == ?STATE_RUNNING ->
-                                           leo_manager_api:resume(Node);
-                                       ?STATE_IDLING when SystemState == ?STATE_RUNNING ->
-                                           leo_manager_api:attach(add, Node);
-                                       ?STATE_IDLING when SystemState == ?STATE_STOP ->
-                                           leo_manager_api:attach(new, Node, SystemConf);
-                                       ?STATE_SUSPEND   = Cause -> {error, Cause};
-                                       ?STATE_DETACHED  = Cause -> {error, Cause};
-                                       ?STATE_STOP      = Cause -> {error, Cause};
-                                       ?STATE_RESTARTED = Cause -> {error, Cause};
-                                       _ ->
-                                           {error, 'already attached/running'}
-                                   end;
-                               _ ->
-                                   {error, not_found}
-                           end,
-
-                    case Ret of
-                        ok ->
-                            ?OK;
-                        not_found = Reason ->
-                            io_lib:format("[ERROR] ~w - cause:~p\r\n", [Node, Reason]);
-                        {error, Reason} ->
-                            io_lib:format("[ERROR] ~w - cause:~p\r\n", [Node, Reason])
                     end
             end,
     {reply, Reply, State};
@@ -617,5 +571,4 @@ dsize(Size) when Size =< ?FILE_KB -> integer_to_list(Size) ++ "B";
 dsize(Size) when Size  > ?FILE_KB -> integer_to_list(erlang:round(Size / ?FILE_KB)) ++ "K";
 dsize(Size) when Size  > ?FILE_MB -> integer_to_list(erlang:round(Size / ?FILE_MB)) ++ "M";
 dsize(Size) when Size  > ?FILE_GB -> integer_to_list(erlang:round(Size / ?FILE_GB)) ++ "G".
-
 
