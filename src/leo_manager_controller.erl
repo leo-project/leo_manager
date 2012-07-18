@@ -26,7 +26,7 @@
 -module(leo_manager_controller).
 
 -author('Yosuke Hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
@@ -161,24 +161,34 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
 
-    Reply = case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-                {ok, Nodes} when length(Nodes) > SystemConf#system_conf.n ->
-                    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                        [] ->
-                            io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
-                        [Node|_] ->
-                            case leo_manager_api:detach(list_to_atom(Node)) of
-                                ok ->
-                                    ?OK;
-                                {error, _} ->
-                                    io_lib:format("[ERROR] ~s - ~s\r\n", [?ERROR_COULD_NOT_DETACH_NODE, Node])
-                            end
-                    end;
-                {ok, Nodes} when length(Nodes) =< SystemConf#system_conf.n ->
-                    io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
-                _Error ->
-                    io_lib:format("[ERROR] ~s\r\n",["Could not get node-status"])
-            end,
+    Reply =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+            [Node|_] ->
+                NodeAtom = list_to_atom(Node),
+
+                case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                    {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
+                        ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
+                        ok = leo_manager_mnesia:delete_storage_node(NodeState),
+                        ?OK;
+                    _ ->
+                        case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
+                            {ok, Nodes} when length(Nodes) > SystemConf#system_conf.n ->
+                                case leo_manager_api:detach(NodeAtom) of
+                                    ok ->
+                                        ?OK;
+                                    {error, _} ->
+                                        io_lib:format("[ERROR] ~s - ~s\r\n", [?ERROR_COULD_NOT_DETACH_NODE, Node])
+                                end;
+                            {ok, Nodes} when length(Nodes) =< SystemConf#system_conf.n ->
+                                io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
+                            _Error ->
+                                io_lib:format("[ERROR] ~s\r\n",["Could not get node-status"])
+                        end
+                end
+        end,
     {reply, Reply, State};
 
 

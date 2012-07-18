@@ -6,7 +6,7 @@
 %%======================================================================
 -module(leo_system_config_tests).
 -author('yosuke hara').
--vsn('0.9.0').
+-vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("eunit/include/eunit.hrl").
