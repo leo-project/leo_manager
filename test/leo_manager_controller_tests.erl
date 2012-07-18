@@ -351,6 +351,10 @@ detach_0_({Node0,_, Sock}) ->
                      fun() ->
                              {ok, #system_conf{}}
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{state=?STATE_RUNNING}]}
+                     end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
                      fun(_State) ->
                              {ok, [#node_state{}, #node_state{}]}
@@ -406,6 +410,10 @@ detach_1_({Node0, _, Sock}) ->
                      fun() ->
                              {ok, #system_conf{}}
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{state=?STATE_RUNNING}]}
+                     end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
                      fun(_State) ->
                              {ok, [#node_state{}, #node_state{}]}
@@ -447,6 +455,10 @@ detach_2_({Node0,_, Sock}) ->
     ok = meck:expect(leo_manager_mnesia, get_system_config,
                      fun() ->
                              {ok, #system_conf{}}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{state=?STATE_RUNNING}]}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
                      fun(_State) ->

@@ -171,7 +171,6 @@ handle_call({demonitor, Node}, _From, {MonitorRefs, Hashtable, Pids} = Arg) ->
     case find_by_node_alias(Hashtable, Node) of
         undefined ->
             {reply, undefined, Arg};
-
         {Pid, MonitorRef} ->
             erlang:demonitor(MonitorRef),
             leo_hashtable:delete(Hashtable, Pid),
@@ -235,7 +234,7 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Hashtable, Pi
 
                                 case update_node_state(down, State, Node) of
                                     delete ->
-                                        leo_manager_mnesia:delete_storage_node_by_name(NodeInfo);
+                                        leo_manager_mnesia:delete_storage_node(NodeInfo);
                                     _Other ->
                                         void
                                 end;

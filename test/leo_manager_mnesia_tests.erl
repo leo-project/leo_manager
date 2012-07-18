@@ -171,7 +171,7 @@ all_(_) ->
 
     %% delete
     %% (1) storage-node
-    ok = leo_manager_mnesia:delete_storage_node_by_name(NewNodeState0),
+    ok = leo_manager_mnesia:delete_storage_node(NewNodeState0),
     not_found = leo_manager_mnesia:get_storage_nodes_all(),
 
     %% (2) credential

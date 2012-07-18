@@ -67,7 +67,7 @@
          update_bucket/1,
          insert_history/1,
 
-         delete_storage_node_by_name/1,
+         delete_storage_node/1,
          delete_credential_by_access_key/1,
          delete_bucket_by_name/1
          %% delete_history/1
@@ -604,9 +604,9 @@ insert_history(Command) ->
 %% DELETE
 %%-----------------------------------------------------------------------
 %% @doc Remove storage-node by name
--spec(delete_storage_node_by_name(atom()) ->
+-spec(delete_storage_node(atom()) ->
              ok | {error, any()}).
-delete_storage_node_by_name(Node) ->
+delete_storage_node(Node) ->
     F = fun() ->
                 mnesia:delete_object(storage_nodes, Node, write)
         end,
