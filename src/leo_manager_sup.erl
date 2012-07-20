@@ -77,6 +77,9 @@ start_link() ->
                                           [{snmp, [leo_statistics_metrics_vm]},
                                            {stat, [leo_statistics_metrics_vm]}]),
 
+            %% Launch Auth
+            ok = leo_auth_api:start(mnesia, []),
+
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, inspect, [Mode, RedundantNode]),
             {ok, Pid};
         Error ->
@@ -124,7 +127,11 @@ inspect1(master = Mode, RedundantNode0, Nodes) ->
                 leo_manager_mnesia:create_histories(disc_copies, Nodes),
                 leo_redundant_manager_mnesia:create_members(disc_copies, Nodes),
                 leo_redundant_manager_mnesia:create_ring_current(disc_copies, Nodes),
-                leo_redundant_manager_mnesia:create_ring_prev(disc_copies, Nodes)
+                leo_redundant_manager_mnesia:create_ring_prev(disc_copies, Nodes),
+
+                %% Launch Auth
+                leo_auth_api:create_credential_table(disc_copies, Nodes)
+
             catch _:Reason ->
                     ?error("inspect1/3", "cause:~p", [Reason])
             end,
