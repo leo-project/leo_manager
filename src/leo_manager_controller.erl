@@ -74,10 +74,11 @@ handle_call(_Socket, <<?HELP>>, State) ->
         ++ io_lib:format(" 7. ~s\r\n",["rebalance"])
         ++ io_lib:format(" 8. ~s\r\n",["du ${NODE}"])
         ++ io_lib:format(" 9. ~s\r\n",["compact ${NODE}"])
-        ++ io_lib:format("10. ~s\r\n",["whereis ${PATH}"])
-        ++ io_lib:format("11. ~s\r\n",["purge ${PATH}"])
-        ++ io_lib:format("12. ~s\r\n",["history"])
-        ++ io_lib:format("13. ~s\r\n",["quit"])
+        ++ io_lib:format("10. ~s\r\n",["gen-s3-key ${USER-ID}"])
+        ++ io_lib:format("11. ~s\r\n",["whereis ${PATH}"])
+        ++ io_lib:format("12. ~s\r\n",["purge ${PATH}"])
+        ++ io_lib:format("13. ~s\r\n",["history"])
+        ++ io_lib:format("14. ~s\r\n",["quit"])
         ++ ?CRLF,
     {reply, Commands, State};
 
@@ -270,6 +271,28 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
                 case leo_manager_api:compact(Node) of
                     {ok, _} ->
                         {?OK, State};
+                    {error, Cause} ->
+                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+                end
+        end,
+    {reply, Reply, NewState};
+
+
+handle_call(_Socket, <<?GEN_S3_KEY, Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+            [UserId|_] ->
+                case leo_auth_api:gen_key(UserId) of
+                    {ok, Keys} ->
+                        AccessKeyId     = proplists:get_value(access_key_id,     Keys),
+                        SecretAccessKey = proplists:get_value(secret_access_key, Keys),
+                        {io_lib:format("access-key-id: ~s\r\n"
+                                       ++ "secret-access-key: ~s\r\n\r\n",                                
+                                       [AccessKeyId, SecretAccessKey]), State};
                     {error, Cause} ->
                         {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
                 end

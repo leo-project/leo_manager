@@ -67,6 +67,7 @@
 -define(START,                "start").
 -define(REBALANCE,            "rebalance").
 -define(COMPACT,              "compact").
+-define(GEN_S3_KEY,           "gen-s3-key").
 -define(STORAGE_STATS,        "du").
 -define(WHEREIS,              "whereis").
 -define(HISTORY,              "history").
