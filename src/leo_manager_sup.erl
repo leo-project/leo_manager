@@ -78,7 +78,7 @@ start_link() ->
                                            {stat, [leo_statistics_metrics_vm]}]),
 
             %% Launch Auth
-            ok = leo_auth_api:start(mnesia, []),
+            ok = leo_s3_auth_api:start(mnesia, []),
 
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, inspect, [Mode, RedundantNode]),
             {ok, Pid};
@@ -130,7 +130,7 @@ inspect1(master = Mode, RedundantNode0, Nodes) ->
                 leo_redundant_manager_mnesia:create_ring_prev(disc_copies, Nodes),
 
                 %% Launch Auth
-                leo_auth_api:create_credential_table(disc_copies, Nodes)
+                leo_s3_auth_api:create_credential_table(disc_copies, Nodes)
 
             catch _:Reason ->
                     ?error("inspect1/3", "cause:~p", [Reason])

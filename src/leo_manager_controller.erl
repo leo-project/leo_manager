@@ -286,7 +286,7 @@ handle_call(_Socket, <<?GEN_S3_KEY, Option/binary>> = Command, State) ->
             [] ->
                 {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
             [UserId|_] ->
-                case leo_auth_api:gen_key(UserId) of
+                case leo_s3_auth_api:gen_key(UserId) of
                     {ok, Keys} ->
                         AccessKeyId     = proplists:get_value(access_key_id,     Keys),
                         SecretAccessKey = proplists:get_value(secret_access_key, Keys),
