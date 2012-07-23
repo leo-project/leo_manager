@@ -1,6 +1,6 @@
 %%======================================================================
 %%
-%% LeoFS Manager
+%% Leo Manager
 %%
 %% Copyright (c) 2012 Rakuten, Inc.
 %%
@@ -19,14 +19,13 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% Leo FS Manager - API
+%% Leo Manager - API
 %% @doc
 %% @end
 %%======================================================================
 -module(leo_manager_api).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").

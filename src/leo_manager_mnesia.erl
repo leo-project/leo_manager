@@ -1,8 +1,8 @@
 %%======================================================================
 %%
-%% LeoFS Manager
+%% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -19,14 +19,13 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager - Mnesia.
+%% Leo Manager - Mnesia.
 %% @doc
 %% @end
 %%======================================================================
 -module(leo_manager_mnesia).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").

@@ -1,6 +1,6 @@
 %%======================================================================
 %%
-%% LeoFS Manager -  Next Generation Distributed File System.
+%% Leo Manager
 %%
 %% Copyright (c) 2012
 %%
@@ -19,14 +19,13 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager
+%% Leo Manager
 %% @doc
 %% @end
 %%======================================================================
 -module(leo_manager).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").

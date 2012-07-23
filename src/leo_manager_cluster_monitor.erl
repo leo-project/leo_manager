@@ -1,8 +1,8 @@
 %%======================================================================
 %%
-%% LeoFS Manager - Next Generation Distributed File System.
+%% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -19,14 +19,13 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager - Cluster Node(s) Monitor.
+%% Leo Manager - Cluster Node(s) Monitor.
 %% @doc
 %% @end
 %%======================================================================
 -module(leo_manager_cluster_monitor).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -behaviour(gen_server).
 

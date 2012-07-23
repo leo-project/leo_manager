@@ -1,8 +1,8 @@
 %%======================================================================
 %%
-%% LeoFS Manaegr - Next Generation Distributed File System.
+%% Leo Manaegr
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -19,14 +19,13 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager - Supervisor.
+%% Leo Manager - Supervisor.
 %% @doc
 %% @end
 %%======================================================================
 -module(leo_manager_sup).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -behaviour(supervisor).
 
