@@ -77,8 +77,7 @@ start_link() ->
                                            {stat, [leo_statistics_metrics_vm]}]),
 
             %% Launch Auth
-            %% @TODO > leo_s3_auth_api:start(master, []),
-            ok = leo_s3_auth_api:start(mnesia, []),
+            ok = leo_s3_auth_api:start(master, []),
 
             %% Launch Bucket
             ok = leo_s3_bucket_api:start(master, []),
