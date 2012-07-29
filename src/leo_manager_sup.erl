@@ -55,7 +55,13 @@ start_link() ->
     ListenPort     = ?env_listening_port(leo_manager),
     NumOfAcceptors = ?env_num_of_acceptors(leo_manager),
     Mode           = ?env_mode_of_manager(),
-    RedundantNode  = ?env_partner_of_manager_node(),
+
+    [RedundantNodes0|_] = ?env_partner_of_manager_node(),
+    RedundantNodes1     = [{Mode, node()},
+                           {'partner', case is_atom(RedundantNodes0) of
+                                           true  -> RedundantNodes0;
+                                           false -> list_to_atom(RedundantNodes0)
+                                       end}],
 
     case supervisor:start_link({local, ?MODULE}, ?MODULE,
                                [#tcp_server_params{port = ListenPort,
@@ -76,6 +82,15 @@ start_link() ->
                                           [{snmp, [leo_statistics_metrics_vm]},
                                            {stat, [leo_statistics_metrics_vm]}]),
 
+            %% Launch Redundant-manager
+            SystemConf = load_system_config(),
+            ok = leo_redundant_manager_api:start(Mode, RedundantNodes1, ?env_queue_dir(leo_manager),
+                                                 [{n,           SystemConf#system_conf.n},
+                                                  {r,           SystemConf#system_conf.r},
+                                                  {w,           SystemConf#system_conf.w},
+                                                  {d,           SystemConf#system_conf.d},
+                                                  {bit_of_ring, SystemConf#system_conf.bit_of_ring}]),
+
             %% Launch Auth
             ok = leo_s3_auth_api:start(master, []),
 
@@ -83,7 +98,7 @@ start_link() ->
             ok = leo_s3_bucket_api:start(master, []),
 
             %% Launch Mnesia and create that tables
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, RedundantNode]),
+            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, RedundantNodes1]),
             {ok, Pid};
         Error ->
             Error
@@ -94,23 +109,19 @@ start_link() ->
 %%
 -spec(create_mnesia_tables(master | slave, atom()) ->
              ok | {error, any()}).
-create_mnesia_tables(master = Mode, []) ->
-    Nodes = [node()],
-    create_mnesia_tables1(Mode, [], Nodes);
-create_mnesia_tables(slave, []) ->
+create_mnesia_tables(_, []) ->
     {error, badarg};
-create_mnesia_tables(Mode, [RedundantNode0|_]) ->
-    RedundantNode1 =
-        case is_atom(RedundantNode0) of
-            true  -> RedundantNode0;
-            false -> list_to_atom(RedundantNode0)
-        end,
-
-    case net_adm:ping(RedundantNode1) of
-        pong ->
-            create_mnesia_tables1(Mode, RedundantNode1, [node(), RedundantNode1]);
-        pang ->
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, [RedundantNode0]])
+create_mnesia_tables(Mode, RedundantNodes) ->
+    case proplists:get_value('partner', RedundantNodes) of
+        undefined ->
+            create_mnesia_tables1(Mode, RedundantNodes);
+        PartnerNode ->
+            case net_adm:ping(PartnerNode) of
+                pong ->
+                    create_mnesia_tables1(Mode, RedundantNodes);
+                pang ->
+                    timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, RedundantNodes])
+            end
     end.
 
 
@@ -157,73 +168,59 @@ init([TCPServerParams]) ->
 %% ---------------------------------------------------------------------
 %% @doc Create mnesia tables
 %% @private
--spec(create_mnesia_tables1(master | slave, list(), list()) ->
+-spec(create_mnesia_tables1(master | slave, list()) ->
              ok | {error, any()}).
-create_mnesia_tables1(master = Mode, RedundantNode0, Nodes) ->
-    case mnesia:create_schema(Nodes) of
+create_mnesia_tables1(master = Mode, Nodes0) ->
+    Nodes1 = lists:map(fun({_, N}) -> N end, Nodes0),
+
+    case mnesia:create_schema(Nodes1) of
         ok ->
             try
                 %% create mnesia's schema.
-                mnesia:create_schema(Nodes),
-                rpc:multicall(Nodes, application, stop,  [mnesia]),
-                rpc:multicall(Nodes, application, start, [mnesia]),
+                mnesia:create_schema(Nodes1),
+                rpc:multicall(Nodes1, application, stop,  [mnesia]),
+                rpc:multicall(Nodes1, application, start, [mnesia]),
 
                 %% create table into the mnesia.
-                leo_manager_mnesia:create_system_config(disc_copies, Nodes),
-                leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes),
-                leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes),
-                leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes),
-                leo_manager_mnesia:create_histories(disc_copies, Nodes),
-                leo_redundant_manager_mnesia:create_members(disc_copies, Nodes),
-                leo_redundant_manager_mnesia:create_ring_current(disc_copies, Nodes),
-                leo_redundant_manager_mnesia:create_ring_prev(disc_copies, Nodes),
-                leo_s3_auth_api:create_credential_table(disc_copies, Nodes),
-                leo_s3_bucket_api:create_bucket_table(disc_copies, Nodes)
+                leo_manager_mnesia:create_system_config(disc_copies, Nodes1),
+                leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes1),
+                leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes1),
+                leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes1),
+                leo_manager_mnesia:create_histories(disc_copies, Nodes1),
+
+                leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes1),
+                leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes1),
+                leo_redundant_manager_table_member:create_members(disc_copies, Nodes1),
+
+                leo_s3_auth_api:create_credential_table(disc_copies, Nodes1),
+                leo_s3_bucket_api:create_bucket_table(disc_copies, Nodes1),
+                {ok, _} = load_system_config_with_store_data()
+
             catch _:Reason ->
                     ?error("create_mnesia_tables1/3", "cause:~p", [Reason])
             end,
-
-            {ok, SystemConf} = load_system_config_with_store_data(),
-            ok = leo_redundant_manager_api:start(Mode, Nodes, ?env_queue_dir(leo_manager),
-                                                 [{n,           SystemConf#system_conf.n},
-                                                  {r,           SystemConf#system_conf.r},
-                                                  {w,           SystemConf#system_conf.w},
-                                                  {d,           SystemConf#system_conf.d},
-                                                  {bit_of_ring, SystemConf#system_conf.bit_of_ring}]),
             ok;
         {error,{_,{already_exists, _}}} ->
-            create_mnesia_tables2(Mode, Nodes);
+            create_mnesia_tables2();
         {_, Cause} ->
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, [RedundantNode0]]),
+            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes0]),
             ?error("create_mnesia_tables1/3", "cause:~p", [Cause]),
             {error, Cause}
     end;
-create_mnesia_tables1(slave = Mode, _, Nodes) ->
-    create_mnesia_tables2(Mode, Nodes).
+create_mnesia_tables1(slave, _Nodes) ->
+    create_mnesia_tables2().
 
 
--spec(create_mnesia_tables2(manster | slave, list()) ->
+-spec(create_mnesia_tables2() ->
              ok | {error, any()}).
-create_mnesia_tables2(Mode, Nodes) ->
+create_mnesia_tables2() ->
     application:start(mnesia),
     timer:sleep(1000),
 
     case catch mnesia:system_info(tables) of
         Tbls when length(Tbls) > 1 ->
             ok = mnesia:wait_for_tables(Tbls, 30000),
-
-            case leo_manager_mnesia:get_system_config() of
-                {ok, SystemConf} ->
-                    ok = leo_redundant_manager_api:start(Mode, Nodes, ?env_queue_dir(leo_manager),
-                                                         [{n,           SystemConf#system_conf.n},
-                                                          {r,           SystemConf#system_conf.r},
-                                                          {w,           SystemConf#system_conf.w},
-                                                          {d,           SystemConf#system_conf.d},
-                                                          {bit_of_ring, SystemConf#system_conf.bit_of_ring}]);
-                Error ->
-                    ?error("create_mnesia_tables2/2", "cause:~p", [Error]),
-                    Error
-            end;
+            ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};
         Error ->
@@ -257,18 +254,25 @@ log_file_appender([{Type, _}|T], Acc) when Type == file ->
 %%     log_file_appender(T, [{?LOG_ID_ZMQ, ?LOG_APPENDER_ZMQ}|Acc]).
 
 
-%% @doc load a system config file. a system config file store to mnesia.
+%% @doc load a system config file
 %% @end
 %% @private
--spec(load_system_config_with_store_data() ->
-             {ok, #system_conf{}} | {error, any()}).
-load_system_config_with_store_data() ->
+load_system_config() ->
     {ok, Props} = application:get_env(leo_manager, system),
     SystemConf = #system_conf{n = proplists:get_value(n, Props, 1),
                               w = proplists:get_value(w, Props, 1),
                               r = proplists:get_value(r, Props, 1),
                               d = proplists:get_value(d, Props, 1),
                               bit_of_ring = proplists:get_value(bit_of_ring, Props, 128)},
+    SystemConf.
+
+%% @doc load a system config file. a system config file store to mnesia.
+%% @end
+%% @private
+-spec(load_system_config_with_store_data() ->
+             {ok, #system_conf{}} | {error, any()}).
+load_system_config_with_store_data() ->
+    SystemConf = load_system_config(),
 
     case leo_manager_mnesia:update_system_config(SystemConf) of
         ok ->
