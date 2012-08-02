@@ -423,17 +423,10 @@ format_cluster_node_list(SystemConf) ->
 
 
 format_cluster_node_state(State) ->
-    {_, ObjContainerDirs} =
-        lists:foldl(fun({{_,Dir}, {_,Num}}, {Row, N}) ->
-                            Val = string:right(integer_to_list(Num), 3) ++ ", " ++ Dir ++ "\r\n",
-                            case Row of
-                                1 -> {Row + 1, N ++                             Val};
-                                _ -> {Row + 1, N ++ "                      " ++ Val}
-                            end
-                    end, {1, ""}, State#cluster_node_status.avs),
-    Directories = State#cluster_node_status.dirs,
-    RingHashes  = State#cluster_node_status.ring_checksum,
-    Statistics  = State#cluster_node_status.statistics,
+    ObjStoragePath = State#cluster_node_status.avs,
+    Directories    = State#cluster_node_status.dirs,
+    RingHashes     = State#cluster_node_status.ring_checksum,
+    Statistics     = State#cluster_node_status.statistics,
 
     io_lib:format("[config]\r\n" ++
                       "            version : ~s\r\n" ++
@@ -449,7 +442,7 @@ format_cluster_node_state(State) ->
                       "      ets mem usage : ~w\r\n" ++
                       "    # of procs      : ~w\r\n\r\n",
                   [State#cluster_node_status.version,
-                   ObjContainerDirs,
+                   ObjStoragePath,
                    proplists:get_value('log',              Directories, []),
                    proplists:get_value('mnesia',           Directories, []),
                    proplists:get_value('ring_cur',         RingHashes,  []),

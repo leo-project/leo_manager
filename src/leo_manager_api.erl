@@ -371,7 +371,7 @@ start() ->
             Nodes = lists:map(fun(#member{node = Node}) ->
                                       Node
                               end, Members),
-            {ResL0, BadNodes0} = rpc:multicall(Nodes, leo_storage_api, start, [Members], ?DEF_TIMEOUT),
+            {ResL0, BadNodes0} = rpc:multicall(Nodes, leo_storage_api, start, [Members], 30000),
 
             %% Update an object of node-status.
             case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
