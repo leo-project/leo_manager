@@ -41,6 +41,7 @@
 -define(ERROR_COULD_NOT_ATTACH_NODE, "could not attach a node").
 -define(ERROR_COULD_NOT_DETACH_NODE, "could not detach a node").
 -define(ERROR_COMMAND_NOT_FOUND,     "command not exist").
+-define(ERROR_NO_NODE_SPECIFIED, "no node specified").
 
 
 %%----------------------------------------------------------------------
@@ -118,7 +119,7 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     Reply =
         case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
             [] ->
-                io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
             [Node|_] ->
                 NodeAtom = list_to_atom(Node),
 
@@ -151,7 +152,7 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
 
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
                 [Node|_] ->
                     case leo_manager_api:suspend(list_to_atom(Node)) of
                         ok ->
@@ -168,7 +169,7 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
 
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
                 [Node|_] ->
                     case leo_manager_api:resume(list_to_atom(Node)) of
                         ok ->
@@ -236,7 +237,7 @@ handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
     {Reply, NewState} =
         case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
             [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]), State};
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]), State};
             Tokens ->
                 Res = case length(Tokens) of
                           1 -> {summary, lists:nth(1, Tokens)};
@@ -265,7 +266,7 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
     {Reply, NewState} =
         case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
             [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]),State};
             [Node|_] ->
                 case leo_manager_api:compact(Node) of
                     {ok, _} ->
