@@ -237,7 +237,7 @@ handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
     {Reply, NewState} =
         case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
             [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]), State};
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]), State};
             Tokens ->
                 Res = case length(Tokens) of
                           1 -> {summary, lists:nth(1, Tokens)};
