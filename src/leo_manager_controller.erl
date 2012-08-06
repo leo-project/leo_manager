@@ -41,7 +41,7 @@
 -define(ERROR_COULD_NOT_ATTACH_NODE, "could not attach a node").
 -define(ERROR_COULD_NOT_DETACH_NODE, "could not detach a node").
 -define(ERROR_COMMAND_NOT_FOUND,     "command not exist").
--define(ERROR_NO_NODE_SPECIFIED, "no nodes specified").
+-define(ERROR_NO_NODE_SPECIFIED, "no node specified").
 
 
 %%----------------------------------------------------------------------
