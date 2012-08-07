@@ -66,31 +66,36 @@ init(_Args) ->
 %%----------------------------------------------------------------------
 handle_call(_Socket, <<?HELP>>, State) ->
     Commands = []
-        ++ io_lib:format("=== Whole System ===\r\n", [])
+        ++ io_lib:format("[Whole System]\r\n", [])
         ++ io_lib:format("~s\r\n",["version"])
         ++ io_lib:format("~s\r\n",["status"])
         ++ io_lib:format("~s\r\n",["history"])
         ++ io_lib:format("~s\r\n",["quit"])
+        ++ io_lib:format("\r\n",  [])
 
-        ++ io_lib:format("=== Cluster ===\r\n", [])
+        ++ io_lib:format("[Cluster]\r\n", [])
         ++ io_lib:format("~s\r\n",["detach ${NODE}"])
         ++ io_lib:format("~s\r\n",["suspend ${NODE}"])
         ++ io_lib:format("~s\r\n",["resume ${NODE}"])
         ++ io_lib:format("~s\r\n",["start"])
         ++ io_lib:format("~s\r\n",["rebalance"])
         ++ io_lib:format("~s\r\n",["whereis ${PATH}"])
+        ++ io_lib:format("\r\n",  [])
 
-        ++ io_lib:format("=== Storage  ===\r\n", [])
+        ++ io_lib:format("[Storage]\r\n", [])
         ++ io_lib:format("~s\r\n",["du ${NODE}"])
         ++ io_lib:format("~s\r\n",["compact ${NODE}"])
+        ++ io_lib:format("\r\n",  [])
 
-        ++ io_lib:format("=== Gateway  ===\r\n", [])
+        ++ io_lib:format("[Gateway]\r\n", [])
         ++ io_lib:format("~s\r\n",["purge ${PATH}"])
+        ++ io_lib:format("\r\n",  [])
 
-        ++ io_lib:format("=== S3 ===\r\n", [])
+        ++ io_lib:format("[S3]\r\n", [])
         ++ io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"])
         ++ io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"])
         ++ io_lib:format("~s\r\n",["s3-get-endpoints"])
+        ++ io_lib:format("\r\n",  [])
         ++ ?CRLF,
     {reply, Commands, State};
 
@@ -321,7 +326,7 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
             [EndPoint|_] ->
                 case leo_s3_auth_api:set_endpoint(EndPoint) of
                     ok ->
-                        ?OK;
+                        {?OK, State};
                     {error, Cause} ->
                         {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
                 end
@@ -334,7 +339,7 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
     {Reply, NewState} =
         case leo_s3_auth_api:get_endpoints() of
             {ok, EndPoints} ->
-                format_endpoint_list(EndPoints);
+                {format_endpoint_list(EndPoints), State};
             {error, Cause} ->
                 {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
         end,

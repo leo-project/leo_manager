@@ -193,7 +193,9 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 leo_redundant_manager_table_member:create_members(disc_copies, Nodes1),
 
                 leo_s3_auth_api:create_credential_table(disc_copies, Nodes1),
+                leo_s3_auth_api:create_endpoint_table(disc_copies, Nodes1),
                 leo_s3_bucket_api:create_bucket_table(disc_copies, Nodes1),
+
                 {ok, _} = load_system_config_with_store_data()
 
             catch _:Reason ->
