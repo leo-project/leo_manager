@@ -32,6 +32,7 @@
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+%% -include_lib("leo_s3_auth/include/leo_s3_auth.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -63,21 +64,32 @@ init(_Args) ->
 %% Operation-1
 %%----------------------------------------------------------------------
 handle_call(_Socket, <<?HELP>>, State) ->
-    Commands =
-        io_lib:format(" 1. ~s\r\n",["version"])
-        ++ io_lib:format(" 2. ~s\r\n",["status"])
-        ++ io_lib:format(" 3. ~s\r\n",["detach ${NODE}"])
-        ++ io_lib:format(" 4. ~s\r\n",["suspend ${NODE}"])
-        ++ io_lib:format(" 5. ~s\r\n",["resume ${NODE}"])
-        ++ io_lib:format(" 6. ~s\r\n",["start"])
-        ++ io_lib:format(" 7. ~s\r\n",["rebalance"])
-        ++ io_lib:format(" 8. ~s\r\n",["du ${NODE}"])
-        ++ io_lib:format(" 9. ~s\r\n",["compact ${NODE}"])
-        ++ io_lib:format("10. ~s\r\n",["gen-s3-key ${USER-ID}"])
-        ++ io_lib:format("11. ~s\r\n",["whereis ${PATH}"])
-        ++ io_lib:format("12. ~s\r\n",["purge ${PATH}"])
-        ++ io_lib:format("13. ~s\r\n",["history"])
-        ++ io_lib:format("14. ~s\r\n",["quit"])
+    Commands = []
+        ++ io_lib:format("=== Whole System ===\r\n", [])
+        ++ io_lib:format("~s\r\n",["version"])
+        ++ io_lib:format("~s\r\n",["status"])
+        ++ io_lib:format("~s\r\n",["history"])
+        ++ io_lib:format("~s\r\n",["quit"])
+
+        ++ io_lib:format("=== Cluster ===\r\n", [])
+        ++ io_lib:format("~s\r\n",["detach ${NODE}"])
+        ++ io_lib:format("~s\r\n",["suspend ${NODE}"])
+        ++ io_lib:format("~s\r\n",["resume ${NODE}"])
+        ++ io_lib:format("~s\r\n",["start"])
+        ++ io_lib:format("~s\r\n",["rebalance"])
+        ++ io_lib:format("~s\r\n",["whereis ${PATH}"])
+
+        ++ io_lib:format("=== Storage  ===\r\n", [])
+        ++ io_lib:format("~s\r\n",["du ${NODE}"])
+        ++ io_lib:format("~s\r\n",["compact ${NODE}"])
+
+        ++ io_lib:format("=== Gateway  ===\r\n", [])
+        ++ io_lib:format("~s\r\n",["purge ${PATH}"])
+
+        ++ io_lib:format("=== S3 ===\r\n", [])
+        ++ io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"])
+        ++ io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"])
+        ++ io_lib:format("~s\r\n",["s3-get-endpoints"])
         ++ ?CRLF,
     {reply, Commands, State};
 
@@ -277,7 +289,7 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
     {reply, Reply, NewState};
 
 
-handle_call(_Socket, <<?GEN_S3_KEY, Option/binary>> = Command, State) ->
+handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
     {Reply, NewState} =
@@ -290,11 +302,40 @@ handle_call(_Socket, <<?GEN_S3_KEY, Option/binary>> = Command, State) ->
                         AccessKeyId     = proplists:get_value(access_key_id,     Keys),
                         SecretAccessKey = proplists:get_value(secret_access_key, Keys),
                         {io_lib:format("access-key-id: ~s\r\n"
-                                       ++ "secret-access-key: ~s\r\n\r\n",                                
+                                       ++ "secret-access-key: ~s\r\n\r\n",
                                        [AccessKeyId, SecretAccessKey]), State};
                     {error, Cause} ->
                         {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
                 end
+        end,
+    {reply, Reply, NewState};
+
+handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+            [EndPoint|_] ->
+                case leo_s3_auth_api:set_endpoint(EndPoint) of
+                    ok ->
+                        ?OK;
+                    {error, Cause} ->
+                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+                end
+        end,
+    {reply, Reply, NewState};
+
+handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case leo_s3_auth_api:get_endpoints() of
+            {ok, EndPoints} ->
+                format_endpoint_list(EndPoints);
+            {error, Cause} ->
+                {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
         end,
     {reply, Reply, NewState};
 
@@ -574,6 +615,13 @@ format_history_list(Histories) ->
           end,
     lists:foldl(Fun, "[Histories]\r\n", Histories).
 
+
+format_endpoint_list(EndPoints) ->
+    Fun = fun({endpoint, EP, Created}, Acc) ->
+                  Acc ++ io_lib:format("~s | ~s\r\n",
+                                       [leo_utils:date_format(Created), EP])
+          end,
+    lists:foldl(Fun, "[EndPoints]\r\n", EndPoints).
 
 
 %% @doc Retrieve data-size w/unit.
