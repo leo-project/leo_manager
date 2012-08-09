@@ -91,11 +91,8 @@ start_link() ->
                                                   {d,           SystemConf#system_conf.d},
                                                   {bit_of_ring, SystemConf#system_conf.bit_of_ring}]),
 
-            %% Launch Auth
-            ok = leo_s3_auth_api:start(master, []),
-
-            %% Launch Bucket
-            ok = leo_s3_bucket_api:start(master, []),
+            %% Launch S3Libs:Auth/Bucket/EndPoint
+            ok = leo_s3_libs:start(master, []),
 
             %% Launch Mnesia and create that tables
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, RedundantNodes1]),
@@ -192,9 +189,9 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes1),
                 leo_redundant_manager_table_member:create_members(disc_copies, Nodes1),
 
-                leo_s3_auth_api:create_credential_table(disc_copies, Nodes1),
-                leo_s3_auth_api:create_endpoint_table(disc_copies, Nodes1),
-                leo_s3_bucket_api:create_bucket_table(disc_copies, Nodes1),
+                leo_s3_auth:create_credential_table(disc_copies, Nodes1),
+                leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes1),
+                leo_s3_bucket:create_bucket_table(disc_copies, Nodes1),
 
                 {ok, _} = load_system_config_with_store_data()
 

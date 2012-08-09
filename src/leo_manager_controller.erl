@@ -32,7 +32,6 @@
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
-%% -include_lib("leo_s3_auth/include/leo_s3_auth.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -303,7 +302,7 @@ handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
             [] ->
                 {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
             [UserId|_] ->
-                case leo_s3_auth_api:gen_key(UserId) of
+                case leo_s3_auth:gen_key(UserId) of
                     {ok, Keys} ->
                         AccessKeyId     = proplists:get_value(access_key_id,     Keys),
                         SecretAccessKey = proplists:get_value(secret_access_key, Keys),
@@ -324,7 +323,7 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
             [] ->
                 {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
             [EndPoint|_] ->
-                case leo_s3_auth_api:set_endpoint(EndPoint) of
+                case leo_s3_endpoint:set_endpoint(EndPoint) of
                     ok ->
                         {?OK, State};
                     {error, Cause} ->
@@ -337,7 +336,7 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
     {Reply, NewState} =
-        case leo_s3_auth_api:get_endpoints() of
+        case leo_s3_endpoint:get_endpoints() of
             {ok, EndPoints} ->
                 {format_endpoint_list(EndPoints), State};
             {error, Cause} ->
