@@ -42,6 +42,7 @@
 -define(ERROR_COULD_NOT_DETACH_NODE, "could not detach a node").
 -define(ERROR_COMMAND_NOT_FOUND,     "command not exist").
 -define(ERROR_NO_NODE_SPECIFIED,     "no node specified").
+-define(ERROR_NO_PATH_SPECIFIED,     "no path specified").
 
 
 %%----------------------------------------------------------------------
@@ -301,7 +302,7 @@ handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
     {Reply, NewState} =
         case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
             [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+                {io_lib:format("[ERROR] ~s\r\n",["no user specified"]),State};
             [UserId|_] ->
                 case leo_s3_auth:gen_key(UserId) of
                     {ok, Keys} ->
@@ -370,7 +371,7 @@ handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
 
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_PATH_SPECIFIED]);
                 Key ->
                     HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
 
@@ -389,7 +390,7 @@ handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_PATH_SPECIFIED]);
                 [Key|_] ->
                     case catch leo_manager_api:purge(Key) of
                         ok ->
