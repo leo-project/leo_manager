@@ -261,7 +261,7 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Hashtable, Pi
         end
     catch
         _:Reason ->
-            ?debugVal({"DOWN", Reason})
+            ?error("handle_call - DOWN", "reason:~p", [Reason])
     end,
 
     erlang:demonitor(MonitorRef),

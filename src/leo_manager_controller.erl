@@ -41,7 +41,7 @@
 -define(ERROR_COULD_NOT_ATTACH_NODE, "could not attach a node").
 -define(ERROR_COULD_NOT_DETACH_NODE, "could not detach a node").
 -define(ERROR_COMMAND_NOT_FOUND,     "command not exist").
--define(ERROR_NO_NODE_SPECIFIED, "no node specified").
+-define(ERROR_NO_NODE_SPECIFIED,     "no node specified").
 
 
 %%----------------------------------------------------------------------
@@ -93,6 +93,7 @@ handle_call(_Socket, <<?HELP>>, State) ->
         ++ io_lib:format("[S3]\r\n", [])
         ++ io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"])
         ++ io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"])
+        ++ io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"])
         ++ io_lib:format("~s\r\n",["s3-get-endpoints"])
         ++ io_lib:format("\r\n",  [])
         ++ ?CRLF,
@@ -332,6 +333,23 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+            [EndPoint|_] ->
+                case leo_s3_endpoint:delete_endpoint(EndPoint) of
+                    ok ->
+                        {?OK, State};
+                    {error, Cause} ->
+                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+                end
+        end,
+    {reply, Reply, NewState};
+
 handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -339,6 +357,8 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
         case leo_s3_endpoint:get_endpoints() of
             {ok, EndPoints} ->
                 {format_endpoint_list(EndPoints), State};
+            not_found ->
+                {io_lib:format("not found\r\n", []), State};
             {error, Cause} ->
                 {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
         end,

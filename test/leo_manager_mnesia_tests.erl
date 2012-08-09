@@ -40,8 +40,6 @@ all_(_) ->
     {atomic,ok} = leo_manager_mnesia:create_gateway_nodes(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_system_config(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_credentials(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_buckets(ram_copies, [node()]),
     ?assertEqual(true, length(mnesia:system_info(tables)) > 1),
 
     %% get-1 > not_found
@@ -53,12 +51,6 @@ all_(_) ->
     not_found = leo_manager_mnesia:get_system_config(),
     not_found = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_rebalance_info_by_node(node()),
-    not_found = leo_manager_mnesia:get_credentials_all(),
-    not_found = leo_manager_mnesia:get_credential_by_access_key("12345"),
-
-    not_found = leo_manager_mnesia:get_buckets_all(),
-    not_found = leo_manager_mnesia:get_bucket_by_name("bucket"),
-    not_found = leo_manager_mnesia:get_bucket_by_access_key("12345"),
 
     %% put
     %%
@@ -138,51 +130,11 @@ all_(_) ->
 
     not_found = leo_manager_mnesia:get_rebalance_info_by_node(Node0),
 
-
-    %% (5) rebalance-info
-    AccessKeyId = "access-key-a-z1-9",
-    Credential = #credential{access_key_id     = AccessKeyId,
-                             secret_access_key = "secret-key-a-z1-9",
-                             created           = 1},
-    ok = leo_manager_mnesia:update_credential(Credential),
-    {ok, [Res9|_]} = leo_manager_mnesia:get_credentials_all(),
-    ?assertEqual(Credential, Res9),
-
-    {ok, [Res10|_]} = leo_manager_mnesia:get_credential_by_access_key(AccessKeyId),
-    ?assertEqual(Credential, Res10),
-
-    not_found = leo_manager_mnesia:get_credential_by_access_key("dummy"),
-
-
-    %% (6) bucket
-    BucketName = "bucket-0",
-    Bucket = #bucket{name = BucketName,
-                     access_key_id = AccessKeyId,
-                     permission = "all"
-                    },
-    ok = leo_manager_mnesia:update_bucket(Bucket),
-    {ok, [Res11|_]} = leo_manager_mnesia:get_buckets_all(),
-    {ok, [Res12|_]} = leo_manager_mnesia:get_bucket_by_access_key(AccessKeyId),
-    {ok, [Res13|_]} = leo_manager_mnesia:get_bucket_by_name(BucketName),
-    ?assertEqual(Bucket, Res11),
-    ?assertEqual(Bucket, Res12),
-    ?assertEqual(Bucket, Res13),
-
-
     %% delete
     %% (1) storage-node
     ok = leo_manager_mnesia:delete_storage_node(NewNodeState0),
     not_found = leo_manager_mnesia:get_storage_nodes_all(),
 
-    %% (2) credential
-    not_found = leo_manager_mnesia:delete_credential_by_access_key("dummy"),
-
-    ok = leo_manager_mnesia:delete_credential_by_access_key(AccessKeyId),
-    not_found = leo_manager_mnesia:get_credentials_all(),
-
-    %% (3) bucket
-    ok = leo_manager_mnesia:delete_bucket_by_name(BucketName),
-    not_found = leo_manager_mnesia:get_buckets_all(),
     ok.
 
 -endif.
