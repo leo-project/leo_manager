@@ -32,14 +32,12 @@
 -define(MAX_TIME,                60).
 
 -ifdef(TEST).
--define(DEF_TIMEOUT,           1000).
--define(DEF_MONITOR_INTERVAL,  5000).
+-define(DEF_TIMEOUT,           1000). %% 1sec
+-define(DEF_MONITOR_INTERVAL,  3000). %% 3sec
 -else.
--define(DEF_TIMEOUT,           3000).
--define(DEF_MONITOR_INTERVAL, 20000).
+-define(DEF_TIMEOUT,          30000). %% 30sec
+-define(DEF_MONITOR_INTERVAL, 20000). %% 20sec
 -endif.
-
--define(LONG_OP_TIMEOUT, 600000).
 
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
 

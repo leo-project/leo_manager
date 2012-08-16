@@ -371,7 +371,7 @@ start() ->
             Nodes = lists:map(fun(#member{node = Node}) ->
                                       Node
                               end, Members),
-            {ResL0, BadNodes0} = rpc:multicall(Nodes, leo_storage_api, start, [Members], 30000),
+            {ResL0, BadNodes0} = rpc:multicall(Nodes, leo_storage_api, start, [Members], ?DEF_TIMEOUT),
 
             %% Update an object of node-status.
             case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
@@ -722,7 +722,7 @@ compact(Node) when is_list(Node) ->
 compact(Node) ->
     case leo_utils:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_object_storage_api, compact, [], ?LONG_OP_TIMEOUT) of
+            case rpc:call(Node, leo_object_storage_api, compact, [], infinity) of
                 Result when is_list(Result) ->
                     {ok, Result};
                 {error, _} ->
@@ -746,7 +746,7 @@ stats(Mode, Node) when is_list(Node) ->
 stats(Mode, Node) ->
     case leo_utils:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_object_storage_api, stats, [], ?LONG_OP_TIMEOUT) of
+            case rpc:call(Node, leo_object_storage_api, stats, [], infinity) of
                 not_found = Cause ->
                     {error, Cause};
                 {ok, []} ->

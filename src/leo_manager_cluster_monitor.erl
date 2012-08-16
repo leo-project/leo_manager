@@ -348,7 +348,7 @@ get_remote_node_proc_fun(storage, Node) ->
     case leo_utils:node_existence(Node) of
         true ->
             Mod = leo_storage_api,
-            case rpc:call(Node, Mod, register_in_monitor, [again]) of
+            case rpc:call(Node, Mod, register_in_monitor, [again], ?DEF_TIMEOUT) of
                 ok              -> ok;
                 {_, Cause}      -> {error, Cause};
                 timeout = Cause -> {error, Cause}
@@ -363,7 +363,7 @@ get_remote_node_proc_fun(gateway, Node) ->
     case leo_utils:node_existence(Node) of
         true ->
             Mod = leo_gateway_api,
-            case rpc:call(Node, Mod, register_in_monitor, [again]) of
+            case rpc:call(Node, Mod, register_in_monitor, [again], ?DEF_TIMEOUT) of
                 ok              -> ok;
                 {_, Cause}      -> {error, Cause};
                 timeout = Cause -> {error, Cause}
