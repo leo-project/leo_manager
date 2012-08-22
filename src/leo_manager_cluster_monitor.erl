@@ -116,7 +116,7 @@ get_server_node_alias(Node) ->
 init([]) ->
     _Res = timer:apply_after(?APPLY_AFTER_TIME, ?MODULE, get_remote_node_proc, []),
     {ok, {_Refs = [],
-          _Htbl = leo_hashtable:new(),
+          _Htbl = [],
           _Pids = []}}.
 
 
@@ -124,15 +124,15 @@ handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
 
-handle_call({register, _RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Htbl, Pids} = Arg) ->
-    %% ?info("handle_call - register", "requested-times:~w, node:~w", [RequestedTimes, Node]),
+handle_call({register, RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Htbl, Pids} = Arg) ->
+    ?info("handle_call - register", "requested-times:~w, node:~w", [RequestedTimes, Node]),
 
     case is_exists_proc(Htbl, Node) of
         true ->
             {reply, ok, Arg};
         false ->
             MonitorRef = erlang:monitor(process, Pid),
-            leo_hashtable:put(Htbl, Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}),
+            ProcInfo   = {Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}},
 
             case TypeOfNode of
                 gateway ->
@@ -177,22 +177,20 @@ handle_call({register, _RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Ht
                     end
             end,
             {reply, ok, {_Refs = [MonitorRef | Refs],
-                         _Htbl = Htbl,
+                         _Htbl = [ProcInfo   | Htbl],
                          _Pids = Pids}}
     end;
 
-handle_call({demonitor, Node}, _From, {MonitorRefs, Hashtable, Pids} = Arg) ->
-    %% ?debug("handle_call - demonitor", "node:~w, ret:~p", [Node, find_by_node_alias(Hashtable, Node)]),
-
-    case find_by_node_alias(Hashtable, Node) of
+handle_call({demonitor, Node}, _From, {MonitorRefs, Htbl, Pids} = Arg) ->
+    case find_by_node_alias(Htbl, Node) of
         undefined ->
             {reply, undefined, Arg};
         {Pid, MonitorRef} ->
             erlang:demonitor(MonitorRef),
-            leo_hashtable:delete(Hashtable, Pid),
+            NewHtbl = delete_by_pid(Htbl, Pid),
 
             {reply, ok, {_MonitorRefs = lists:delete(MonitorRef, MonitorRefs),
-                         Hashtable,
+                         NewHtbl,
                          _Pids = lists:delete(Pid, Pids)}}
     end;
 
@@ -207,7 +205,7 @@ handle_call({get_server_node_alias, Node}, _From, {Refs, Htbl, Pids}) ->
                           _ ->
                               N
                       end
-              end, undefined, leo_hashtable:all(Htbl)),
+              end, undefined, Htbl),
     {reply, Reply, {Refs, Htbl, Pids}}.
 
 
@@ -227,17 +225,15 @@ handle_cast(_Message, State) ->
 %%                                       {noreply, State, Timeout} |
 %%                                       {stop, Reason, State}
 %% Description: Handling all non call/cast messages
-handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Hashtable, Pids}) ->
+handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) ->
     timer:sleep(random:uniform(500)),
 
-    try
-        case leo_hashtable:get(Hashtable, Pid) of
+    NewHtbl =
+        case find_by_pid(Htbl, Pid) of
             undefined ->
-                void;
+                Htbl;
             {_, Node, TypeOfNode, _} ->
                 ?error("handle_call - DOWN", "node:~w", [Node]),
-                leo_hashtable:delete(Hashtable, Pid),
-
                 case TypeOfNode of
                     gateway ->
                         leo_manager_mnesia:update_gateway_node(
@@ -257,16 +253,13 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Hashtable, Pi
                             _Error ->
                                 void
                         end
-                end
-        end
-    catch
-        _:Reason ->
-            ?error("handle_call - DOWN", "reason:~p", [Reason])
-    end,
+                end,
+                delete_by_pid(Htbl, Pid)
+        end,
 
     erlang:demonitor(MonitorRef),
     {noreply, {_MonitorRefs = lists:delete(MonitorRef, MonitorRefs),
-               Hashtable,
+               NewHtbl,
                _Pids = lists:delete(Pid, Pids)}};
 
 handle_info(_Info, State) ->
@@ -373,17 +366,31 @@ get_remote_node_proc_fun(gateway, Node) ->
     end.
 
 
-is_exists_proc(Hashtable, Node) ->
+is_exists_proc(ProcList, Node) ->
     lists:foldl(fun({_K, {_, N,_,_}},_S) when Node == N ->
                         true;
                    ({_K, {_,_N,_,_}}, S) ->
                         S
-                end, false, leo_hashtable:all(Hashtable)).
+                end, false, ProcList).
 
-find_by_node_alias(Hashtable, Node) ->
+find_by_node_alias(ProcList, Node) ->
     lists:foldl(fun({ Pid, {_, N,_, MonitorRef}},_S) when Node == N ->
                         {Pid, MonitorRef};
                    ({_Pid, {_,_N,_,_MonitorRef}}, S) ->
                         S
-                end, undefined, leo_hashtable:all(Hashtable)).
+                end, undefined, ProcList).
+
+find_by_pid(ProcList, Pid0) ->
+    lists:foldl(fun({Pid1, ProcInfo}, undefined) when Pid0 == Pid1 ->
+                        ProcInfo;
+                   (_, Acc) ->
+                        Acc
+                end, undefined, ProcList).
+
+delete_by_pid(ProcList, Pid0) ->
+    lists:foldl(fun({Pid1, _}, Acc) when Pid0 == Pid1 ->
+                        Acc;
+                   (ProcInfo,  Acc) ->
+                        [ProcInfo|Acc]
+                end, [], ProcList).
 
