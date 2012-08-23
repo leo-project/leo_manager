@@ -322,6 +322,9 @@ resume(last, Error, _) ->
 
 %% @doc Distribute members list to all nodes.
 %% @private
+distribute_members(Node) ->
+    distribute_members(ok, Node).
+
 -spec(distribute_members(ok, atom()) ->
              ok | {error, any()}).
 distribute_members(ok, Node0) ->
@@ -418,12 +421,14 @@ rebalance() ->
                                   (_Member, SoFar) ->
                                        SoFar
                                end, {false, []}, Members),
+
             case rebalance1(State, Nodes) of
                 {ok, List} ->
                     [{NodeState, N}|_] = Nodes,
 
                     case rebalance3(NodeState, N) of
                         ok ->
+                            _ = distribute_members(N),
                             rebalance5(List, []);
                         {error, Cause}->
                             ?error("rebalance/0", "cause:~p", [Cause]),
@@ -478,7 +483,13 @@ rebalance3(?STATE_ATTACHED, Node) ->
                                                ring_hash_old = leo_hex:integer_to_hex(RingHash1),
                                                when_is       = leo_utils:now()}) of
                         ok ->
-                            rebalance4(Members, Members, []);
+                            case leo_redundant_manager_api:update_member_by_node(
+                                   Node, leo_utils:clock(), ?STATE_RUNNING) of
+                                ok ->
+                                    rebalance4(Members, Members, []);
+                                Error ->
+                                    Error
+                            end;
                         Error ->
                             Error
                     end;
@@ -498,6 +509,7 @@ rebalance3(?STATE_DETACHED, Node) ->
     case leo_redundant_manager_api:get_members() of
         {ok, Members} ->
             {ok, Ring} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
+            ok = leo_redundant_manager_api:update_member_by_node(Node, leo_utils:clock(), ?STATE_DETACHED),
             _ = leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, Ring),
             rebalance4(Members, Members, []);
         Error ->
