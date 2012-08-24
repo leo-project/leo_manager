@@ -490,16 +490,15 @@ format_cluster_node_list(SystemConf) ->
 
 
 format_cluster_node_state(State) ->
-    ObjStoragePath = State#cluster_node_status.avs,
-    Directories    = State#cluster_node_status.dirs,
-    RingHashes     = State#cluster_node_status.ring_checksum,
-    Statistics     = State#cluster_node_status.statistics,
+    ObjContainer = State#cluster_node_status.avs,
+    Directories  = State#cluster_node_status.dirs,
+    RingHashes   = State#cluster_node_status.ring_checksum,
+    Statistics   = State#cluster_node_status.statistics,
 
     io_lib:format("[config]\r\n" ++
                       "            version : ~s\r\n" ++
-                      "  obj-container-dir : ~s"     ++
+                      "      obj-container : ~p\r\n" ++
                       "            log-dir : ~s\r\n" ++
-                      "         mnesia-dir : ~s\r\n" ++
                       "  ring state (cur)  : ~w\r\n" ++
                       "  ring state (prev) : ~w\r\n" ++
                       "\r\n[erlang-vm status]\r\n"   ++
@@ -509,9 +508,8 @@ format_cluster_node_state(State) ->
                       "      ets mem usage : ~w\r\n" ++
                       "    # of procs      : ~w\r\n\r\n",
                   [State#cluster_node_status.version,
-                   ObjStoragePath,
+                   ObjContainer,
                    proplists:get_value('log',              Directories, []),
-                   proplists:get_value('mnesia',           Directories, []),
                    proplists:get_value('ring_cur',         RingHashes,  []),
                    proplists:get_value('ring_prev',        RingHashes,  []),
                    proplists:get_value('total_mem_usage',  Statistics, 0),
