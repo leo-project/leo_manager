@@ -374,7 +374,9 @@ start() ->
             Nodes = lists:map(fun(#member{node = Node}) ->
                                       Node
                               end, Members),
-            {ResL0, BadNodes0} = rpc:multicall(Nodes, leo_storage_api, start, [Members], ?DEF_TIMEOUT),
+            {ok, SystemConf}   = leo_manager_mnesia:get_system_config(),
+            {ResL0, BadNodes0} = rpc:multicall(
+                                   Nodes, leo_storage_api, start, [Members, SystemConf], infinity),
 
             %% Update an object of node-status.
             case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
@@ -474,7 +476,9 @@ rebalance3(?STATE_ATTACHED, Node) ->
     %% New Attached-node change Ring.cur, Ring.prev and Members
     case leo_redundant_manager_api:get_members() of
         {ok, Members} ->
-            case rpc:call(Node, leo_storage_api, start, [Members], ?DEF_TIMEOUT) of
+            {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+
+            case rpc:call(Node, leo_storage_api, start, [Members, SystemConf], ?DEF_TIMEOUT) of
                 {ok, {_Node, {RingHash0, RingHash1}}} ->
                     case leo_manager_mnesia:update_storage_node_status(
                            update, #node_state{node          = Node,
