@@ -148,7 +148,7 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
                         ?OK;
                     _ ->
                         case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-                            {ok, Nodes} when length(Nodes) > SystemConf#system_conf.n ->
+                            {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
                                 case leo_manager_api:detach(NodeAtom) of
                                     ok ->
                                         ?OK;
