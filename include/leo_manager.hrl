@@ -70,6 +70,7 @@
 -define(S3_SET_ENDPOINT,      "s3-set-endpoint").
 -define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").
 -define(S3_GET_ENDPOINTS,     "s3-get-endpoints").
+-define(S3_GET_BUCKETS,       "s3-get-buckets").
 
 -define(STORAGE_STATS,        "du").
 -define(WHEREIS,              "whereis").

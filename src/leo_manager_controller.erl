@@ -66,13 +66,6 @@ init(_Args) ->
 %%----------------------------------------------------------------------
 handle_call(_Socket, <<?HELP>>, State) ->
     Commands = []
-        ++ io_lib:format("[Whole System]\r\n", [])
-        ++ io_lib:format("~s\r\n",["version"])
-        ++ io_lib:format("~s\r\n",["status"])
-        ++ io_lib:format("~s\r\n",["history"])
-        ++ io_lib:format("~s\r\n",["quit"])
-        ++ io_lib:format("\r\n",  [])
-
         ++ io_lib:format("[Cluster]\r\n", [])
         ++ io_lib:format("~s\r\n",["detach ${NODE}"])
         ++ io_lib:format("~s\r\n",["suspend ${NODE}"])
@@ -80,24 +73,28 @@ handle_call(_Socket, <<?HELP>>, State) ->
         ++ io_lib:format("~s\r\n",["start"])
         ++ io_lib:format("~s\r\n",["rebalance"])
         ++ io_lib:format("~s\r\n",["whereis ${PATH}"])
-        ++ io_lib:format("\r\n",  [])
-
+        ++ ?CRLF
         ++ io_lib:format("[Storage]\r\n", [])
         ++ io_lib:format("~s\r\n",["du ${NODE}"])
         ++ io_lib:format("~s\r\n",["compact ${NODE}"])
-        ++ io_lib:format("\r\n",  [])
-
+        ++ ?CRLF
         ++ io_lib:format("[Gateway]\r\n", [])
         ++ io_lib:format("~s\r\n",["purge ${PATH}"])
-        ++ io_lib:format("\r\n",  [])
-
+        ++ ?CRLF
         ++ io_lib:format("[S3]\r\n", [])
         ++ io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"])
         ++ io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"])
         ++ io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"])
         ++ io_lib:format("~s\r\n",["s3-get-endpoints"])
-        ++ io_lib:format("\r\n",  [])
+        ++ io_lib:format("~s\r\n",["s3-get-buckets"])
+        ++ ?CRLF
+        ++ io_lib:format("[Misc]\r\n", [])
+        ++ io_lib:format("~s\r\n",["version"])
+        ++ io_lib:format("~s\r\n",["status"])
+        ++ io_lib:format("~s\r\n",["history"])
+        ++ io_lib:format("~s\r\n",["quit"])
         ++ ?CRLF,
+
     {reply, Commands, State};
 
 
@@ -358,6 +355,20 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
         case leo_s3_endpoint:get_endpoints() of
             {ok, EndPoints} ->
                 {format_endpoint_list(EndPoints), State};
+            not_found ->
+                {io_lib:format("not found\r\n", []), State};
+            {error, Cause} ->
+                {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+        end,
+    {reply, Reply, NewState};
+
+handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case leo_s3_bucket:find_all_including_owner() of
+            {ok, Buckets} ->
+                {format_bucket_list(Buckets), State};
             not_found ->
                 {io_lib:format("not found\r\n", []), State};
             {error, Cause} ->
@@ -646,6 +657,19 @@ format_endpoint_list(EndPoints) ->
                                        [leo_utils:date_format(Created), EP])
           end,
     lists:foldl(Fun, "[EndPoints]\r\n", EndPoints).
+
+
+format_bucket_list(Buckets) ->
+    Header = lists:append(["[Buckets]\r\n",
+                           " created at                | bucket (owner)\r\n",
+                           "---------------------------+",
+                           "----------------------------------------------------------------\r\n"
+                          ]),
+    Fun = fun({Bucket, Owner, Created}, Acc) ->
+                  Acc ++ io_lib:format(" ~s | ~s (~s)\r\n",
+                                       [leo_utils:date_format(Created), Bucket, Owner])
+          end,
+    lists:foldl(Fun, Header, Buckets).
 
 
 %% @doc Retrieve data-size w/unit.
