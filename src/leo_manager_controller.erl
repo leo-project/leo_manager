@@ -140,8 +140,8 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
 
                 case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
                     {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
-                        ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
                         ok = leo_manager_mnesia:delete_storage_node(NodeState),
+                        ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
                         ?OK;
                     _ ->
                         case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of

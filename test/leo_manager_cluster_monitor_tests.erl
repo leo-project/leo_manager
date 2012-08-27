@@ -5,8 +5,7 @@
 %% @end
 %%======================================================================
 -module(leo_manager_cluster_monitor_tests).
--author('yosuke hara').
--vsn('0.9.1').
+-author('Yosuke Hara').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").

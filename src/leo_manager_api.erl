@@ -172,24 +172,17 @@ get_cluster_nodes(Node) ->
 %%
 -spec(attach(new | add, atom(), #system_conf{}) ->
              ok | {error, any()}).
-attach(new, Node, SystemConf) ->
+attach(new, Node, _SystemConf) ->
     case leo_utils:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_storage_api, attach, [SystemConf], ?DEF_TIMEOUT) of
+            case leo_redundant_manager_api:attach(Node) of
                 ok ->
-                    case leo_redundant_manager_api:attach(Node) of
-                        ok ->
-                            leo_manager_mnesia:update_storage_node_status(
-                              #node_state{node    = Node,
-                                          state   = ?STATE_ATTACHED,
-                                          when_is = leo_utils:now()});
-                        Error ->
-                            Error
-                    end;
-                {_, Cause} ->
-                    {error, Cause};
-                timeout = Cause ->
-                    {error, Cause}
+                    leo_manager_mnesia:update_storage_node_status(
+                      #node_state{node    = Node,
+                                  state   = ?STATE_ATTACHED,
+                                  when_is = leo_utils:now()});
+                Error ->
+                    Error
             end;
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}

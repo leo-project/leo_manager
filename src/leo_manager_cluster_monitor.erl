@@ -236,12 +236,12 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                 ?error("handle_call - DOWN", "node:~w", [Node]),
                 case TypeOfNode of
                     gateway ->
-                        leo_manager_mnesia:update_gateway_node(
-                          #node_state{node    = Node,
-                                      state   = ?STATE_DOWNED,
-                                      when_is = ?CURRENT_TIME});
+                        catch leo_manager_mnesia:update_gateway_node(
+                                #node_state{node    = Node,
+                                            state   = ?STATE_DOWNED,
+                                            when_is = ?CURRENT_TIME});
                     storage ->
-                        case leo_manager_mnesia:get_storage_node_by_name(Node) of
+                        case catch leo_manager_mnesia:get_storage_node_by_name(Node) of
                             {ok, [#node_state{state = State} = NodeInfo|_]} ->
 
                                 case update_node_state(down, State, Node) of
