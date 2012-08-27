@@ -134,48 +134,8 @@ handle_call({register, RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Htb
             MonitorRef = erlang:monitor(process, Pid),
             ProcInfo   = {Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}},
 
-            case TypeOfNode of
-                gateway ->
-                    case leo_manager_mnesia:get_gateway_node_by_name(Node) of
-                        {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
-                            void;
-                        not_found ->
-                            void;
-                        {error, Cause} ->
-                            ?error("handle_call/3 - register", "cause:~p", [Cause]);
-                        _Other ->
-                            leo_manager_mnesia:update_gateway_node(
-                              #node_state{node    = Node,
-                                          state   = ?STATE_RUNNING,
-                                          when_is = ?CURRENT_TIME})
-                    end;
-                storage ->
-                    case leo_manager_mnesia:get_storage_node_by_name(Node) of
-                        {ok, [#node_state{state = State}|_]} ->
-                            update_node_state(start, State, Node);
-                        not_found = State ->
-                            case update_node_state(start, State, Node) of
-                                ok ->
-                                    case leo_manager_api:get_system_status() of
-                                        ?STATE_RUNNING ->
-                                            leo_manager_api:attach(add, Node);
-                                        ?STATE_STOP ->
-                                            case  leo_manager_mnesia:get_system_config() of
-                                                {ok, SystemConf} ->
-                                                    leo_manager_api:attach(new, Node, SystemConf);
-                                                _ ->
-                                                    ?error("handle_call/3 - register", "cause:~p",
-                                                           ["Could not get System-conf"])
-                                            end
-                                    end;
-                                _ ->
-                                    ?error("handle_call/3 - register", "cause:~p",
-                                           ["Could not update node-state"])
-                            end;
-                        {error, Cause} ->
-                            ?error("handle_call/3 - register", "cause:~p", [Cause])
-                    end
-            end,
+            _ = register_fun_0(TypeOfNode, Node),
+
             {reply, ok, {_Refs = [MonitorRef | Refs],
                          _Htbl = [ProcInfo   | Htbl],
                          _Pids = Pids}}
@@ -393,4 +353,75 @@ delete_by_pid(ProcList, Pid0) ->
                    (ProcInfo,  Acc) ->
                         [ProcInfo|Acc]
                 end, [], ProcList).
+
+
+%% @doc Register a remote-node's process into the monitor
+%%
+-spec(register_fun_0(gateway | storage, atom()) ->
+             ok | {error, any()}).
+register_fun_0(gateway, Node) ->
+    case leo_manager_mnesia:get_gateway_node_by_name(Node) of
+        {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+            ok;
+        not_found ->
+            ok;
+        {error, Cause} ->
+            ?error("register_fun_0/2", "cause:~p", [Cause]),
+            {error, Cause};
+        _Other ->
+            leo_manager_mnesia:update_gateway_node(
+              #node_state{node    = Node,
+                          state   = ?STATE_RUNNING,
+                          when_is = ?CURRENT_TIME})
+    end;
+
+register_fun_0(storage, Node) ->
+    Ret = leo_manager_mnesia:get_storage_node_by_name(Node),
+    register_fun_1(storage, Node, Ret).
+
+
+-spec(register_fun_1(storage, atom(), any()) ->
+             ok | {error, any()}).
+register_fun_1(storage, Node, {ok, [#node_state{state = State}|_]}) ->
+    update_node_state(start, State, Node);
+
+register_fun_1(storage, Node, not_found = State) ->
+    case update_node_state(start, State, Node) of
+        ok ->
+            case leo_manager_api:attach(Node) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+                    {error, Cause}
+            end;
+
+            %% case leo_manager_api:get_system_status() of
+            %%     ?STATE_RUNNING ->
+            %%         case leo_manager_api:attach(add, Node) of
+            %%             ok ->
+            %%                 ok;
+            %%             {error, Cause} ->
+            %%                 ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
+            %%         end;
+            %%     ?STATE_STOP ->
+            %%         case leo_manager_api:attach(new, Node) of
+            %%             ok ->
+            %%                 ok;
+            %%             {error, Cause} ->
+            %%                 ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
+            %%         end;
+            %%         %% case  leo_manager_mnesia:get_system_config() of
+            %%         %%     {ok, SystemConf} ->
+            %%         %%         leo_manager_api:attach(new, Node, SystemConf);
+            %%         %%     {error, Cause} ->
+            %%         %%         ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
+            %%         %% end
+            %% end;
+        {error, Cause} ->
+            ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
+    end;
+
+register_fun_1(storage, Node, {error, Cause}) ->
+    ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]).
 

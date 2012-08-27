@@ -54,7 +54,7 @@ all_(Node) ->
                         ?STATE_STOP
                 end),
     meck:expect(leo_manager_api, attach,
-                fun(_,_,_) ->
+                fun(_) ->
                         ok
                 end),
 

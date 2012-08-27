@@ -39,7 +39,7 @@
 -export([get_system_config/0, get_system_status/0, get_members/0,
          get_cluster_node_status/1, get_routing_table_chksum/0, get_cluster_nodes/0]).
 
--export([attach/2, attach/3, detach/1, suspend/1, resume/1,
+-export([attach/1, detach/1, suspend/1, resume/1,
          start/0, rebalance/0]).
 
 -export([register/4, notify/3, notify/4, purge/1,
@@ -170,9 +170,9 @@ get_cluster_nodes(Node) ->
 %%----------------------------------------------------------------------
 %% @doc Attach an storage-node into the cluster.
 %%
--spec(attach(new | add, atom(), #system_conf{}) ->
+-spec(attach(atom()) ->
              ok | {error, any()}).
-attach(new, Node, _SystemConf) ->
+attach(Node) ->
     case leo_utils:node_existence(Node) of
         true ->
             case leo_redundant_manager_api:attach(Node) of
@@ -181,29 +181,6 @@ attach(new, Node, _SystemConf) ->
                       #node_state{node    = Node,
                                   state   = ?STATE_ATTACHED,
                                   when_is = leo_utils:now()});
-                Error ->
-                    Error
-            end;
-        false ->
-            {error, ?ERROR_COULD_NOT_CONNECT}
-    end.
-
-attach(add, Node) ->
-    case leo_utils:node_existence(Node) of
-        true ->
-            case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {CurRingHash, PrevRingHash}} when CurRingHash =:= PrevRingHash ->
-                    case leo_redundant_manager_api:attach(Node) of
-                        ok ->
-                            leo_manager_mnesia:update_storage_node_status(
-                              #node_state{node    = Node,
-                                          state   = ?STATE_ATTACHED,
-                                          when_is = leo_utils:now()});
-                        Error ->
-                            Error
-                    end;
-                {ok, _Checksums} ->
-                    {error, on_rebalances};
                 Error ->
                     Error
             end;
@@ -315,7 +292,13 @@ resume(last, Error, _) ->
 
 %% @doc Distribute members list to all nodes.
 %% @private
-distribute_members(Node) ->
+distribute_members([]) ->
+    ok;
+distribute_members([Node|Rest]) ->
+    _ = distribute_members(ok, Node),
+    distribute_members(Rest);
+
+distribute_members(Node) when is_atom(Node) ->
     distribute_members(ok, Node).
 
 -spec(distribute_members(ok, atom()) ->
@@ -396,7 +379,7 @@ start() ->
 
 %% @doc Do Rebalance which affect all storage-nodes in operation.
 %% [process flow]
-%%     1. Judge that "is exist attach-node or detach-node" ?
+%%     1. Judge that "is exist attach-node OR detach-node" ?
 %%     2. Create RING (redundant-manager).
 %%     3. Distribute each storage node. (from manager to storages)
 %%     4. Confirm callback.
@@ -419,15 +402,21 @@ rebalance() ->
 
             case rebalance1(State, Nodes) of
                 {ok, List} ->
-                    [{NodeState, N}|_] = Nodes,
+                    [{NodeState, _}|_] = Nodes,
+                    Ns = [N || {_, N} <- Nodes],
 
-                    case rebalance3(NodeState, N) of
-                        ok ->
-                            _ = distribute_members(N),
-                            rebalance5(List, []);
-                        {error, Cause}->
-                            ?error("rebalance/0", "cause:~p", [Cause]),
-                            {error, Cause}
+                    case leo_redundant_manager_api:get_members() of
+                        {ok, Members} ->
+                            case rebalance3(NodeState, Ns, Members) of
+                                ok ->
+                                    _ = distribute_members(Ns),
+                                    rebalance5(List, []);
+                                {error, Cause}->
+                                    ?error("rebalance/0", "cause:~p", [Cause]),
+                                    {error, Cause}
+                            end;
+                        Error ->
+                            Error
                     end;
                 Error ->
                     Error
@@ -465,53 +454,49 @@ rebalance2(Tbl, [Item|T]) ->
     ok = leo_hashtable:append(Tbl, SrcNode, {VNodeId, DestNode}),
     rebalance2(Tbl, T).
 
-rebalance3(?STATE_ATTACHED, Node) ->
-    %% New Attached-node change Ring.cur, Ring.prev and Members
-    case leo_redundant_manager_api:get_members() of
-        {ok, Members} ->
-            {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+rebalance3(?STATE_ATTACHED, [], Members) ->
+    rebalance4(Members, Members, []);
 
-            case rpc:call(Node, leo_storage_api, start, [Members, SystemConf], ?DEF_TIMEOUT) of
-                {ok, {_Node, {RingHash0, RingHash1}}} ->
-                    case leo_manager_mnesia:update_storage_node_status(
-                           update, #node_state{node          = Node,
-                                               state         = ?STATE_RUNNING,
-                                               ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                               ring_hash_old = leo_hex:integer_to_hex(RingHash1),
-                                               when_is       = leo_utils:now()}) of
+rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
+    %% New Attached-node change Ring.cur, Ring.prev and Members
+    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+
+    case rpc:call(Node, leo_storage_api, start, [Members, SystemConf], ?DEF_TIMEOUT) of
+        {ok, {_Node, {RingHash0, RingHash1}}} ->
+            case leo_manager_mnesia:update_storage_node_status(
+                   update, #node_state{node          = Node,
+                                       state         = ?STATE_RUNNING,
+                                       ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                                       ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                                       when_is       = leo_utils:now()}) of
+                ok ->
+                    case leo_redundant_manager_api:update_member_by_node(
+                           Node, leo_utils:clock(), ?STATE_RUNNING) of
                         ok ->
-                            case leo_redundant_manager_api:update_member_by_node(
-                                   Node, leo_utils:clock(), ?STATE_RUNNING) of
-                                ok ->
-                                    rebalance4(Members, Members, []);
-                                Error ->
-                                    Error
-                            end;
+                            rebalance3(?STATE_ATTACHED, Rest, Members);
                         Error ->
                             Error
                     end;
-                {error, {_Node, Cause}} ->
-                    {error, Cause};
-                {_, Cause} ->
-                    {error, Cause};
-                timeout = Cause ->
-                    {error, Cause}
+                Error ->
+                    Error
             end;
-        Error ->
-            Error
+        {error, {_Node, Cause}} ->
+            {error, Cause};
+        {_, Cause} ->
+            {error, Cause};
+        timeout = Cause ->
+            {error, Cause}
+            %% Error ->
+            %%     Error
     end;
 
-rebalance3(?STATE_DETACHED, Node) ->
+rebalance3(?STATE_DETACHED, Node, Members) ->
     _ = rpc:call(Node, leo_storage_api, stop, [], ?DEF_TIMEOUT),
-    case leo_redundant_manager_api:get_members() of
-        {ok, Members} ->
-            {ok, Ring} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
-            ok = leo_redundant_manager_api:update_member_by_node(Node, leo_utils:clock(), ?STATE_DETACHED),
-            _ = leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, Ring),
-            rebalance4(Members, Members, []);
-        Error ->
-            Error
-    end.
+    {ok, Ring} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
+    ok = leo_redundant_manager_api:update_member_by_node(Node, leo_utils:clock(), ?STATE_DETACHED),
+    _ = leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, Ring),
+    rebalance4(Members, Members, []).
+
 
 rebalance4(_Members, [], []) ->
     ok;
@@ -529,7 +514,6 @@ rebalance4(Members, [#member{node  = Node,
                                    (_, Acc) ->
                                         Acc
                                 end, null, Members),
-
     Errors1 =
         case rpc:call(Node, leo_redundant_manager_api, synchronize,
                       [ObjectOfRings, Ring], ?DEF_TIMEOUT) of
