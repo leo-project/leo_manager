@@ -326,6 +326,10 @@ get_remote_node_proc_fun(gateway, Node) ->
     end.
 
 
+%% @doc Returns true if exists a process, false otherwise
+%%
+-spec(is_exists_proc(list(), atom()) ->
+             boolean()).
 is_exists_proc(ProcList, Node) ->
     lists:foldl(fun({_K, {_, N,_,_}},_S) when Node == N ->
                         true;
@@ -333,6 +337,11 @@ is_exists_proc(ProcList, Node) ->
                         S
                 end, false, ProcList).
 
+
+%% @doc Retrieve a process by the node-alias
+%%
+-spec(find_by_node_alias(list(), atom()) ->
+             {pid(), reference()}).
 find_by_node_alias(ProcList, Node) ->
     lists:foldl(fun({ Pid, {_, N,_, MonitorRef}},_S) when Node == N ->
                         {Pid, MonitorRef};
@@ -340,6 +349,11 @@ find_by_node_alias(ProcList, Node) ->
                         S
                 end, undefined, ProcList).
 
+
+%% @doc Returns a process by the pid
+%%
+-spec(find_by_pid(list(), pid()) ->
+             tuple()).
 find_by_pid(ProcList, Pid0) ->
     lists:foldl(fun({Pid1, ProcInfo}, undefined) when Pid0 == Pid1 ->
                         ProcInfo;
@@ -347,6 +361,11 @@ find_by_pid(ProcList, Pid0) ->
                         Acc
                 end, undefined, ProcList).
 
+
+%% @doc Remove a process by the pid.
+%%
+-spec(delete_by_pid(list(), pid()) ->
+             list()).
 delete_by_pid(ProcList, Pid0) ->
     lists:foldl(fun({Pid1, _}, Acc) when Pid0 == Pid1 ->
                         Acc;
@@ -395,29 +414,6 @@ register_fun_1(storage, Node, not_found = State) ->
                     ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
                     {error, Cause}
             end;
-
-            %% case leo_manager_api:get_system_status() of
-            %%     ?STATE_RUNNING ->
-            %%         case leo_manager_api:attach(add, Node) of
-            %%             ok ->
-            %%                 ok;
-            %%             {error, Cause} ->
-            %%                 ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
-            %%         end;
-            %%     ?STATE_STOP ->
-            %%         case leo_manager_api:attach(new, Node) of
-            %%             ok ->
-            %%                 ok;
-            %%             {error, Cause} ->
-            %%                 ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
-            %%         end;
-            %%         %% case  leo_manager_mnesia:get_system_config() of
-            %%         %%     {ok, SystemConf} ->
-            %%         %%         leo_manager_api:attach(new, Node, SystemConf);
-            %%         %%     {error, Cause} ->
-            %%         %%         ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
-            %%         %% end
-            %% end;
         {error, Cause} ->
             ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
     end;
