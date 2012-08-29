@@ -283,13 +283,22 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
             [] ->
                 {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]),State};
             [Node|_] ->
-                case leo_manager_api:compact(Node) of
-                    {ok, _} ->
-                        {?OK, State};
-                    {error, Cause} ->
-                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+                case leo_manager_api:suspend(list_to_atom(Node)) of
+                    ok ->
+                        try
+                            case leo_manager_api:compact(Node) of
+                                {ok, _} ->
+                                    {?OK, State};
+                                {error, CompactionError} ->
+                                    {io_lib:format("[ERROR] ~s\r\n",[CompactionError]), State}
+                            end
+                        after
+                            leo_manager_api:resume(list_to_atom(Node))
+                        end;
+                    {error, SuspendError} ->
+                        {io_lib:format("[ERROR] ~s\r\n",[SuspendError]), State}
                 end
-        end,
+       end,
     {reply, Reply, NewState};
 
 

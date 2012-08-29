@@ -905,17 +905,27 @@ compact_0_({Node0, _, Sock}) ->
                              ok
                      end),
 
-    ok = meck:new(leo_object_storage_api),
-    ok = meck:expect(leo_object_storage_api, compact,
-                     fun() ->
+    ok = meck:new(leo_manager_api),
+    ok = meck:expect(leo_manager_api, compact,
+                     fun(_) ->
                              {error, disk_error}
                      end),
+    ok = meck:expect(leo_manager_api, suspend, 
+                     fun(_) ->
+                             ok
+                     end),
+    ok = meck:expect(leo_manager_api, resume,
+                     fun(_) ->
+                             ok
+                     end),
+
+
 
     Command = "compact " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
     timer:sleep(100),
 
-    ?assertNotEqual([], meck:history(leo_object_storage_api)),
+    ?assertEqual(3, length(meck:history(leo_manager_api))),
     catch gen_tcp:close(Sock),
     ok.
 
@@ -926,17 +936,25 @@ compact_1_({Node0, _, Sock}) ->
                              ok
                      end),
 
-    ok = meck:new(leo_object_storage_api),
-    ok = meck:expect(leo_object_storage_api, compact,
-                     fun() ->
-                             []
+    ok = meck:new(leo_manager_api),
+    ok = meck:expect(leo_manager_api, compact,
+                     fun(_) ->
+                             {ok, []}
+                     end),
+    ok = meck:expect(leo_manager_api, suspend, 
+                     fun(_) ->
+                             ok
+                     end),
+    ok = meck:expect(leo_manager_api, resume,
+                     fun(_) ->
+                             ok
                      end),
 
     Command = "compact " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
     timer:sleep(100),
 
-    ?assertNotEqual([], meck:history(leo_object_storage_api)),
+    ?assertEqual(3, length(meck:history(leo_manager_api))),
     catch gen_tcp:close(Sock),
     ok.
 
