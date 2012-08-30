@@ -32,14 +32,12 @@
 -define(MAX_TIME,                60).
 
 -ifdef(TEST).
--define(DEF_TIMEOUT,           1000).
--define(DEF_MONITOR_INTERVAL,  5000).
+-define(DEF_TIMEOUT,           1000). %% 1sec
+-define(DEF_MONITOR_INTERVAL,  3000). %% 3sec
 -else.
--define(DEF_TIMEOUT,           3000).
--define(DEF_MONITOR_INTERVAL, 20000).
+-define(DEF_TIMEOUT,          30000). %% 30sec
+-define(DEF_MONITOR_INTERVAL, 20000). %% 20sec
 -endif.
-
--define(LONG_OP_TIMEOUT,           600000).
 
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
 
@@ -67,6 +65,13 @@
 -define(START,                "start").
 -define(REBALANCE,            "rebalance").
 -define(COMPACT,              "compact").
+
+-define(S3_GEN_KEY,           "s3-gen-key").
+-define(S3_SET_ENDPOINT,      "s3-set-endpoint").
+-define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").
+-define(S3_GET_ENDPOINTS,     "s3-get-endpoints").
+-define(S3_GET_BUCKETS,       "s3-get-buckets").
+
 -define(STORAGE_STATS,        "du").
 -define(WHEREIS,              "whereis").
 -define(HISTORY,              "history").
@@ -90,19 +95,6 @@
           total_of_objects = 0   :: integer(),
           num_of_remains   = 0   :: integer(),
           when_is          = 0   :: integer() %% Posted at
-         }).
-
--record(credential, {
-          access_key_id = []     :: string(), %% Access Key ID
-          secret_access_key = [] :: string(), %% SHA-1(Secret Access Key)
-          created = -1           :: integer() %% Created at
-         }).
-
--record(bucket, {
-          name = []              :: string(), %% Bucket name
-          access_key_id = []     :: string(), %% Access Key ID
-          permission = []        :: string(), %% Permission
-          created = -1           :: integer() %% Created
          }).
 
 -record(history, {

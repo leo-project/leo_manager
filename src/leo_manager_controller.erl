@@ -1,8 +1,8 @@
 %%======================================================================
 %%
-%% LeoFS Manager - Next Generation Distributed File System.
+%% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,7 +26,6 @@
 -module(leo_manager_controller).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
@@ -42,6 +41,8 @@
 -define(ERROR_COULD_NOT_ATTACH_NODE, "could not attach a node").
 -define(ERROR_COULD_NOT_DETACH_NODE, "could not detach a node").
 -define(ERROR_COMMAND_NOT_FOUND,     "command not exist").
+-define(ERROR_NO_NODE_SPECIFIED,     "no node specified").
+-define(ERROR_NO_PATH_SPECIFIED,     "no path specified").
 
 
 %%----------------------------------------------------------------------
@@ -64,22 +65,36 @@ init(_Args) ->
 %% Operation-1
 %%----------------------------------------------------------------------
 handle_call(_Socket, <<?HELP>>, State) ->
-    Commands =
-        io_lib:format(" 1. ~s\r\n",["version"])
-        ++ io_lib:format(" 2. ~s\r\n",["status"])
-        ++ io_lib:format(" 3. ~s\r\n",["attach ${NODE}"])
-        ++ io_lib:format(" 4. ~s\r\n",["detach ${NODE}"])
-        ++ io_lib:format(" 5. ~s\r\n",["suspend ${NODE}"])
-        ++ io_lib:format(" 6. ~s\r\n",["resume ${NODE}"])
-        ++ io_lib:format(" 7. ~s\r\n",["start"])
-        ++ io_lib:format(" 8. ~s\r\n",["rebalance"])
-        ++ io_lib:format(" 9. ~s\r\n",["du ${NODE}"])
-        ++ io_lib:format("10. ~s\r\n",["compact ${NODE}"])
-        ++ io_lib:format("11. ~s\r\n",["whereis ${PATH}"])
-        ++ io_lib:format("12. ~s\r\n",["purge ${PATH}"])
-        ++ io_lib:format("13. ~s\r\n",["history"])
-        ++ io_lib:format("14. ~s\r\n",["quit"])
+    Commands = []
+        ++ io_lib:format("[Cluster]\r\n", [])
+        ++ io_lib:format("~s\r\n",["detach ${NODE}"])
+        ++ io_lib:format("~s\r\n",["suspend ${NODE}"])
+        ++ io_lib:format("~s\r\n",["resume ${NODE}"])
+        ++ io_lib:format("~s\r\n",["start"])
+        ++ io_lib:format("~s\r\n",["rebalance"])
+        ++ io_lib:format("~s\r\n",["whereis ${PATH}"])
+        ++ ?CRLF
+        ++ io_lib:format("[Storage]\r\n", [])
+        ++ io_lib:format("~s\r\n",["du ${NODE}"])
+        ++ io_lib:format("~s\r\n",["compact ${NODE}"])
+        ++ ?CRLF
+        ++ io_lib:format("[Gateway]\r\n", [])
+        ++ io_lib:format("~s\r\n",["purge ${PATH}"])
+        ++ ?CRLF
+        ++ io_lib:format("[S3]\r\n", [])
+        ++ io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"])
+        ++ io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"])
+        ++ io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"])
+        ++ io_lib:format("~s\r\n",["s3-get-endpoints"])
+        ++ io_lib:format("~s\r\n",["s3-get-buckets"])
+        ++ ?CRLF
+        ++ io_lib:format("[Misc]\r\n", [])
+        ++ io_lib:format("~s\r\n",["version"])
+        ++ io_lib:format("~s\r\n",["status"])
+        ++ io_lib:format("~s\r\n",["history"])
+        ++ io_lib:format("~s\r\n",["quit"])
         ++ ?CRLF,
+
     {reply, Commands, State};
 
 
@@ -112,73 +127,38 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
-handle_call(_Socket, <<?ATTACH_SERVER, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-    {ok, SystemConf}  = leo_manager_mnesia:get_system_config(),
-
-    Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
-                [NodeStr|_] ->
-                    Node = list_to_atom(NodeStr),
-                    Ret  = case leo_manager_mnesia:get_storage_node_by_name(Node) of
-                               {ok, [#node_state{state = NodeState}|_]} ->
-                                   Exist       = leo_redundant_manager_api:has_member(Node),
-                                   SystemState = leo_manager_api:get_system_status(),
-
-                                   case NodeState of
-                                       ?STATE_IDLING when Exist       == true,
-                                                          SystemState == ?STATE_RUNNING ->
-                                           leo_manager_api:resume(Node);
-                                       ?STATE_IDLING when SystemState == ?STATE_RUNNING ->
-                                           leo_manager_api:attach(add, Node);
-                                       ?STATE_IDLING when SystemState == ?STATE_STOP ->
-                                           leo_manager_api:attach(new, Node, SystemConf);
-                                       ?STATE_SUSPEND   = Cause -> {error, Cause};
-                                       ?STATE_DETACHED  = Cause -> {error, Cause};
-                                       ?STATE_STOP      = Cause -> {error, Cause};
-                                       ?STATE_RESTARTED = Cause -> {error, Cause};
-                                       _ ->
-                                           {error, 'already attached/running'}
-                                   end;
-                               _ ->
-                                   {error, not_found}
-                           end,
-
-                    case Ret of
-                        ok ->
-                            ?OK;
-                        not_found = Reason ->
-                            io_lib:format("[ERROR] ~w - cause:~p\r\n", [Node, Reason]);
-                        {error, Reason} ->
-                            io_lib:format("[ERROR] ~w - cause:~p\r\n", [Node, Reason])
-                    end
-            end,
-    {reply, Reply, State};
-
-
 handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
 
-    Reply = case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-                {ok, Nodes} when length(Nodes) > SystemConf#system_conf.n ->
-                    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                        [] ->
-                            io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
-                        [Node|_] ->
-                            case leo_manager_api:detach(list_to_atom(Node)) of
-                                ok ->
-                                    ?OK;
-                                {error, _} ->
-                                    io_lib:format("[ERROR] ~s - ~s\r\n", [?ERROR_COULD_NOT_DETACH_NODE, Node])
-                            end
-                    end;
-                {ok, Nodes} when length(Nodes) =< SystemConf#system_conf.n ->
-                    io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
-                _Error ->
-                    io_lib:format("[ERROR] ~s\r\n",["Could not get node-status"])
-            end,
+    Reply =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
+            [Node|_] ->
+                NodeAtom = list_to_atom(Node),
+
+                case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                    {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
+                        ok = leo_manager_mnesia:delete_storage_node(NodeState),
+                        ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
+                        ?OK;
+                    _ ->
+                        case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
+                            {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
+                                case leo_manager_api:detach(NodeAtom) of
+                                    ok ->
+                                        ?OK;
+                                    {error, _} ->
+                                        io_lib:format("[ERROR] ~s - ~s\r\n", [?ERROR_COULD_NOT_DETACH_NODE, Node])
+                                end;
+                            {ok, Nodes} when length(Nodes) =< SystemConf#system_conf.n ->
+                                io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
+                            _Error ->
+                                io_lib:format("[ERROR] ~s\r\n",["Could not get node-status"])
+                        end
+                end
+        end,
     {reply, Reply, State};
 
 
@@ -187,7 +167,7 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
 
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
                 [Node|_] ->
                     case leo_manager_api:suspend(list_to_atom(Node)) of
                         ok ->
@@ -204,7 +184,7 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
 
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
                 [Node|_] ->
                     case leo_manager_api:resume(list_to_atom(Node)) of
                         ok ->
@@ -272,7 +252,7 @@ handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
     {Reply, NewState} =
         case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
             [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]), State};
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]), State};
             Tokens ->
                 Res = case length(Tokens) of
                           1 -> {summary, lists:nth(1, Tokens)};
@@ -301,14 +281,107 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
     {Reply, NewState} =
         case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
             [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]),State};
             [Node|_] ->
-                case leo_manager_api:compact(Node) of
-                    {ok, _} ->
+                case leo_manager_api:suspend(list_to_atom(Node)) of
+                    ok ->
+                        try
+                            case leo_manager_api:compact(Node) of
+                                {ok, _} ->
+                                    {?OK, State};
+                                {error, CompactionError} ->
+                                    {io_lib:format("[ERROR] ~s\r\n",[CompactionError]), State}
+                            end
+                        after
+                            leo_manager_api:resume(list_to_atom(Node))
+                        end;
+                    {error, SuspendError} ->
+                        {io_lib:format("[ERROR] ~s\r\n",[SuspendError]), State}
+                end
+       end,
+    {reply, Reply, NewState};
+
+
+handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                {io_lib:format("[ERROR] ~s\r\n",["no user specified"]),State};
+            [UserId|_] ->
+                case leo_s3_auth:gen_key(UserId) of
+                    {ok, Keys} ->
+                        AccessKeyId     = proplists:get_value(access_key_id,     Keys),
+                        SecretAccessKey = proplists:get_value(secret_access_key, Keys),
+                        {io_lib:format("access-key-id: ~s\r\n"
+                                       ++ "secret-access-key: ~s\r\n\r\n",
+                                       [AccessKeyId, SecretAccessKey]), State};
+                    {error, Cause} ->
+                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+                end
+        end,
+    {reply, Reply, NewState};
+
+handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+            [EndPoint|_] ->
+                case leo_s3_endpoint:set_endpoint(EndPoint) of
+                    ok ->
                         {?OK, State};
                     {error, Cause} ->
                         {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
                 end
+        end,
+    {reply, Reply, NewState};
+
+handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+            [] ->
+                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
+            [EndPoint|_] ->
+                case leo_s3_endpoint:delete_endpoint(EndPoint) of
+                    ok ->
+                        {?OK, State};
+                    {error, Cause} ->
+                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+                end
+        end,
+    {reply, Reply, NewState};
+
+handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case leo_s3_endpoint:get_endpoints() of
+            {ok, EndPoints} ->
+                {format_endpoint_list(EndPoints), State};
+            not_found ->
+                {io_lib:format("not found\r\n", []), State};
+            {error, Cause} ->
+                {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
+        end,
+    {reply, Reply, NewState};
+
+handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+
+    {Reply, NewState} =
+        case leo_s3_bucket:find_all_including_owner() of
+            {ok, Buckets} ->
+                {format_bucket_list(Buckets), State};
+            not_found ->
+                {io_lib:format("not found\r\n", []), State};
+            {error, Cause} ->
+                {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
         end,
     {reply, Reply, NewState};
 
@@ -318,7 +391,7 @@ handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
 
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_PATH_SPECIFIED]);
                 Key ->
                     HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
 
@@ -337,7 +410,7 @@ handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
                 [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]);
+                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_PATH_SPECIFIED]);
                 [Key|_] ->
                     case catch leo_manager_api:purge(Key) of
                         ok ->
@@ -437,23 +510,15 @@ format_cluster_node_list(SystemConf) ->
 
 
 format_cluster_node_state(State) ->
-    {_, ObjContainerDirs} =
-        lists:foldl(fun({{_,Dir}, {_,Num}}, {Row, N}) ->
-                            Val = string:right(integer_to_list(Num), 3) ++ ", " ++ Dir ++ "\r\n",
-                            case Row of
-                                1 -> {Row + 1, N ++                             Val};
-                                _ -> {Row + 1, N ++ "                      " ++ Val}
-                            end
-                    end, {1, ""}, State#cluster_node_status.avs),
-    Directories = State#cluster_node_status.dirs,
-    RingHashes  = State#cluster_node_status.ring_checksum,
-    Statistics  = State#cluster_node_status.statistics,
+    ObjContainer = State#cluster_node_status.avs,
+    Directories  = State#cluster_node_status.dirs,
+    RingHashes   = State#cluster_node_status.ring_checksum,
+    Statistics   = State#cluster_node_status.statistics,
 
     io_lib:format("[config]\r\n" ++
                       "            version : ~s\r\n" ++
-                      "  obj-container-dir : ~s"     ++
+                      "      obj-container : ~p\r\n" ++
                       "            log-dir : ~s\r\n" ++
-                      "         mnesia-dir : ~s\r\n" ++
                       "  ring state (cur)  : ~w\r\n" ++
                       "  ring state (prev) : ~w\r\n" ++
                       "\r\n[erlang-vm status]\r\n"   ++
@@ -463,9 +528,8 @@ format_cluster_node_state(State) ->
                       "      ets mem usage : ~w\r\n" ++
                       "    # of procs      : ~w\r\n\r\n",
                   [State#cluster_node_status.version,
-                   ObjContainerDirs,
+                   ObjContainer,
                    proplists:get_value('log',              Directories, []),
-                   proplists:get_value('mnesia',           Directories, []),
                    proplists:get_value('ring_cur',         RingHashes,  []),
                    proplists:get_value('ring_prev',        RingHashes,  []),
                    proplists:get_value('total_mem_usage',  Statistics, 0),
@@ -596,6 +660,26 @@ format_history_list(Histories) ->
     lists:foldl(Fun, "[Histories]\r\n", Histories).
 
 
+format_endpoint_list(EndPoints) ->
+    Fun = fun({endpoint, EP, Created}, Acc) ->
+                  Acc ++ io_lib:format("~s | ~s\r\n",
+                                       [leo_utils:date_format(Created), EP])
+          end,
+    lists:foldl(Fun, "[EndPoints]\r\n", EndPoints).
+
+
+format_bucket_list(Buckets) ->
+    Header = lists:append(["[Buckets]\r\n",
+                           " created at                | bucket (owner)\r\n",
+                           "---------------------------+",
+                           "----------------------------------------------------------------\r\n"
+                          ]),
+    Fun = fun({Bucket, Owner, Created}, Acc) ->
+                  Acc ++ io_lib:format(" ~s | ~s (~s)\r\n",
+                                       [leo_utils:date_format(Created), Bucket, Owner])
+          end,
+    lists:foldl(Fun, Header, Buckets).
+
 
 %% @doc Retrieve data-size w/unit.
 %% @private
@@ -607,5 +691,4 @@ dsize(Size) when Size =< ?FILE_KB -> integer_to_list(Size) ++ "B";
 dsize(Size) when Size  > ?FILE_KB -> integer_to_list(erlang:round(Size / ?FILE_KB)) ++ "K";
 dsize(Size) when Size  > ?FILE_MB -> integer_to_list(erlang:round(Size / ?FILE_MB)) ++ "M";
 dsize(Size) when Size  > ?FILE_GB -> integer_to_list(erlang:round(Size / ?FILE_GB)) ++ "G".
-
 

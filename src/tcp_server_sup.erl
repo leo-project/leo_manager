@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -26,7 +26,6 @@
 -module(tcp_server_sup).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -behaviour(supervisor).
 
@@ -90,7 +89,7 @@ init_result(Socket, State, {Locale, Name}, Module, Option) ->
 gen_tcp_acceptor_specs(Socket, State, {Locale,_Name}, MonitorName, Module, Option) ->
     NewMonitorName = case Locale of
                          local -> MonitorName;
-                             _ -> {Locale, MonitorName}
+                         _ -> {Locale, MonitorName}
                      end,
     Ret = lists:map(
             fun (Id) ->

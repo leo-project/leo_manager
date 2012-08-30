@@ -1,8 +1,8 @@
 %%======================================================================
 %%
-%% LeoFS Manager
+%% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -19,14 +19,13 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager - Mnesia.
+%% Leo Manager - Mnesia.
 %% @doc
 %% @end
 %%======================================================================
 -module(leo_manager_mnesia).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
@@ -39,8 +38,6 @@
          create_gateway_nodes/2,
          create_system_config/2,
          create_rebalance_info/2,
-         create_credentials/2,
-         create_buckets/2,
          create_histories/2,
 
          get_storage_nodes_all/0,
@@ -51,11 +48,6 @@
          get_system_config/0,
          get_rebalance_info_all/0,
          get_rebalance_info_by_node/1,
-         get_credentials_all/0,
-         get_credential_by_access_key/1,
-         get_buckets_all/0,
-         get_bucket_by_access_key/1,
-         get_bucket_by_name/1,
          get_histories_all/0,
 
          update_storage_node_status/1,
@@ -63,14 +55,9 @@
          update_gateway_node/1,
          update_system_config/1,
          update_rebalance_info/1,
-         update_credential/1,
-         update_bucket/1,
          insert_history/1,
 
-         delete_storage_node_by_name/1,
-         delete_credential_by_access_key/1,
-         delete_bucket_by_name/1
-         %% delete_history/1
+         delete_storage_node/1
         ]).
 
 
@@ -160,39 +147,6 @@ create_rebalance_info(Mode, Nodes) ->
          {total_of_objects, {integer,   undefined},  false, undefined, undefined, undefined, integer},
          {num_of_remains,   {integer,   undefined},  false, undifined, undefined, undefined, integer},
          {when_is,          {integer,   undefined},  false, undifined, undefined, undefined, integer}
-        ]}
-      ]).
-
-%% @doc Create a table of credential
-%%
--spec(create_credentials(atom(), list()) ->
-             ok).
-create_credentials(Mode, Nodes) ->
-    mnesia:create_table(
-      credentials,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, credential},
-       {attributes, record_info(fields, credential)},
-       {user_properties,
-        [{access_key_id,    {varchar,   undefined},  false, primary,   undefined, identity,  string },
-         {secret_access_key,{varchar,   undefined},  false, undefined, undefined, undefined, string },
-         {created,          {integer,   undefined},  false, undifined, undefined, undefined, integer}
-        ]}
-      ]).
-
-
-create_buckets(Mode, Nodes) ->
-    mnesia:create_table(
-      buckets,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, bucket},
-       {attributes, record_info(fields, bucket)},
-       {user_properties,
-        [{name,             {varchar,   undefined},  false, primary,   undefined, identity,  string },
-         {access_key_id,    {varchar,   undefined},  false, undefined, undefined, undefined, string },
-         {created,          {integer,   undefined},  false, undifined, undefined, undefined, integer}
         ]}
       ]).
 
@@ -348,92 +302,6 @@ get_rebalance_info_by_node(Node) ->
     leo_mnesia_utils:read(F).
 
 
-%% @doc Retrieve credentials
-%%
--spec(get_credentials_all() ->
-             {ok, list()} | not_found | {error, any()}).
-get_credentials_all() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(credentials)]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-
-    Ret = mnesia:transaction(F),
-    case Ret of
-        {error, Why} ->
-            {error, Why};
-        {atomic, []} ->
-            not_found;
-        {atomic, Records} ->
-            {ok, Records}
-    end.
-
-
-%% @doc Retrieve credential by access-key
-%%
--spec(get_credential_by_access_key(string()) ->
-             {ok, list()} | not_found | {error, any()}).
-get_credential_by_access_key(AccessKey) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(credentials),
-                                 X#credential.access_key_id =:= AccessKey]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia_utils:read(F).
-
-
-%% @doc Retrieve all buckets
-%%
--spec(get_buckets_all() ->
-             {ok, list()} | not_found | {error, any()}).
-get_buckets_all() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(buckets)]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-
-    Ret = mnesia:transaction(F),
-    case Ret of
-        {error, Why} ->
-            {error, Why};
-        {atomic, []} ->
-            not_found;
-        {atomic, Records} ->
-            {ok, Records}
-    end.
-
-
-%% @doc Retrieve all buckets
-%%
--spec(get_bucket_by_access_key(string()) ->
-             {ok, list()} | not_found | {error, any()}).
-get_bucket_by_access_key(AccessKey) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(buckets),
-                                 X#bucket.access_key_id =:= AccessKey]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia_utils:read(F).
-
-
-%% @doc Retrieve all buckets
-%%
--spec(get_bucket_by_name(string()) ->
-             {ok, list()} | not_found | {error, any()}).
-get_bucket_by_name(BucketName) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(buckets),
-                                 X#bucket.name =:= BucketName]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia_utils:read(F).
-
-
 %% @doc get all histories
 %%
 -spec(get_histories_all() ->
@@ -559,24 +427,6 @@ update_rebalance_info(RebalanceInfo) ->
     leo_mnesia_utils:write(F).
 
 
-%% @doc Modify credential-info
-%%
--spec(update_credential(#credential{}) ->
-             ok | {error, any()}).
-update_credential(Credential) ->
-    F = fun()-> mnesia:write(credentials, Credential, write) end,
-    leo_mnesia_utils:write(F).
-
-
-%% @doc Modify bucket-info
-%%
--spec(update_bucket(#bucket{}) ->
-             ok | {error, any()}).
-update_bucket(Bucket) ->
-    F = fun()-> mnesia:write(buckets, Bucket, write) end,
-    leo_mnesia_utils:write(F).
-
-
 %% @doc Modify bucket-info
 %%
 -spec(insert_history(binary()) ->
@@ -604,41 +454,11 @@ insert_history(Command) ->
 %% DELETE
 %%-----------------------------------------------------------------------
 %% @doc Remove storage-node by name
--spec(delete_storage_node_by_name(atom()) ->
+-spec(delete_storage_node(atom()) ->
              ok | {error, any()}).
-delete_storage_node_by_name(Node) ->
+delete_storage_node(Node) ->
     F = fun() ->
                 mnesia:delete_object(storage_nodes, Node, write)
         end,
     leo_mnesia_utils:delete(F).
-
-
-%% @doc  Remove credential-info by access-key-id
--spec(delete_credential_by_access_key(string()) ->
-             ok | not_found | {error, any()}).
-delete_credential_by_access_key(AccessKey) ->
-    case get_credential_by_access_key(AccessKey) of
-        {ok, [Credential|_]} ->
-            F = fun() ->
-                        mnesia:delete_object(credentials, Credential, write)
-                end,
-            leo_mnesia_utils:delete(F);
-        Error ->
-            Error
-    end.
-
-
-%% @doc Remove bucket-info by bucket's name
--spec(delete_bucket_by_name(string()) ->
-             ok | not_found | {error, any()}).
-delete_bucket_by_name(Name) ->
-    case get_bucket_by_name(Name) of
-        {ok, [Bucket|_]} ->
-            F = fun() ->
-                        mnesia:delete_object(buckets, Bucket, write)
-                end,
-            leo_mnesia_utils:delete(F);
-        Error ->
-            Error
-    end.
 

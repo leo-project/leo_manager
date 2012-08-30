@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -16,7 +16,7 @@
 %% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 %% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
-%% under the License.    
+%% under the License.
 %%
 %% ---------------------------------------------------------------------
 %% TCP Server  - Acceptor.
@@ -24,7 +24,6 @@
 -module(tcp_server_acceptor).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 %% External API
 -export([start_link/6]).
@@ -44,7 +43,7 @@ start_link({Locale, Name}, Socket, State, MonitorName, Module, Option) ->
 
     case Locale of
         local -> register(Name, Pid);
-            _ -> global:register_name(Name, Pid)
+        _ -> global:register_name(Name, Pid)
     end,
     {ok, Pid}.
 
@@ -57,7 +56,7 @@ init(Parent, Socket, State, MonitorName, Module, Option) ->
 
 
 accept(ListenSocket, State, MonitorName, Module, Option) ->
-    case gen_tcp:accept(ListenSocket, Option#tcp_server_params.accept_timeout) of 
+    case gen_tcp:accept(ListenSocket, Option#tcp_server_params.accept_timeout) of
         {ok, Socket} ->
             try
                 recv(proplists:get_value(
@@ -116,6 +115,6 @@ call(Active, Socket, Data, State, Module, Option) ->
             gen_tcp:send(Socket, DataToSend);
         Other ->
             %% TODO LOG
-            io:format("~p~n", [Other])            
+            io:format("~p~n", [Other])
     end.
 

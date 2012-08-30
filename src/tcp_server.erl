@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -16,7 +16,7 @@
 %% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 %% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
-%% under the License.    
+%% under the License.
 %%
 %% ---------------------------------------------------------------------
 %% TCP Server
@@ -24,7 +24,6 @@
 -module(tcp_server).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -export([behaviour_info/1]).
 -export([start_link/3, stop/0]).

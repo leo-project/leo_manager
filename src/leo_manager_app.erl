@@ -1,6 +1,6 @@
 %%======================================================================
 %%
-%% LeoFS Manager - Next Generation Distributed File System.
+%% Leo Manager
 %%
 %% Copyright (c) 2012
 %%
@@ -16,17 +16,16 @@
 %% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 %% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
-%% under the License.    
+%% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager - Application.
+%% Leo Manager - Application
 %% @doc
 %% @end
 %%======================================================================
 -module(leo_manager_app).
 
 -author('Yosuke Hara').
--vsn('0.9.1').
 
 -behaviour(application).
 
@@ -40,4 +39,4 @@ start(_Type, _Args) ->
     leo_manager_sup:start_link().
 
 stop(_State) ->
-  ok.
+    ok.
