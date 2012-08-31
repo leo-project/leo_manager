@@ -173,14 +173,14 @@ get_cluster_nodes(Node) ->
 -spec(attach(atom()) ->
              ok | {error, any()}).
 attach(Node) ->
-    case leo_utils:node_existence(Node) of
+    case leo_misc:node_existence(Node) of
         true ->
             case leo_redundant_manager_api:attach(Node) of
                 ok ->
                     leo_manager_mnesia:update_storage_node_status(
                       #node_state{node    = Node,
                                   state   = ?STATE_ATTACHED,
-                                  when_is = leo_utils:now()});
+                                  when_is = leo_date:now()});
                 Error ->
                     Error
             end;
@@ -194,13 +194,13 @@ attach(Node) ->
 -spec(suspend(string()) ->
              ok | {error, any()}).
 suspend(Node) ->
-    case leo_utils:node_existence(Node) of
+    case leo_misc:node_existence(Node) of
         true ->
             case leo_manager_mnesia:update_storage_node_status(
                    update_state, #node_state{node  = Node,
                                              state = ?STATE_SUSPEND}) of
                 ok ->
-                    Res = leo_redundant_manager_api:suspend(Node, leo_utils:clock()),
+                    Res = leo_redundant_manager_api:suspend(Node, leo_date:clock()),
                     distribute_members(Res, []);
                 Error ->
                     Error
@@ -224,7 +224,7 @@ detach(Node) ->
                             Res = leo_manager_mnesia:update_storage_node_status(
                                     #node_state{node    = Node,
                                                 state   = ?STATE_DETACHED,
-                                                when_is = leo_utils:now()}),
+                                                when_is = leo_date:now()}),
                             distribute_members(Res, Node);
                         Error ->
                             Error
@@ -244,7 +244,7 @@ detach(Node) ->
 -spec(resume(atom()) ->
              ok | {error, any()}).
 resume(Node) ->
-    Res = leo_utils:node_existence(Node),
+    Res = leo_misc:node_existence(Node),
     resume(is_alive, Res, Node).
 
 -spec(resume(is_alive | is_state | sync | distribute | last, any(), atom()) ->
@@ -258,7 +258,7 @@ resume(is_alive, true,  Node) ->
 
 resume(is_state, {ok, [#node_state{state = State}|_]}, Node) when State == ?STATE_SUSPEND;
                                                                   State == ?STATE_RESTARTED ->
-    Res = leo_redundant_manager_api:update_member_by_node(Node, leo_utils:clock(), ?STATE_RUNNING),
+    Res = leo_redundant_manager_api:update_member_by_node(Node, leo_date:clock(), ?STATE_RUNNING),
     resume(sync, Res, Node);
 resume(is_state, {ok, [#node_state{state = State}|_]},_Node) ->
     {error, atom_to_list(State)};
@@ -368,7 +368,7 @@ start() ->
                                                     state         = ?STATE_RUNNING,
                                                     ring_hash_new = leo_hex:integer_to_hex(RingHash0),
                                                     ring_hash_old = leo_hex:integer_to_hex(RingHash1),
-                                                    when_is       = leo_utils:now()})
+                                                    when_is       = leo_date:now()})
                       end, ResL1),
                     {ResL1, BadNodes0 ++ BadNodes1}
             end;
@@ -468,10 +468,10 @@ rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
                                        state         = ?STATE_RUNNING,
                                        ring_hash_new = leo_hex:integer_to_hex(RingHash0),
                                        ring_hash_old = leo_hex:integer_to_hex(RingHash1),
-                                       when_is       = leo_utils:now()}) of
+                                       when_is       = leo_date:now()}) of
                 ok ->
                     case leo_redundant_manager_api:update_member_by_node(
-                           Node, leo_utils:clock(), ?STATE_RUNNING) of
+                           Node, leo_date:clock(), ?STATE_RUNNING) of
                         ok ->
                             rebalance3(?STATE_ATTACHED, Rest, Members);
                         Error ->
@@ -493,7 +493,7 @@ rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
 rebalance3(?STATE_DETACHED, Node, Members) ->
     _ = rpc:call(Node, leo_storage_api, stop, [], ?DEF_TIMEOUT),
     {ok, Ring} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
-    ok = leo_redundant_manager_api:update_member_by_node(Node, leo_utils:clock(), ?STATE_DETACHED),
+    ok = leo_redundant_manager_api:update_member_by_node(Node, leo_date:clock(), ?STATE_DETACHED),
     _ = leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, Ring),
     rebalance4(Members, Members, []).
 
@@ -602,7 +602,7 @@ notify(rebalance, VNodeId, Node, TotalOfObjects) ->
     leo_manager_mnesia:update_rebalance_info(#rebalance_info{vnode_id = VNodeId,
                                                              node     = Node,
                                                              total_of_objects = TotalOfObjects,
-                                                             when_is  = leo_utils:now()});
+                                                             when_is  = leo_date:now()});
 notify(launched, gateway, Node, Checksums0) ->
     case get_routing_table_chksum() of
         {ok, Checksums1} when Checksums0 == Checksums1 ->
@@ -611,7 +611,7 @@ notify(launched, gateway, Node, Checksums0) ->
                                                                state         = ?STATE_RUNNING,
                                                                ring_hash_new = leo_hex:integer_to_hex(RingHash0),
                                                                ring_hash_old = leo_hex:integer_to_hex(RingHash1),
-                                                               when_is       = leo_utils:now()});
+                                                               when_is       = leo_date:now()});
         {ok, _} ->
             {error, ?ERR_TYPE_INCONSISTENT_HASH};
         Error ->
@@ -629,7 +629,7 @@ notify1(error, Node, NumOfErrors, Thresholds) when NumOfErrors >= Thresholds ->
            update_state, #node_state{node  = Node,
                                      state = State}) of
         ok ->
-            Clock = leo_utils:clock(),
+            Clock = leo_date:clock(),
             case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
                 ok ->
                     notify2(error, Node, Clock, State);
@@ -713,7 +713,7 @@ compact(Node) when is_list(Node) ->
     compact(list_to_atom(Node));
 
 compact(Node) ->
-    case leo_utils:node_existence(Node) of
+    case leo_misc:node_existence(Node) of
         true ->
             case rpc:call(Node, leo_object_storage_api, compact, [], infinity) of
                 Result when is_list(Result) ->
@@ -737,7 +737,7 @@ stats(Mode, Node) when is_list(Node) ->
     stats(Mode, list_to_atom(Node));
 
 stats(Mode, Node) ->
-    case leo_utils:node_existence(Node) of
+    case leo_misc:node_existence(Node) of
         true ->
             case rpc:call(Node, leo_object_storage_api, stats, [], infinity) of
                 not_found = Cause ->

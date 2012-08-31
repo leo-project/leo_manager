@@ -203,7 +203,7 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                   {mnesia, credentials}, {[], #credential{access_key_id     = "05236",
                                                           secret_access_key = "802562235",
                                                           user_id           = "__leofs__",
-                                                          created_at        = leo_utils:clock()}}),
+                                                          created_at        = leo_date:clock()}}),
                 leo_s3_endpoint:set_endpoint("localhost"),
                 leo_s3_endpoint:set_endpoint("leofs.org"),
                 leo_s3_endpoint:set_endpoint("s3.amazonaws.com"),

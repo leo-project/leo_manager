@@ -560,7 +560,7 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
 
     Fun2 = fun(N, List) ->
                    {Alias, State, RingHash0, RingHash1, When} = N,
-                   FormattedDate = leo_utils:date_format(When),
+                   FormattedDate = leo_date:date_format(When),
 
                    Ret = " " ++ string:left(Alias,         lists:nth(1,LenPerCol), $ )
                        ++ string:left(State,         lists:nth(2,LenPerCol), $ )
@@ -600,7 +600,7 @@ format_where_is(AssignedInfo) ->
                                      ++ ?CRLF;
 
                              {Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag} ->
-                                 FormattedDate = leo_utils:date_format(Timestamp),
+                                 FormattedDate = leo_date:date_format(Timestamp),
                                  DelStr = case DelFlag of
                                               0 -> " ";
                                               _ -> "*"
@@ -655,7 +655,7 @@ format_history_list(Histories) ->
                        command = Command,
                        created = Created}, Acc) ->
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
-                                       [string:left(integer_to_list(Id), 4), leo_utils:date_format(Created), Command])
+                                       [string:left(integer_to_list(Id), 4), leo_date:date_format(Created), Command])
           end,
     lists:foldl(Fun, "[Histories]\r\n", Histories).
 
@@ -663,7 +663,7 @@ format_history_list(Histories) ->
 format_endpoint_list(EndPoints) ->
     Fun = fun({endpoint, EP, Created}, Acc) ->
                   Acc ++ io_lib:format("~s | ~s\r\n",
-                                       [leo_utils:date_format(Created), EP])
+                                       [leo_date:date_format(Created), EP])
           end,
     lists:foldl(Fun, "[EndPoints]\r\n", EndPoints).
 
@@ -676,7 +676,7 @@ format_bucket_list(Buckets) ->
                           ]),
     Fun = fun({Bucket, Owner, Created}, Acc) ->
                   Acc ++ io_lib:format(" ~s | ~s (~s)\r\n",
-                                       [leo_utils:date_format(Created), Bucket, Owner])
+                                       [leo_date:date_format(Created), Bucket, Owner])
           end,
     lists:foldl(Fun, Header, Buckets).
 

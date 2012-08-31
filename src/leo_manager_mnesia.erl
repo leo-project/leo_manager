@@ -200,7 +200,7 @@ get_storage_node_by_name(Node) ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-    leo_mnesia_utils:read(F).
+    leo_mnesia:read(F).
 
 
 %% @doc Retrieve storage nodes by status
@@ -214,7 +214,7 @@ get_storage_nodes_by_status(Status) ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-    leo_mnesia_utils:read(F).
+    leo_mnesia:read(F).
 
 
 %% @doc Retrieve all gateway nodes
@@ -250,7 +250,7 @@ get_gateway_node_by_name(Node) ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-    leo_mnesia_utils:read(F).
+    leo_mnesia:read(F).
 
 
 %% @doc Retrieve system configuration
@@ -285,7 +285,7 @@ get_rebalance_info_all() ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-    leo_mnesia_utils:read(F).
+    leo_mnesia:read(F).
 
 
 %% @doc Retrieve rebalance info by node
@@ -299,7 +299,7 @@ get_rebalance_info_by_node(Node) ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-    leo_mnesia_utils:read(F).
+    leo_mnesia:read(F).
 
 
 %% @doc get all histories
@@ -338,7 +338,7 @@ update_storage_node_status(NodeState) ->
              ok | {error, any()}).
 update_storage_node_status(update, NodeState) ->
     F = fun()-> mnesia:write(storage_nodes, NodeState, write) end,
-    leo_mnesia_utils:write(F);
+    leo_mnesia:write(F);
 
 update_storage_node_status(update_state, NodeState) ->
     #node_state{node = Node, state = State} = NodeState,
@@ -346,7 +346,7 @@ update_storage_node_status(update_state, NodeState) ->
         {ok, [Cur|_]} ->
             update_storage_node_status(
               update, Cur#node_state{state   = State,
-                                     when_is = leo_utils:now()});
+                                     when_is = leo_date:now()});
         _ ->
             ok
     end;
@@ -355,7 +355,7 @@ update_storage_node_status(keep_state, NodeState) ->
     case get_storage_node_by_name(Node) of
         {ok, [Cur|_]} ->
             update_storage_node_status(
-              update, Cur#node_state{when_is = leo_utils:now()});
+              update, Cur#node_state{when_is = leo_date:now()});
         _ ->
             ok
     end;
@@ -370,7 +370,7 @@ update_storage_node_status(update_chksum, NodeState) ->
             update_storage_node_status(
               update, Cur#node_state{ring_hash_new = RingHash0,
                                      ring_hash_old = RingHash1,
-                                     when_is       = leo_utils:now()});
+                                     when_is       = leo_date:now()});
         _ ->
             ok
     end;
@@ -381,7 +381,7 @@ update_storage_node_status(increment_error, NodeState) ->
         {ok, [Cur|_]} ->
             update_storage_node_status(
               update, Cur#node_state{error   = Cur#node_state.error + 1,
-                                     when_is = leo_utils:now()});
+                                     when_is = leo_date:now()});
         _ ->
             ok
     end;
@@ -392,7 +392,7 @@ update_storage_node_status(init_error, NodeState) ->
         {ok, [Cur|_]} ->
             update_storage_node_status(
               update, Cur#node_state{error   = 0,
-                                     when_is = leo_utils:now()});
+                                     when_is = leo_date:now()});
         _ ->
             ok
     end;
@@ -406,7 +406,7 @@ update_storage_node_status(_, _) ->
              ok | {error, any()}).
 update_gateway_node(NodeState) ->
     F = fun() -> mnesia:write(gateway_nodes, NodeState, write) end,
-    leo_mnesia_utils:write(F).
+    leo_mnesia:write(F).
 
 
 %% @doc Modify system-configuration
@@ -415,7 +415,7 @@ update_gateway_node(NodeState) ->
              ok | {error, any()}).
 update_system_config(SystemConfig) ->
     F = fun()-> mnesia:write(system_conf, SystemConfig, write) end,
-    leo_mnesia_utils:write(F).
+    leo_mnesia:write(F).
 
 
 %% @doc Modify rebalance-info
@@ -424,7 +424,7 @@ update_system_config(SystemConfig) ->
              ok | {error, any()}).
 update_rebalance_info(RebalanceInfo) ->
     F = fun()-> mnesia:write(rebalance_info, RebalanceInfo, write) end,
-    leo_mnesia_utils:write(F).
+    leo_mnesia:write(F).
 
 
 %% @doc Modify bucket-info
@@ -445,8 +445,8 @@ insert_history(Command) ->
         _ ->
             F = fun() -> mnesia:write(histories, #history{id = Id,
                                                           command = NewCommand,
-                                                          created = leo_utils:now()}, write) end,
-            leo_mnesia_utils:write(F)
+                                                          created = leo_date:now()}, write) end,
+            leo_mnesia:write(F)
     end.
 
 
@@ -460,5 +460,5 @@ delete_storage_node(Node) ->
     F = fun() ->
                 mnesia:delete_object(storage_nodes, Node, write)
         end,
-    leo_mnesia_utils:delete(F).
+    leo_mnesia:delete(F).
 
