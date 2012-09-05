@@ -217,8 +217,8 @@ handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
                             end;
                         {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
                             io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
-                        _Error ->
-                            io_lib:format("[ERROR] ~s\r\n",["Could not get node-status"])
+                        Error ->
+                            io_lib:format("[ERROR] ~s\r\n~p\r\n",["Could not get node-status", Error])
                     end;
                 ?STATE_RUNNING ->
                     io_lib:format("[ERROR] ~s\r\n",["System already started"])

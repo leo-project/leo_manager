@@ -178,16 +178,7 @@ get_storage_nodes_all() ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-    Ret = mnesia:transaction(F),
-    case Ret of
-        {error, Cause} ->
-            {error, Cause};
-        {atomic, []} ->
-            not_found;
-        {atomic, ServerNode} ->
-            {ok, ServerNode}
-    end.
-
+    leo_mnesia:read(F).
 
 %% @doc Retrieve a storage node by node-name
 %%
@@ -227,17 +218,7 @@ get_gateway_nodes_all() ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-
-    Ret = mnesia:transaction(F),
-    case Ret of
-        {error, Cause} ->
-            {error, Cause};
-        {atomic, []} ->
-            not_found;
-        {atomic, Records} ->
-            {ok, Records}
-    end.
-
+    leo_mnesia:read(F).
 
 %% @doc Retrieve gateway node info by node-name
 %%
@@ -263,17 +244,11 @@ get_system_config() ->
                 Q2 = qlc:sort(Q1, [{order, descending}]),
                 qlc:e(Q2)
         end,
-
-    Ret = mnesia:transaction(F),
-    case Ret of
-        {error, Cause} ->
-            {error, Cause};
-        {atomic, []} ->
-            not_found;
-        {atomic, [SystemConfig|_T]} ->
-            {ok, SystemConfig}
-    end.
-
+    get_system_config(leo_mnesia:read(F)).
+get_system_config({ok, [H|_]}) ->
+    {ok, H};
+get_system_config(Other) ->
+    Other.
 
 %% @doc Retrieve rebalance info
 %%
@@ -312,17 +287,7 @@ get_histories_all() ->
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
-
-    Ret = mnesia:transaction(F),
-    case Ret of
-        {error, Why} ->
-            {error, Why};
-        {atomic, []} ->
-            not_found;
-        {atomic, Records} ->
-            {ok, Records}
-    end.
-
+    leo_mnesia:read(F).
 
 %%-----------------------------------------------------------------------
 %% UPDATE
