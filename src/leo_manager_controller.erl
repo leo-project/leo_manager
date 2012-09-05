@@ -351,6 +351,8 @@ handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
                 case leo_s3_endpoint:delete_endpoint(EndPoint) of
                     ok ->
                         {?OK, State};
+                    not_found ->
+                        {io_lib:format("[ERROR] ~s\r\n",[?ERROR_ENDPOINT_NOT_FOUND]),State};
                     {error, Cause} ->
                         {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
                 end
