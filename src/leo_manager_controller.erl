@@ -98,6 +98,8 @@ handle_call(_Socket, <<?HELP>>, State) ->
     {reply, Commands, State};
 
 
+%% Command: "version"
+%%
 handle_call(_Socket, <<?VERSION, _Option/binary>>, State) ->
     Reply = case application:get_key(leo_manager, vsn) of
                 {ok, Version} ->
@@ -108,18 +110,21 @@ handle_call(_Socket, <<?VERSION, _Option/binary>>, State) ->
     {reply, Reply, State};
 
 
+%% Command: "status"
+%% Command: "status ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
     Reply = case (erlang:length(Token) == 0) of
                 true ->
-                    format_cluster_node_list(SystemConf);
+                    format_node_list(SystemConf);
                 false ->
                     [Node|_] = Token,
-                    case leo_manager_api:get_cluster_node_status(Node) of
+                    case leo_manager_api:get_node_status(Node) of
                         {ok, Status} ->
-                            format_cluster_node_state(Status);
+                            format_node_state(Status);
                         {error, Cause} ->
                             io_lib:format("[ERROR] ~s\r\n", [Cause])
                     end
@@ -127,6 +132,8 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command : "detach ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
@@ -162,6 +169,8 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "suspend ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -179,6 +188,8 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "resume ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -196,6 +207,8 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "start"
+%%
 handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -226,6 +239,8 @@ handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "rebalance"
+%%
 handle_call(_Socket, <<?REBALANCE, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -246,6 +261,8 @@ handle_call(_Socket, <<?REBALANCE, _Option/binary>> = Command, State) ->
 %%----------------------------------------------------------------------
 %% Operation-2
 %%----------------------------------------------------------------------
+%% Command: "du ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -275,6 +292,8 @@ handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
     {reply, Reply, NewState};
 
 
+%% Command: "compact ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -302,6 +321,11 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
     {reply, Reply, NewState};
 
 
+%%----------------------------------------------------------------------
+%% Operation-3
+%%----------------------------------------------------------------------
+%% Command: "s3-gen-key ${USER_ID}"
+%%
 handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -323,6 +347,8 @@ handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-set-endpoint ${END_POINT}"
+%%
 handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -340,6 +366,8 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-del-endpoint ${END_POINT}"
+%%
 handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -359,6 +387,8 @@ handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-get-endpoints"
+%%
 handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -373,6 +403,8 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-get-buckets"
+%%
 handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -387,7 +419,8 @@ handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
-
+%% Command: "whereis ${PATH}"
+%%
 handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -408,6 +441,8 @@ handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
             end,
     {reply, Reply, State};
 
+%% Command: "purge ${PATH}"
+%%
 handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -425,7 +460,8 @@ handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
             end,
     {reply, Reply, State};
 
-
+%% Command: "history"
+%%
 handle_call(_Socket, <<?HISTORY, _Option/binary>>, State) ->
     Reply = case leo_manager_mnesia:get_histories_all() of
                 {ok, Histories} ->
@@ -435,7 +471,8 @@ handle_call(_Socket, <<?HISTORY, _Option/binary>>, State) ->
             end,
     {reply, Reply, State};
 
-
+%% Command: "quit"
+%%
 handle_call(_Socket, <<?QUIT>>, State) ->
     {close, <<?BYE>>, State};
 
@@ -451,7 +488,9 @@ handle_call(_Socket, _Data, State) ->
 %%----------------------------------------------------------------------
 %% Inner function(s)
 %%----------------------------------------------------------------------
-format_cluster_node_list(SystemConf) ->
+%% @doc Format a cluster-node list
+%%
+format_node_list(SystemConf) ->
     FormattedSystemConf =
         case is_record(SystemConf, system_conf) of
             true ->
@@ -511,7 +550,11 @@ format_cluster_node_list(SystemConf) ->
     format_system_conf_with_node_state(FormattedSystemConf, S1 ++ S2).
 
 
-format_cluster_node_state(State) ->
+%% @doc Format a cluster node state
+%% @private
+-spec(format_node_state(#cluster_node_status{}) ->
+             string()).
+format_node_state(State) ->
     ObjContainer = State#cluster_node_status.avs,
     Directories  = State#cluster_node_status.dirs,
     RingHashes   = State#cluster_node_status.ring_checksum,
@@ -542,6 +585,10 @@ format_cluster_node_state(State) ->
                   ]).
 
 
+%% @doc Format a system-configuration w/node-state
+%% @private
+-spec(format_system_conf_with_node_state(string(), list()) ->
+             string()).
 format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
     CellColumns =
         [{"node",28},{"state",12},{"ring (cur)",14},{"ring (prev)",14},{"when",28},{"END",0}],
@@ -564,7 +611,8 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
                    {Alias, State, RingHash0, RingHash1, When} = N,
                    FormattedDate = leo_date:date_format(When),
 
-                   Ret = " " ++ string:left(Alias,         lists:nth(1,LenPerCol), $ )
+                   Ret = " "
+                       ++ string:left(Alias,         lists:nth(1,LenPerCol), $ )
                        ++ string:left(State,         lists:nth(2,LenPerCol), $ )
                        ++ string:left(RingHash0,     lists:nth(3,LenPerCol), $ )
                        ++ string:left(RingHash1,     lists:nth(4,LenPerCol), $ )
@@ -576,6 +624,10 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
         lists:foldl(Fun2, [FormattedSystemConf, Sepalator, Header2, Sepalator], Nodes) ++ ?CRLF.
 
 
+%% @doc Format an assigned file
+%% @private
+-spec(format_where_is(list()) ->
+             string()).
 format_where_is(AssignedInfo) ->
     CellColumns =
         [{"del?",5}, {"node",28},{"ring address",36},{"size",8},{"checksum",12},{"clock",14},{"when",28},{"END",0}],
@@ -625,12 +677,16 @@ format_where_is(AssignedInfo) ->
         lists:foldl(Fun2, [Sepalator, Header2, Sepalator], AssignedInfo) ++ ?CRLF.
 
 
+%% @doc Format s stats-list
+%% @private
+-spec(format_stats_list(summary | detail, {integer(), integer(), integer()} | list()) ->
+             string()).
 format_stats_list(summary, {FileSize, Total, Active}) ->
-    io_lib:format(
-      "              file size: ~w\r\n"
-      ++ " number of total object: ~w\r\n"
-      ++ "number of active object: ~w\r\n\r\n",
-      [FileSize, Total, Active]);
+    io_lib:format([]
+                  ++ "              file size: ~w\r\n"
+                  ++ " number of total object: ~w\r\n"
+                  ++ "number of active object: ~w\r\n\r\n",
+                  [FileSize, Total, Active]);
 
 format_stats_list(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
@@ -648,10 +704,17 @@ format_stats_list(detail, StatsList) when is_list(StatsList) ->
                           Acc
                   end
           end,
-    lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList).
+    lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList);
+
+format_stats_list(_, _) ->
+    [].
 
 
 
+%% @doc Format a history list
+%% @private
+-spec(format_history_list(list(#history{})) ->
+             string()).
 format_history_list(Histories) ->
     Fun = fun(#history{id      = Id,
                        command = Command,
@@ -662,6 +725,10 @@ format_history_list(Histories) ->
     lists:foldl(Fun, "[Histories]\r\n", Histories).
 
 
+%% @doc Format a endpoint list
+%% @private
+-spec(format_endpoint_list(list(tuple())) ->
+             string()).
 format_endpoint_list(EndPoints) ->
     Fun = fun({endpoint, EP, Created}, Acc) ->
                   Acc ++ io_lib:format("~s | ~s\r\n",
@@ -670,6 +737,10 @@ format_endpoint_list(EndPoints) ->
     lists:foldl(Fun, "[EndPoints]\r\n", EndPoints).
 
 
+%% @doc Format a bucket list
+%% @private
+-spec(format_bucket_list(list(tuple())) ->
+             string()).
 format_bucket_list(Buckets) ->
     Header = lists:append(["[Buckets]\r\n",
                            " created at                | bucket (owner)\r\n",

@@ -37,7 +37,7 @@
 
 %% API
 -export([get_system_config/0, get_system_status/0, get_members/0,
-         get_cluster_node_status/1, get_routing_table_chksum/0, get_cluster_nodes/0]).
+         get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
 
 -export([attach/1, detach/1, suspend/1, resume/1,
          start/0, rebalance/0]).
@@ -86,9 +86,9 @@ get_members() ->
 
 %% @doc Retrieve cluster-node-status from each server.
 %%
--spec(get_cluster_node_status(atom()) ->
+-spec(get_node_status(atom()) ->
              ok | {error, any()}).
-get_cluster_node_status(Node0) ->
+get_node_status(Node0) ->
     Node1 = list_to_atom(Node0),
     Mod   = case leo_manager_mnesia:get_gateway_node_by_name(Node1) of
                 {ok, _} -> leo_gateway_api;
@@ -103,7 +103,7 @@ get_cluster_node_status(Node0) ->
         undefined ->
             {error, not_found};
         _ ->
-            case rpc:call(Node1, Mod, get_cluster_node_status, [], ?DEF_TIMEOUT) of
+            case rpc:call(Node1, Mod, get_node_status, [], ?DEF_TIMEOUT) of
                 {ok, Status} ->
                     {ok, Status};
                 {_, Cause} ->
@@ -130,9 +130,9 @@ get_routing_table_chksum() ->
 
 %% @doc Retrieve list of cluster nodes from mnesia.
 %%
--spec(get_cluster_nodes() ->
+-spec(get_nodes() ->
              {ok, list()}).
-get_cluster_nodes() ->
+get_nodes() ->
     Nodes0 = case catch leo_manager_mnesia:get_gateway_nodes_all() of
                  {ok, R1} ->
                      lists:map(fun(#node_state{node  = Node,
@@ -155,8 +155,8 @@ get_cluster_nodes() ->
     {ok, Nodes0 ++ Nodes1}.
 
 
-get_cluster_nodes(Node) ->
-    {ok, Nodes0} = get_cluster_nodes(),
+get_nodes(Node) ->
+    {ok, Nodes0} = get_nodes(),
     Res = lists:foldl(fun({_, N, _}, Acc) when Node == N ->
                               Acc;
                          ({_, N, _}, Acc) ->
@@ -649,7 +649,7 @@ notify1(error, Node,_NumOfErrors,_Thresholds) ->
     end.
 
 notify2(error, Node, Clock, State) ->
-    case get_cluster_nodes(Node) of
+    case get_nodes(Node) of
         {ok, []} ->
             ok;
         {ok, Nodes} ->

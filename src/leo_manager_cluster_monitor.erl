@@ -280,7 +280,7 @@ update_node_state1(State, Node) ->
 -spec(get_remote_node_proc_fun() ->
              ok).
 get_remote_node_proc_fun() ->
-    case leo_manager_api:get_cluster_nodes() of
+    case leo_manager_api:get_nodes() of
         {ok, Members} ->
             lists:foreach(
               fun({_Type, _Node, ?STATE_DETACHED}) -> void;
