@@ -317,7 +317,7 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
                     {error, SuspendError} ->
                         {io_lib:format("[ERROR] ~s\r\n",[SuspendError]), State}
                 end
-       end,
+        end,
     {reply, Reply, NewState};
 
 
@@ -500,16 +500,17 @@ format_node_list(SystemConf) ->
                           end,
                 {ok, {RingHash0, RingHash1}} = leo_redundant_manager_api:checksum(ring),
 
-                io_lib:format("[system config]\r\n"               ++
-                                  "             version : ~s\r\n"     ++
-                                  " # of replicas       : ~w\r\n"     ++
-                                  " # of successes of R : ~w\r\n"     ++
-                                  " # of successes of W : ~w\r\n"     ++
-                                  " # of successes of D : ~w\r\n"     ++
-                                  "           ring size : 2^~w\r\n"   ++
-                                  "    ring hash (cur)  : ~s\r\n"     ++
-                                  "    ring hash (prev) : ~s\r\n\r\n" ++
-                                  "[node(s) state]\r\n",
+                io_lib:format([]
+                              ++ "[system config]\r\n"
+                              ++ "             version : ~s\r\n"
+                              ++ " # of replicas       : ~w\r\n"
+                              ++ " # of successes of R : ~w\r\n"
+                              ++ " # of successes of W : ~w\r\n"
+                              ++ " # of successes of D : ~w\r\n"
+                              ++ "           ring size : 2^~w\r\n"
+                              ++ "    ring hash (cur)  : ~s\r\n"
+                              ++ "    ring hash (prev) : ~s\r\n\r\n"
+                              ++ "[node(s) state]\r\n",
                               [Version,
                                SystemConf#system_conf.n,
                                SystemConf#system_conf.r,
@@ -560,18 +561,19 @@ format_node_state(State) ->
     RingHashes   = State#cluster_node_status.ring_checksum,
     Statistics   = State#cluster_node_status.statistics,
 
-    io_lib:format("[config]\r\n" ++
-                      "            version : ~s\r\n" ++
-                      "      obj-container : ~p\r\n" ++
-                      "            log-dir : ~s\r\n" ++
-                      "  ring state (cur)  : ~w\r\n" ++
-                      "  ring state (prev) : ~w\r\n" ++
-                      "\r\n[erlang-vm status]\r\n"   ++
-                      "    total mem usage : ~w\r\n" ++
-                      "   system mem usage : ~w\r\n" ++
-                      "    procs mem usage : ~w\r\n" ++
-                      "      ets mem usage : ~w\r\n" ++
-                      "    # of procs      : ~w\r\n\r\n",
+    io_lib:format([]
+                  ++ "[config]\r\n"
+                  ++ "            version : ~s\r\n"
+                  ++ "      obj-container : ~p\r\n"
+                  ++ "            log-dir : ~s\r\n"
+                  ++ "  ring state (cur)  : ~w\r\n"
+                  ++ "  ring state (prev) : ~w\r\n"
+                  ++ "\r\n[erlang-vm status]\r\n"
+                  ++ "    total mem usage : ~w\r\n"
+                  ++ "   system mem usage : ~w\r\n"
+                  ++ "    procs mem usage : ~w\r\n"
+                  ++ "      ets mem usage : ~w\r\n"
+                  ++ "    # of procs      : ~w\r\n\r\n",
                   [State#cluster_node_status.version,
                    ObjContainer,
                    proplists:get_value('log',              Directories, []),
@@ -695,10 +697,11 @@ format_stats_list(detail, StatsList) when is_list(StatsList) ->
                                           total_sizes = FileSize,
                                           total_num   = ObjTotal,
                                           active_num  = ObjActive}} ->
-                          Acc ++ io_lib:format("              file path: ~s\r\n"
-                                               ++  "              file size: ~w\r\n"
-                                               ++  " number of total object: ~w\r\n"
-                                               ++  "number of active object: ~w\r\n\r\n",
+                          Acc ++ io_lib:format([]
+                                               ++ "              file path: ~s\r\n"
+                                               ++ "              file size: ~w\r\n"
+                                               ++ " number of total object: ~w\r\n"
+                                               ++ "number of active object: ~w\r\n\r\n",
                                                [FilePath, FileSize, ObjTotal, ObjActive]);
                       _Error ->
                           Acc
@@ -730,11 +733,22 @@ format_history_list(Histories) ->
 -spec(format_endpoint_list(list(tuple())) ->
              string()).
 format_endpoint_list(EndPoints) ->
+    Col1Len = lists:foldl(fun({_, EP, _}, Acc) ->
+                                  Len = length(EP),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, 0, EndPoints),
+    Col2Len = 26,
+
+    Header = lists:append([string:left("endpoint", Col1Len), " | ", string:left("created at", Col2Len), "\r\n",
+                           lists:duplicate(Col1Len, "-"),    "-+-", lists:duplicate(Col2Len, "-"),      "\r\n"]),
     Fun = fun({endpoint, EP, Created}, Acc) ->
                   Acc ++ io_lib:format("~s | ~s\r\n",
-                                       [leo_date:date_format(Created), EP])
+                                       [string:left(EP,Col1Len), leo_date:date_format(Created)])
           end,
-    lists:foldl(Fun, "[EndPoints]\r\n", EndPoints).
+    lists:append([lists:foldl(Fun, Header, EndPoints), "\r\n"]).
 
 
 %% @doc Format a bucket list
@@ -742,16 +756,36 @@ format_endpoint_list(EndPoints) ->
 -spec(format_bucket_list(list(tuple())) ->
              string()).
 format_bucket_list(Buckets) ->
-    Header = lists:append(["[Buckets]\r\n",
-                           " created at                | bucket (owner)\r\n",
-                           "---------------------------+",
-                           "----------------------------------------------------------------\r\n"
-                          ]),
+    {Col1Len, Col2Len} = lists:foldl(fun({Bucket, Owner, _}, {C1, C2}) ->
+                                             Len1 = length(Bucket),
+                                             Len2 = length(Owner),
+
+                                             {case (Len1 > C1) of
+                                                  true  -> Len1;
+                                                  false -> C1
+                                              end,
+                                              case (Len2 > C2) of
+                                                  true  -> Len2;
+                                                  false -> C2
+                                              end}
+                                     end, {0,0}, Buckets),
+    Col3Len = 26,
+    Header = lists:append(
+               [string:left("bucket",     Col1Len), " | ",
+                string:left("owner",      Col2Len), " | ",
+                string:left("created at", Col3Len), "\r\n",
+
+                lists:duplicate(Col1Len, "-"), "-+-",
+                lists:duplicate(Col2Len, "-"), "-+-",
+                lists:duplicate(Col3Len, "-"), "\r\n"]),
+
     Fun = fun({Bucket, Owner, Created}, Acc) ->
-                  Acc ++ io_lib:format(" ~s | ~s (~s)\r\n",
-                                       [leo_date:date_format(Created), Bucket, Owner])
+                  Acc ++ io_lib:format("~s | ~s | ~s\r\n",
+                                       [string:left(Bucket, Col1Len),
+                                        string:left(Owner,  Col2Len),
+                                        leo_date:date_format(Created)])
           end,
-    lists:foldl(Fun, Header, Buckets).
+    lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
 
 
 %% @doc Retrieve data-size w/unit.
