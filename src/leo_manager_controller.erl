@@ -588,9 +588,21 @@ format_node_state(State) ->
 -spec(format_system_conf_with_node_state(string(), list()) ->
              string()).
 format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
-    CellColumns =
-        [{"node",28},{"state",12},{"ring (cur)",14},{"ring (prev)",14},{"when",28},{"END",0}],
-    LenPerCol = lists:map(fun(C)->{_, Len} = C, Len end, CellColumns),
+    Col1Len = lists:foldl(fun({N,_,_,_,_}, Acc) ->
+                                  Len = length(N),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, 0, Nodes) + 5,
+    CellColumns = [{"node",  Col1Len},
+                   {"state",      12},
+                   {"ring (cur)", 14},
+                   {"ring (prev)",14},
+                   {"when",       28},
+                   {"END",         0}],
+    LenPerCol = lists:map(fun({_, Len}) -> Len end, CellColumns),
+
     Fun1 = fun(Col, {Type,Str}) ->
                    {Name, Len} = Col,
                    case Name of
@@ -609,11 +621,11 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
                    {Alias, State, RingHash0, RingHash1, When} = N,
                    FormattedDate = leo_date:date_format(When),
                    Ret = lists:append([" ",
-                                       string:left(Alias,         lists:nth(1,LenPerCol), $ ),
-                                       string:left(State,         lists:nth(2,LenPerCol), $ ),
-                                       string:left(RingHash0,     lists:nth(3,LenPerCol), $ ),
-                                       string:left(RingHash1,     lists:nth(4,LenPerCol), $ ),
-                                       string:left(FormattedDate, lists:nth(5,LenPerCol), $ ),
+                                       string:left(Alias,         lists:nth(1,LenPerCol)),
+                                       string:left(State,         lists:nth(2,LenPerCol)),
+                                       string:left(RingHash0,     lists:nth(3,LenPerCol)),
+                                       string:left(RingHash1,     lists:nth(4,LenPerCol)),
+                                       FormattedDate,
                                        ?CRLF]),
                    List ++ [Ret]
            end,
