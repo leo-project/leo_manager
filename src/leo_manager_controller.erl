@@ -524,7 +524,8 @@ format_node_list(SystemConf) ->
     S1 = case leo_manager_mnesia:get_storage_nodes_all() of
              {ok, R1} ->
                  lists:map(fun(N) ->
-                                   {atom_to_list(N#node_state.node),
+                                   {"S",
+                                    atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
                                     N#node_state.ring_hash_old,
@@ -536,7 +537,8 @@ format_node_list(SystemConf) ->
     S2 = case leo_manager_mnesia:get_gateway_nodes_all() of
              {ok, R2} ->
                  lists:map(fun(N) ->
-                                   {atom_to_list(N#node_state.node),
+                                   {"G",
+                                    atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
                                     N#node_state.ring_hash_old,
@@ -588,14 +590,15 @@ format_node_state(State) ->
 -spec(format_system_conf_with_node_state(string(), list()) ->
              string()).
 format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
-    Col1Len = lists:foldl(fun({N,_,_,_,_}, Acc) ->
+    Col1Len = lists:foldl(fun({_,N,_,_,_,_}, Acc) ->
                                   Len = length(N),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
                                   end
                           end, 0, Nodes) + 5,
-    CellColumns = [{"node",  Col1Len},
+    CellColumns = [{"type",        5},
+                   {"node",  Col1Len},
                    {"state",      12},
                    {"ring (cur)", 14},
                    {"ring (prev)",14},
@@ -618,13 +621,14 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
                   [], lists:duplicate(lists:sum(LenPerCol), "-")) ++ ?CRLF,
 
     Fun2 = fun(N, List) ->
-                   {Alias, State, RingHash0, RingHash1, When} = N,
+                   {Type, Alias, State, RingHash0, RingHash1, When} = N,
                    FormattedDate = leo_date:date_format(When),
                    Ret = lists:append([" ",
-                                       string:left(Alias,         lists:nth(1,LenPerCol)),
-                                       string:left(State,         lists:nth(2,LenPerCol)),
-                                       string:left(RingHash0,     lists:nth(3,LenPerCol)),
-                                       string:left(RingHash1,     lists:nth(4,LenPerCol)),
+                                       string:left(Type,          lists:nth(1,LenPerCol)),
+                                       string:left(Alias,         lists:nth(2,LenPerCol)),
+                                       string:left(State,         lists:nth(3,LenPerCol)),
+                                       string:left(RingHash0,     lists:nth(4,LenPerCol)),
+                                       string:left(RingHash1,     lists:nth(5,LenPerCol)),
                                        FormattedDate,
                                        ?CRLF]),
                    List ++ [Ret]
