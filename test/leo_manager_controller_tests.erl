@@ -145,7 +145,7 @@ status_1_({Node0, _, Sock}) ->
                      end),
 
     ok = meck:new(leo_storage_api),
-    ok = meck:expect(leo_storage_api, get_cluster_node_status,
+    ok = meck:expect(leo_storage_api, get_node_status,
                      fun() ->
                              {ok, #cluster_node_status{avs           = [{{'dir',"/var/leofs/vol0/"}, {'num',64}}],
                                                        dirs          = [{'log',             "/var/leofs/logs/"},

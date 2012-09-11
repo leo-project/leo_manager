@@ -39,7 +39,7 @@ teardown(_) ->
 %%--------------------------------------------------------------------
 all_(Node) ->
     meck:new(leo_manager_api),
-    meck:expect(leo_manager_api, get_cluster_nodes,
+    meck:expect(leo_manager_api, get_nodes,
                 fun() ->
                         {ok, [{storage, 'storage_0@127.0.0.1', ?STATE_DETACHED},
                               {storage, 'storage_1@127.0.0.1', ?STATE_SUSPEND},
