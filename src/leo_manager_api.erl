@@ -737,18 +737,23 @@ stats(Mode, Node) when is_list(Node) ->
     stats(Mode, list_to_atom(Node));
 
 stats(Mode, Node) ->
-    case leo_misc:node_existence(Node) of
-        true ->
-            case rpc:call(Node, leo_object_storage_api, stats, [], infinity) of
-                not_found = Cause ->
-                    {error, Cause};
-                {ok, []} ->
-                    {error, not_found};
-                {ok, Result} ->
-                    stats1(Mode, Result)
+    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+        {ok, _} ->
+            case leo_misc:node_existence(Node) of
+                true ->
+                    case rpc:call(Node, leo_object_storage_api, stats, [], infinity) of
+                        not_found = Cause ->
+                            {error, Cause};
+                        {ok, []} ->
+                            {error, not_found};
+                        {ok, Result} ->
+                            stats1(Mode, Result)
+                    end;
+                false ->
+                    {error, ?ERR_TYPE_NODE_DOWN}
             end;
-        false ->
-            {error, ?ERR_TYPE_NODE_DOWN}
+        _ ->
+            {error, not_found}
     end.
 
 stats1(summary, List) ->
