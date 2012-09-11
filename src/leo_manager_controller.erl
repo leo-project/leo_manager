@@ -638,9 +638,23 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
 -spec(format_where_is(list()) ->
              string()).
 format_where_is(AssignedInfo) ->
-    CellColumns =
-        [{"del?",5}, {"node",28},{"ring address",36},{"size",8},{"checksum",12},{"clock",14},{"when",28},{"END",0}],
-    LenPerCol = lists:map(fun(C)->{_, Len} = C, Len end, CellColumns),
+    Col2Len = lists:foldl(fun(N, Acc) ->
+                                  Len = length(element(1,N)),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, 0, AssignedInfo) + 5,
+    CellColumns = [{"del?",          5},
+                   {"node",    Col2Len},
+                   {"ring address", 36},
+                   {"size",          8},
+                   {"checksum",     12},
+                   {"clock",        14},
+                   {"when",         28},
+                   {"END",           0}],
+
+    LenPerCol = lists:map(fun({_, Len})-> Len end, CellColumns),
     Fun1 = fun(Col, {Type,Str}) ->
                    {Name, Len} = Col,
                    case Name of
@@ -676,7 +690,7 @@ format_where_is(AssignedInfo) ->
                                                string:left(string:sub_string(leo_hex:integer_to_hex(Checksum), 1, 10),
                                                            lists:nth(5,LenPerCol)),
                                                string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol)),
-                                               string:left(FormattedDate,                     lists:nth(7,LenPerCol)),
+                                               FormattedDate,
                                                ?CRLF])
                          end,
                    List ++ [Ret]
