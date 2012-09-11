@@ -753,10 +753,9 @@ stats(Mode, Node) ->
 
 stats1(summary, List) ->
     {ok, lists:foldl(fun({ok, #storage_stats{total_sizes = FileSize,
-                                             total_num   = ObjTotal,
-                                             active_num  = ObjActive}}, {CurSize, CurTotal, CurActive}) ->
-                             {CurSize + FileSize, CurTotal + ObjTotal, CurActive + ObjActive}
-                     end, {0,0,0}, List)};
+                                             total_num   = ObjTotal}}, {CurSize, CurTotal}) ->
+                             {CurSize + FileSize, CurTotal + ObjTotal}
+                     end, {0,0}, List)};
 stats1(detail, List) ->
     {ok, List}.
 

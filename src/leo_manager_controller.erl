@@ -65,36 +65,34 @@ init(_Args) ->
 %% Operation-1
 %%----------------------------------------------------------------------
 handle_call(_Socket, <<?HELP>>, State) ->
-    Commands = []
-        ++ io_lib:format("[Cluster]\r\n", [])
-        ++ io_lib:format("~s\r\n",["detach ${NODE}"])
-        ++ io_lib:format("~s\r\n",["suspend ${NODE}"])
-        ++ io_lib:format("~s\r\n",["resume ${NODE}"])
-        ++ io_lib:format("~s\r\n",["start"])
-        ++ io_lib:format("~s\r\n",["rebalance"])
-        ++ io_lib:format("~s\r\n",["whereis ${PATH}"])
-        ++ ?CRLF
-        ++ io_lib:format("[Storage]\r\n", [])
-        ++ io_lib:format("~s\r\n",["du ${NODE}"])
-        ++ io_lib:format("~s\r\n",["compact ${NODE}"])
-        ++ ?CRLF
-        ++ io_lib:format("[Gateway]\r\n", [])
-        ++ io_lib:format("~s\r\n",["purge ${PATH}"])
-        ++ ?CRLF
-        ++ io_lib:format("[S3]\r\n", [])
-        ++ io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"])
-        ++ io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"])
-        ++ io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"])
-        ++ io_lib:format("~s\r\n",["s3-get-endpoints"])
-        ++ io_lib:format("~s\r\n",["s3-get-buckets"])
-        ++ ?CRLF
-        ++ io_lib:format("[Misc]\r\n", [])
-        ++ io_lib:format("~s\r\n",["version"])
-        ++ io_lib:format("~s\r\n",["status"])
-        ++ io_lib:format("~s\r\n",["history"])
-        ++ io_lib:format("~s\r\n",["quit"])
-        ++ ?CRLF,
-
+    Commands = lists:append([io_lib:format("[Cluster]\r\n", []),
+                             io_lib:format("~s\r\n",["detach ${NODE}"]),
+                             io_lib:format("~s\r\n",["suspend ${NODE}"]),
+                             io_lib:format("~s\r\n",["resume ${NODE}"]),
+                             io_lib:format("~s\r\n",["start"]),
+                             io_lib:format("~s\r\n",["rebalance"]),
+                             io_lib:format("~s\r\n",["whereis ${PATH}"]),
+                             ?CRLF,
+                             io_lib:format("[Storage]\r\n", []),
+                             io_lib:format("~s\r\n",["du ${NODE}"]),
+                             io_lib:format("~s\r\n",["compact ${NODE}"]),
+                             ?CRLF,
+                             io_lib:format("[Gateway]\r\n", []),
+                             io_lib:format("~s\r\n",["purge ${PATH}"]),
+                             ?CRLF,
+                             io_lib:format("[S3]\r\n", []),
+                             io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"]),
+                             io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"]),
+                             io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"]),
+                             io_lib:format("~s\r\n",["s3-get-endpoints"]),
+                             io_lib:format("~s\r\n",["s3-get-buckets"]),
+                             ?CRLF,
+                             io_lib:format("[Misc]\r\n", []),
+                             io_lib:format("~s\r\n",["version"]),
+                             io_lib:format("~s\r\n",["status"]),
+                             io_lib:format("~s\r\n",["history"]),
+                             io_lib:format("~s\r\n",["quit"]),
+                             ?CRLF]),
     {reply, Commands, State};
 
 
@@ -500,17 +498,16 @@ format_node_list(SystemConf) ->
                           end,
                 {ok, {RingHash0, RingHash1}} = leo_redundant_manager_api:checksum(ring),
 
-                io_lib:format([]
-                              ++ "[system config]\r\n"
-                              ++ "             version : ~s\r\n"
-                              ++ " # of replicas       : ~w\r\n"
-                              ++ " # of successes of R : ~w\r\n"
-                              ++ " # of successes of W : ~w\r\n"
-                              ++ " # of successes of D : ~w\r\n"
-                              ++ "           ring size : 2^~w\r\n"
-                              ++ "    ring hash (cur)  : ~s\r\n"
-                              ++ "    ring hash (prev) : ~s\r\n\r\n"
-                              ++ "[node(s) state]\r\n",
+                io_lib:format(lists:append(["[system config]\r\n",
+                                            "             version : ~s\r\n",
+                                            " # of replicas       : ~w\r\n",
+                                            " # of successes of R : ~w\r\n",
+                                            " # of successes of W : ~w\r\n",
+                                            " # of successes of D : ~w\r\n",
+                                            "           ring size : 2^~w\r\n",
+                                            "    ring hash (cur)  : ~s\r\n",
+                                            "    ring hash (prev) : ~s\r\n\r\n",
+                                            "[node(s) state]\r\n"]),
                               [Version,
                                SystemConf#system_conf.n,
                                SystemConf#system_conf.r,
@@ -561,19 +558,18 @@ format_node_state(State) ->
     RingHashes   = State#cluster_node_status.ring_checksum,
     Statistics   = State#cluster_node_status.statistics,
 
-    io_lib:format([]
-                  ++ "[config]\r\n"
-                  ++ "            version : ~s\r\n"
-                  ++ "      obj-container : ~p\r\n"
-                  ++ "            log-dir : ~s\r\n"
-                  ++ "  ring state (cur)  : ~w\r\n"
-                  ++ "  ring state (prev) : ~w\r\n"
-                  ++ "\r\n[erlang-vm status]\r\n"
-                  ++ "    total mem usage : ~w\r\n"
-                  ++ "   system mem usage : ~w\r\n"
-                  ++ "    procs mem usage : ~w\r\n"
-                  ++ "      ets mem usage : ~w\r\n"
-                  ++ "    # of procs      : ~w\r\n\r\n",
+    io_lib:format(lists:append(["[config]\r\n",
+                                "            version : ~s\r\n",
+                                "      obj-container : ~p\r\n",
+                                "            log-dir : ~s\r\n",
+                                "  ring state (cur)  : ~w\r\n",
+                                "  ring state (prev) : ~w\r\n",
+                                "\r\n[erlang-vm status]\r\n",
+                                "    total mem usage : ~w\r\n",
+                                "   system mem usage : ~w\r\n",
+                                "    procs mem usage : ~w\r\n",
+                                "      ets mem usage : ~w\r\n",
+                                "    # of procs      : ~w\r\n\r\n"]),
                   [State#cluster_node_status.version,
                    ObjContainer,
                    proplists:get_value('log',              Directories, []),
@@ -612,14 +608,13 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
     Fun2 = fun(N, List) ->
                    {Alias, State, RingHash0, RingHash1, When} = N,
                    FormattedDate = leo_date:date_format(When),
-
-                   Ret = " "
-                       ++ string:left(Alias,         lists:nth(1,LenPerCol), $ )
-                       ++ string:left(State,         lists:nth(2,LenPerCol), $ )
-                       ++ string:left(RingHash0,     lists:nth(3,LenPerCol), $ )
-                       ++ string:left(RingHash1,     lists:nth(4,LenPerCol), $ )
-                       ++ string:left(FormattedDate, lists:nth(5,LenPerCol), $ )
-                       ++ ?CRLF,
+                   Ret = lists:append([" ",
+                                       string:left(Alias,         lists:nth(1,LenPerCol), $ ),
+                                       string:left(State,         lists:nth(2,LenPerCol), $ ),
+                                       string:left(RingHash0,     lists:nth(3,LenPerCol), $ ),
+                                       string:left(RingHash1,     lists:nth(4,LenPerCol), $ ),
+                                       string:left(FormattedDate, lists:nth(5,LenPerCol), $ ),
+                                       ?CRLF]),
                    List ++ [Ret]
            end,
     _FormattedList =
@@ -651,27 +646,26 @@ format_where_is(AssignedInfo) ->
     Fun2 = fun(N, List) ->
                    Ret = case N of
                              {Node, not_found} ->
-                                 " " ++ string:left("", lists:nth(1,LenPerCol))
-                                     ++ Node
-                                     ++ ?CRLF;
-
+                                 lists:append([" ",
+                                               string:left("", lists:nth(1,LenPerCol)),
+                                               Node,
+                                               ?CRLF]);
                              {Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag} ->
                                  FormattedDate = leo_date:date_format(Timestamp),
                                  DelStr = case DelFlag of
                                               0 -> " ";
                                               _ -> "*"
                                           end,
-
-                                 " " ++ string:left(DelStr,                            lists:nth(1,LenPerCol))
-                                     ++ string:left(Node,                              lists:nth(2,LenPerCol))
-                                     ++ string:left(leo_hex:integer_to_hex(VNodeId),   lists:nth(3,LenPerCol))
-                                     ++ string:left(dsize(DSize),                      lists:nth(4,LenPerCol))
-                                     ++ string:left(
-                                          string:sub_string(
-                                            leo_hex:integer_to_hex(Checksum), 1, 10),  lists:nth(5,LenPerCol))
-                                     ++ string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol))
-                                     ++ string:left(FormattedDate,                     lists:nth(7,LenPerCol))
-                                     ++ ?CRLF
+                                 lists:append([" ",
+                                               string:left(DelStr,                            lists:nth(1,LenPerCol)),
+                                               string:left(Node,                              lists:nth(2,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(VNodeId),   lists:nth(3,LenPerCol)),
+                                               string:left(dsize(DSize),                      lists:nth(4,LenPerCol)),
+                                               string:left(string:sub_string(leo_hex:integer_to_hex(Checksum), 1, 10),
+                                                           lists:nth(5,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol)),
+                                               string:left(FormattedDate,                     lists:nth(7,LenPerCol)),
+                                               ?CRLF])
                          end,
                    List ++ [Ret]
            end,
@@ -681,33 +675,27 @@ format_where_is(AssignedInfo) ->
 
 %% @doc Format s stats-list
 %% @private
--spec(format_stats_list(summary | detail, {integer(), integer(), integer()} | list()) ->
+-spec(format_stats_list(summary | detail, {integer(), integer()} | list()) ->
              string()).
-format_stats_list(summary, {FileSize, Total, Active}) ->
-    io_lib:format([]
-                  ++ "              file size: ~w\r\n"
-                  ++ " number of total object: ~w\r\n"
-                  ++ "number of active object: ~w\r\n\r\n",
-                  [FileSize, Total, Active]);
+format_stats_list(summary, {FileSize, Total}) ->
+    io_lib:format(lists:append(["              file size: ~w\r\n",
+                                " number of total object: ~w\r\n\r\n"]), [FileSize, Total]);
 
 format_stats_list(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
                   case Stats of
                       {ok, #storage_stats{file_path   = FilePath,
                                           total_sizes = FileSize,
-                                          total_num   = ObjTotal,
-                                          active_num  = ObjActive}} ->
-                          Acc ++ io_lib:format([]
-                                               ++ "              file path: ~s\r\n"
-                                               ++ "              file size: ~w\r\n"
-                                               ++ " number of total object: ~w\r\n"
-                                               ++ "number of active object: ~w\r\n\r\n",
-                                               [FilePath, FileSize, ObjTotal, ObjActive]);
+                                          total_num   = ObjTotal}} ->
+                          Acc ++ io_lib:format(lists:append(["              file path: ~s\r\n",
+                                                             "              file size: ~w\r\n",
+                                                             " number of total object: ~w\r\n"]),
+                                               [FilePath, FileSize, ObjTotal]);
                       _Error ->
                           Acc
                   end
           end,
-    lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList);
+    lists:append([lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList), "\r\n"]);
 
 format_stats_list(_, _) ->
     [].
