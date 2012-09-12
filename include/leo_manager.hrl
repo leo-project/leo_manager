@@ -85,6 +85,7 @@
 -define(ERROR_COULD_NOT_CONNECT,        "could not connect").
 -define(ERROR_FAILED_COMPACTION,        "failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS, "failed to get storage stats").
+-define(ERROR_ENDPOINT_NOT_FOUND,       "specified endpoint not found").
 
 
 %% records.

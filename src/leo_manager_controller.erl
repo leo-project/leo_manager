@@ -65,39 +65,39 @@ init(_Args) ->
 %% Operation-1
 %%----------------------------------------------------------------------
 handle_call(_Socket, <<?HELP>>, State) ->
-    Commands = []
-        ++ io_lib:format("[Cluster]\r\n", [])
-        ++ io_lib:format("~s\r\n",["detach ${NODE}"])
-        ++ io_lib:format("~s\r\n",["suspend ${NODE}"])
-        ++ io_lib:format("~s\r\n",["resume ${NODE}"])
-        ++ io_lib:format("~s\r\n",["start"])
-        ++ io_lib:format("~s\r\n",["rebalance"])
-        ++ io_lib:format("~s\r\n",["whereis ${PATH}"])
-        ++ ?CRLF
-        ++ io_lib:format("[Storage]\r\n", [])
-        ++ io_lib:format("~s\r\n",["du ${NODE}"])
-        ++ io_lib:format("~s\r\n",["compact ${NODE}"])
-        ++ ?CRLF
-        ++ io_lib:format("[Gateway]\r\n", [])
-        ++ io_lib:format("~s\r\n",["purge ${PATH}"])
-        ++ ?CRLF
-        ++ io_lib:format("[S3]\r\n", [])
-        ++ io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"])
-        ++ io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"])
-        ++ io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"])
-        ++ io_lib:format("~s\r\n",["s3-get-endpoints"])
-        ++ io_lib:format("~s\r\n",["s3-get-buckets"])
-        ++ ?CRLF
-        ++ io_lib:format("[Misc]\r\n", [])
-        ++ io_lib:format("~s\r\n",["version"])
-        ++ io_lib:format("~s\r\n",["status"])
-        ++ io_lib:format("~s\r\n",["history"])
-        ++ io_lib:format("~s\r\n",["quit"])
-        ++ ?CRLF,
-
+    Commands = lists:append([io_lib:format("[Cluster]\r\n", []),
+                             io_lib:format("~s\r\n",["detach ${NODE}"]),
+                             io_lib:format("~s\r\n",["suspend ${NODE}"]),
+                             io_lib:format("~s\r\n",["resume ${NODE}"]),
+                             io_lib:format("~s\r\n",["start"]),
+                             io_lib:format("~s\r\n",["rebalance"]),
+                             io_lib:format("~s\r\n",["whereis ${PATH}"]),
+                             ?CRLF,
+                             io_lib:format("[Storage]\r\n", []),
+                             io_lib:format("~s\r\n",["du ${NODE}"]),
+                             io_lib:format("~s\r\n",["compact ${NODE}"]),
+                             ?CRLF,
+                             io_lib:format("[Gateway]\r\n", []),
+                             io_lib:format("~s\r\n",["purge ${PATH}"]),
+                             ?CRLF,
+                             io_lib:format("[S3]\r\n", []),
+                             io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"]),
+                             io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"]),
+                             io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"]),
+                             io_lib:format("~s\r\n",["s3-get-endpoints"]),
+                             io_lib:format("~s\r\n",["s3-get-buckets"]),
+                             ?CRLF,
+                             io_lib:format("[Misc]\r\n", []),
+                             io_lib:format("~s\r\n",["version"]),
+                             io_lib:format("~s\r\n",["status"]),
+                             io_lib:format("~s\r\n",["history"]),
+                             io_lib:format("~s\r\n",["quit"]),
+                             ?CRLF]),
     {reply, Commands, State};
 
 
+%% Command: "version"
+%%
 handle_call(_Socket, <<?VERSION, _Option/binary>>, State) ->
     Reply = case application:get_key(leo_manager, vsn) of
                 {ok, Version} ->
@@ -108,18 +108,21 @@ handle_call(_Socket, <<?VERSION, _Option/binary>>, State) ->
     {reply, Reply, State};
 
 
+%% Command: "status"
+%% Command: "status ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
     Reply = case (erlang:length(Token) == 0) of
                 true ->
-                    format_cluster_node_list(SystemConf);
+                    format_node_list(SystemConf);
                 false ->
                     [Node|_] = Token,
-                    case leo_manager_api:get_cluster_node_status(Node) of
+                    case leo_manager_api:get_node_status(Node) of
                         {ok, Status} ->
-                            format_cluster_node_state(Status);
+                            format_node_state(Status);
                         {error, Cause} ->
                             io_lib:format("[ERROR] ~s\r\n", [Cause])
                     end
@@ -127,6 +130,8 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command : "detach ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
@@ -162,6 +167,8 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "suspend ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -179,6 +186,8 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "resume ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -196,6 +205,8 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "start"
+%%
 handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -217,8 +228,8 @@ handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
                             end;
                         {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
                             io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
-                        _Error ->
-                            io_lib:format("[ERROR] ~s\r\n",["Could not get node-status"])
+                        Error ->
+                            io_lib:format("[ERROR] ~s\r\n~p\r\n",["Could not get node-status", Error])
                     end;
                 ?STATE_RUNNING ->
                     io_lib:format("[ERROR] ~s\r\n",["System already started"])
@@ -226,6 +237,8 @@ handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
+%% Command: "rebalance"
+%%
 handle_call(_Socket, <<?REBALANCE, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -246,6 +259,8 @@ handle_call(_Socket, <<?REBALANCE, _Option/binary>> = Command, State) ->
 %%----------------------------------------------------------------------
 %% Operation-2
 %%----------------------------------------------------------------------
+%% Command: "du ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -275,6 +290,8 @@ handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
     {reply, Reply, NewState};
 
 
+%% Command: "compact ${NODE_NAME}"
+%%
 handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -298,10 +315,15 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
                     {error, SuspendError} ->
                         {io_lib:format("[ERROR] ~s\r\n",[SuspendError]), State}
                 end
-       end,
+        end,
     {reply, Reply, NewState};
 
 
+%%----------------------------------------------------------------------
+%% Operation-3
+%%----------------------------------------------------------------------
+%% Command: "s3-gen-key ${USER_ID}"
+%%
 handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -323,6 +345,8 @@ handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-set-endpoint ${END_POINT}"
+%%
 handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -340,6 +364,8 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-del-endpoint ${END_POINT}"
+%%
 handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -351,12 +377,16 @@ handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
                 case leo_s3_endpoint:delete_endpoint(EndPoint) of
                     ok ->
                         {?OK, State};
+                    not_found ->
+                        {io_lib:format("[ERROR] ~s\r\n",[?ERROR_ENDPOINT_NOT_FOUND]),State};
                     {error, Cause} ->
                         {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
                 end
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-get-endpoints"
+%%
 handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -371,6 +401,8 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+%% Command: "s3-get-buckets"
+%%
 handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -385,7 +417,8 @@ handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
-
+%% Command: "whereis ${PATH}"
+%%
 handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
@@ -406,6 +439,8 @@ handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
             end,
     {reply, Reply, State};
 
+%% Command: "purge ${PATH}"
+%%
 handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
     Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -423,7 +458,8 @@ handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
             end,
     {reply, Reply, State};
 
-
+%% Command: "history"
+%%
 handle_call(_Socket, <<?HISTORY, _Option/binary>>, State) ->
     Reply = case leo_manager_mnesia:get_histories_all() of
                 {ok, Histories} ->
@@ -433,7 +469,8 @@ handle_call(_Socket, <<?HISTORY, _Option/binary>>, State) ->
             end,
     {reply, Reply, State};
 
-
+%% Command: "quit"
+%%
 handle_call(_Socket, <<?QUIT>>, State) ->
     {close, <<?BYE>>, State};
 
@@ -449,7 +486,9 @@ handle_call(_Socket, _Data, State) ->
 %%----------------------------------------------------------------------
 %% Inner function(s)
 %%----------------------------------------------------------------------
-format_cluster_node_list(SystemConf) ->
+%% @doc Format a cluster-node list
+%%
+format_node_list(SystemConf) ->
     FormattedSystemConf =
         case is_record(SystemConf, system_conf) of
             true ->
@@ -459,16 +498,16 @@ format_cluster_node_list(SystemConf) ->
                           end,
                 {ok, {RingHash0, RingHash1}} = leo_redundant_manager_api:checksum(ring),
 
-                io_lib:format("[system config]\r\n"               ++
-                                  "             version : ~s\r\n"     ++
-                                  " # of replicas       : ~w\r\n"     ++
-                                  " # of successes of R : ~w\r\n"     ++
-                                  " # of successes of W : ~w\r\n"     ++
-                                  " # of successes of D : ~w\r\n"     ++
-                                  "           ring size : 2^~w\r\n"   ++
-                                  "    ring hash (cur)  : ~s\r\n"     ++
-                                  "    ring hash (prev) : ~s\r\n\r\n" ++
-                                  "[node(s) state]\r\n",
+                io_lib:format(lists:append(["[system config]\r\n",
+                                            "             version : ~s\r\n",
+                                            " # of replicas       : ~w\r\n",
+                                            " # of successes of R : ~w\r\n",
+                                            " # of successes of W : ~w\r\n",
+                                            " # of successes of D : ~w\r\n",
+                                            "           ring size : 2^~w\r\n",
+                                            "    ring hash (cur)  : ~s\r\n",
+                                            "    ring hash (prev) : ~s\r\n\r\n",
+                                            "[node(s) state]\r\n"]),
                               [Version,
                                SystemConf#system_conf.n,
                                SystemConf#system_conf.r,
@@ -485,7 +524,8 @@ format_cluster_node_list(SystemConf) ->
     S1 = case leo_manager_mnesia:get_storage_nodes_all() of
              {ok, R1} ->
                  lists:map(fun(N) ->
-                                   {atom_to_list(N#node_state.node),
+                                   {"S",
+                                    atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
                                     N#node_state.ring_hash_old,
@@ -497,7 +537,8 @@ format_cluster_node_list(SystemConf) ->
     S2 = case leo_manager_mnesia:get_gateway_nodes_all() of
              {ok, R2} ->
                  lists:map(fun(N) ->
-                                   {atom_to_list(N#node_state.node),
+                                   {"G",
+                                    atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
                                     N#node_state.ring_hash_old,
@@ -509,24 +550,28 @@ format_cluster_node_list(SystemConf) ->
     format_system_conf_with_node_state(FormattedSystemConf, S1 ++ S2).
 
 
-format_cluster_node_state(State) ->
+%% @doc Format a cluster node state
+%% @private
+-spec(format_node_state(#cluster_node_status{}) ->
+             string()).
+format_node_state(State) ->
     ObjContainer = State#cluster_node_status.avs,
     Directories  = State#cluster_node_status.dirs,
     RingHashes   = State#cluster_node_status.ring_checksum,
     Statistics   = State#cluster_node_status.statistics,
 
-    io_lib:format("[config]\r\n" ++
-                      "            version : ~s\r\n" ++
-                      "      obj-container : ~p\r\n" ++
-                      "            log-dir : ~s\r\n" ++
-                      "  ring state (cur)  : ~w\r\n" ++
-                      "  ring state (prev) : ~w\r\n" ++
-                      "\r\n[erlang-vm status]\r\n"   ++
-                      "    total mem usage : ~w\r\n" ++
-                      "   system mem usage : ~w\r\n" ++
-                      "    procs mem usage : ~w\r\n" ++
-                      "      ets mem usage : ~w\r\n" ++
-                      "    # of procs      : ~w\r\n\r\n",
+    io_lib:format(lists:append(["[config]\r\n",
+                                "            version : ~s\r\n",
+                                "      obj-container : ~p\r\n",
+                                "            log-dir : ~s\r\n",
+                                "  ring state (cur)  : ~w\r\n",
+                                "  ring state (prev) : ~w\r\n",
+                                "\r\n[erlang-vm status]\r\n",
+                                "    total mem usage : ~w\r\n",
+                                "   system mem usage : ~w\r\n",
+                                "    procs mem usage : ~w\r\n",
+                                "      ets mem usage : ~w\r\n",
+                                "    # of procs      : ~w\r\n\r\n"]),
                   [State#cluster_node_status.version,
                    ObjContainer,
                    proplists:get_value('log',              Directories, []),
@@ -540,10 +585,27 @@ format_cluster_node_state(State) ->
                   ]).
 
 
+%% @doc Format a system-configuration w/node-state
+%% @private
+-spec(format_system_conf_with_node_state(string(), list()) ->
+             string()).
 format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
-    CellColumns =
-        [{"node",28},{"state",12},{"ring (cur)",14},{"ring (prev)",14},{"when",28},{"END",0}],
-    LenPerCol = lists:map(fun(C)->{_, Len} = C, Len end, CellColumns),
+    Col1Len = lists:foldl(fun({_,N,_,_,_,_}, Acc) ->
+                                  Len = length(N),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, 0, Nodes) + 5,
+    CellColumns = [{"type",        5},
+                   {"node",  Col1Len},
+                   {"state",      12},
+                   {"ring (cur)", 14},
+                   {"ring (prev)",14},
+                   {"when",       28},
+                   {"END",         0}],
+    LenPerCol = lists:map(fun({_, Len}) -> Len end, CellColumns),
+
     Fun1 = fun(Col, {Type,Str}) ->
                    {Name, Len} = Col,
                    case Name of
@@ -559,25 +621,44 @@ format_system_conf_with_node_state(FormattedSystemConf, Nodes) ->
                   [], lists:duplicate(lists:sum(LenPerCol), "-")) ++ ?CRLF,
 
     Fun2 = fun(N, List) ->
-                   {Alias, State, RingHash0, RingHash1, When} = N,
-                   FormattedDate = leo_utils:date_format(When),
-
-                   Ret = " " ++ string:left(Alias,         lists:nth(1,LenPerCol), $ )
-                       ++ string:left(State,         lists:nth(2,LenPerCol), $ )
-                       ++ string:left(RingHash0,     lists:nth(3,LenPerCol), $ )
-                       ++ string:left(RingHash1,     lists:nth(4,LenPerCol), $ )
-                       ++ string:left(FormattedDate, lists:nth(5,LenPerCol), $ )
-                       ++ ?CRLF,
+                   {Type, Alias, State, RingHash0, RingHash1, When} = N,
+                   FormattedDate = leo_date:date_format(When),
+                   Ret = lists:append([" ",
+                                       string:left(Type,          lists:nth(1,LenPerCol)),
+                                       string:left(Alias,         lists:nth(2,LenPerCol)),
+                                       string:left(State,         lists:nth(3,LenPerCol)),
+                                       string:left(RingHash0,     lists:nth(4,LenPerCol)),
+                                       string:left(RingHash1,     lists:nth(5,LenPerCol)),
+                                       FormattedDate,
+                                       ?CRLF]),
                    List ++ [Ret]
            end,
     _FormattedList =
         lists:foldl(Fun2, [FormattedSystemConf, Sepalator, Header2, Sepalator], Nodes) ++ ?CRLF.
 
 
+%% @doc Format an assigned file
+%% @private
+-spec(format_where_is(list()) ->
+             string()).
 format_where_is(AssignedInfo) ->
-    CellColumns =
-        [{"del?",5}, {"node",28},{"ring address",36},{"size",8},{"checksum",12},{"clock",14},{"when",28},{"END",0}],
-    LenPerCol = lists:map(fun(C)->{_, Len} = C, Len end, CellColumns),
+    Col2Len = lists:foldl(fun(N, Acc) ->
+                                  Len = length(element(1,N)),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, 0, AssignedInfo) + 5,
+    CellColumns = [{"del?",          5},
+                   {"node",    Col2Len},
+                   {"ring address", 36},
+                   {"size",          8},
+                   {"checksum",     12},
+                   {"clock",        14},
+                   {"when",         28},
+                   {"END",           0}],
+
+    LenPerCol = lists:map(fun({_, Len})-> Len end, CellColumns),
     Fun1 = fun(Col, {Type,Str}) ->
                    {Name, Len} = Col,
                    case Name of
@@ -595,27 +676,26 @@ format_where_is(AssignedInfo) ->
     Fun2 = fun(N, List) ->
                    Ret = case N of
                              {Node, not_found} ->
-                                 " " ++ string:left("", lists:nth(1,LenPerCol))
-                                     ++ Node
-                                     ++ ?CRLF;
-
+                                 lists:append([" ",
+                                               string:left("", lists:nth(1,LenPerCol)),
+                                               Node,
+                                               ?CRLF]);
                              {Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag} ->
-                                 FormattedDate = leo_utils:date_format(Timestamp),
+                                 FormattedDate = leo_date:date_format(Timestamp),
                                  DelStr = case DelFlag of
                                               0 -> " ";
                                               _ -> "*"
                                           end,
-
-                                 " " ++ string:left(DelStr,                            lists:nth(1,LenPerCol))
-                                     ++ string:left(Node,                              lists:nth(2,LenPerCol))
-                                     ++ string:left(leo_hex:integer_to_hex(VNodeId),   lists:nth(3,LenPerCol))
-                                     ++ string:left(dsize(DSize),                      lists:nth(4,LenPerCol))
-                                     ++ string:left(
-                                          string:sub_string(
-                                            leo_hex:integer_to_hex(Checksum), 1, 10),  lists:nth(5,LenPerCol))
-                                     ++ string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol))
-                                     ++ string:left(FormattedDate,                     lists:nth(7,LenPerCol))
-                                     ++ ?CRLF
+                                 lists:append([" ",
+                                               string:left(DelStr,                            lists:nth(1,LenPerCol)),
+                                               string:left(Node,                              lists:nth(2,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(VNodeId),   lists:nth(3,LenPerCol)),
+                                               string:left(dsize(DSize),                      lists:nth(4,LenPerCol)),
+                                               string:left(string:sub_string(leo_hex:integer_to_hex(Checksum), 1, 10),
+                                                           lists:nth(5,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol)),
+                                               FormattedDate,
+                                               ?CRLF])
                          end,
                    List ++ [Ret]
            end,
@@ -623,62 +703,107 @@ format_where_is(AssignedInfo) ->
         lists:foldl(Fun2, [Sepalator, Header2, Sepalator], AssignedInfo) ++ ?CRLF.
 
 
-format_stats_list(summary, {FileSize, Total, Active}) ->
-    io_lib:format(
-      "              file size: ~w\r\n"
-      ++ " number of total object: ~w\r\n"
-      ++ "number of active object: ~w\r\n\r\n",
-      [FileSize, Total, Active]);
+%% @doc Format s stats-list
+%% @private
+-spec(format_stats_list(summary | detail, {integer(), integer()} | list()) ->
+             string()).
+format_stats_list(summary, {FileSize, Total}) ->
+    io_lib:format(lists:append(["              file size: ~w\r\n",
+                                " number of total object: ~w\r\n\r\n"]), [FileSize, Total]);
 
 format_stats_list(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
                   case Stats of
                       {ok, #storage_stats{file_path   = FilePath,
                                           total_sizes = FileSize,
-                                          total_num   = ObjTotal,
-                                          active_num  = ObjActive}} ->
-                          Acc ++ io_lib:format("              file path: ~s\r\n"
-                                               ++  "              file size: ~w\r\n"
-                                               ++  " number of total object: ~w\r\n"
-                                               ++  "number of active object: ~w\r\n\r\n",
-                                               [FilePath, FileSize, ObjTotal, ObjActive]);
+                                          total_num   = ObjTotal}} ->
+                          Acc ++ io_lib:format(lists:append(["              file path: ~s\r\n",
+                                                             "              file size: ~w\r\n",
+                                                             " number of total object: ~w\r\n"]),
+                                               [FilePath, FileSize, ObjTotal]);
                       _Error ->
                           Acc
                   end
           end,
-    lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList).
+    lists:append([lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList), "\r\n"]);
+
+format_stats_list(_, _) ->
+    [].
 
 
 
+%% @doc Format a history list
+%% @private
+-spec(format_history_list(list(#history{})) ->
+             string()).
 format_history_list(Histories) ->
     Fun = fun(#history{id      = Id,
                        command = Command,
                        created = Created}, Acc) ->
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
-                                       [string:left(integer_to_list(Id), 4), leo_utils:date_format(Created), Command])
+                                       [string:left(integer_to_list(Id), 4), leo_date:date_format(Created), Command])
           end,
     lists:foldl(Fun, "[Histories]\r\n", Histories).
 
 
+%% @doc Format a endpoint list
+%% @private
+-spec(format_endpoint_list(list(tuple())) ->
+             string()).
 format_endpoint_list(EndPoints) ->
+    Col1Len = lists:foldl(fun({_, EP, _}, Acc) ->
+                                  Len = length(EP),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, 0, EndPoints),
+    Col2Len = 26,
+
+    Header = lists:append([string:left("endpoint", Col1Len), " | ", string:left("created at", Col2Len), "\r\n",
+                           lists:duplicate(Col1Len, "-"),    "-+-", lists:duplicate(Col2Len, "-"),      "\r\n"]),
     Fun = fun({endpoint, EP, Created}, Acc) ->
                   Acc ++ io_lib:format("~s | ~s\r\n",
-                                       [leo_utils:date_format(Created), EP])
+                                       [string:left(EP,Col1Len), leo_date:date_format(Created)])
           end,
-    lists:foldl(Fun, "[EndPoints]\r\n", EndPoints).
+    lists:append([lists:foldl(Fun, Header, EndPoints), "\r\n"]).
 
 
+%% @doc Format a bucket list
+%% @private
+-spec(format_bucket_list(list(tuple())) ->
+             string()).
 format_bucket_list(Buckets) ->
-    Header = lists:append(["[Buckets]\r\n",
-                           " created at                | bucket (owner)\r\n",
-                           "---------------------------+",
-                           "----------------------------------------------------------------\r\n"
-                          ]),
+    {Col1Len, Col2Len} = lists:foldl(fun({Bucket, Owner, _}, {C1, C2}) ->
+                                             Len1 = length(Bucket),
+                                             Len2 = length(Owner),
+
+                                             {case (Len1 > C1) of
+                                                  true  -> Len1;
+                                                  false -> C1
+                                              end,
+                                              case (Len2 > C2) of
+                                                  true  -> Len2;
+                                                  false -> C2
+                                              end}
+                                     end, {0,0}, Buckets),
+    Col3Len = 26,
+    Header = lists:append(
+               [string:left("bucket",     Col1Len), " | ",
+                string:left("owner",      Col2Len), " | ",
+                string:left("created at", Col3Len), "\r\n",
+
+                lists:duplicate(Col1Len, "-"), "-+-",
+                lists:duplicate(Col2Len, "-"), "-+-",
+                lists:duplicate(Col3Len, "-"), "\r\n"]),
+
     Fun = fun({Bucket, Owner, Created}, Acc) ->
-                  Acc ++ io_lib:format(" ~s | ~s (~s)\r\n",
-                                       [leo_utils:date_format(Created), Bucket, Owner])
+                  Acc ++ io_lib:format("~s | ~s | ~s\r\n",
+                                       [string:left(Bucket, Col1Len),
+                                        string:left(Owner,  Col2Len),
+                                        leo_date:date_format(Created)])
           end,
-    lists:foldl(Fun, Header, Buckets).
+    lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
 
 
 %% @doc Retrieve data-size w/unit.

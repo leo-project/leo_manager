@@ -145,7 +145,7 @@ status_1_({Node0, _, Sock}) ->
                      end),
 
     ok = meck:new(leo_storage_api),
-    ok = meck:expect(leo_storage_api, get_cluster_node_status,
+    ok = meck:expect(leo_storage_api, get_node_status,
                      fun() ->
                              {ok, #cluster_node_status{avs           = [{{'dir',"/var/leofs/vol0/"}, {'num',64}}],
                                                        dirs          = [{'log',             "/var/leofs/logs/"},
@@ -816,6 +816,10 @@ du_0_({Node0,_, Sock}) ->
                      fun(_) ->
                              ok
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_) ->
+                             {ok, []}
+                     end),
 
     ok = meck:new(leo_object_storage_api),
     ok = meck:expect(leo_object_storage_api, stats,
@@ -837,6 +841,10 @@ du_1_({Node0,_, Sock}) ->
                      fun(_) ->
                              ok
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_) ->
+                             {ok, []}
+                     end),
 
     ok = meck:new(leo_object_storage_api),
     ok = meck:expect(leo_object_storage_api, stats,
@@ -857,6 +865,10 @@ du_2_({Node0,_, Sock}) ->
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
                              ok
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_) ->
+                             {ok, []}
                      end),
 
     ok = meck:new(leo_object_storage_api),
@@ -880,6 +892,10 @@ du_3_({Node0,_, Sock}) ->
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
                              ok
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_) ->
+                             {ok, []}
                      end),
 
     ok = meck:new(leo_object_storage_api),
@@ -910,7 +926,7 @@ compact_0_({Node0, _, Sock}) ->
                      fun(_) ->
                              {error, disk_error}
                      end),
-    ok = meck:expect(leo_manager_api, suspend, 
+    ok = meck:expect(leo_manager_api, suspend,
                      fun(_) ->
                              ok
                      end),
@@ -941,7 +957,7 @@ compact_1_({Node0, _, Sock}) ->
                      fun(_) ->
                              {ok, []}
                      end),
-    ok = meck:expect(leo_manager_api, suspend, 
+    ok = meck:expect(leo_manager_api, suspend,
                      fun(_) ->
                              ok
                      end),

@@ -55,7 +55,7 @@
 -define(CURRENT_TIME, 65432100000).
 -define(APPLY_AFTER_TIME, 0).
 -else.
--define(CURRENT_TIME, leo_utils:now()).
+-define(CURRENT_TIME, leo_date:now()).
 -define(APPLY_AFTER_TIME, 1000).
 -endif.
 
@@ -280,7 +280,7 @@ update_node_state1(State, Node) ->
 -spec(get_remote_node_proc_fun() ->
              ok).
 get_remote_node_proc_fun() ->
-    case leo_manager_api:get_cluster_nodes() of
+    case leo_manager_api:get_nodes() of
         {ok, Members} ->
             lists:foreach(
               fun({_Type, _Node, ?STATE_DETACHED}) -> void;
@@ -298,7 +298,7 @@ get_remote_node_proc_fun() ->
 get_remote_node_proc_fun(storage, Node) ->
     timer:sleep(50),
 
-    case leo_utils:node_existence(Node) of
+    case leo_misc:node_existence(Node) of
         true ->
             Mod = leo_storage_api,
             case rpc:call(Node, Mod, register_in_monitor, [again], ?DEF_TIMEOUT) of
@@ -313,7 +313,7 @@ get_remote_node_proc_fun(storage, Node) ->
 get_remote_node_proc_fun(gateway, Node) ->
     timer:sleep(50),
 
-    case leo_utils:node_existence(Node) of
+    case leo_misc:node_existence(Node) of
         true ->
             Mod = leo_gateway_api,
             case rpc:call(Node, Mod, register_in_monitor, [again], ?DEF_TIMEOUT) of
