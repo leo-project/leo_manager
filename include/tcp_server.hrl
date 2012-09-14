@@ -21,21 +21,17 @@
 %% ---------------------------------------------------------------------
 %% TCS Server.
 %%======================================================================
--define(TCP_SERVER_MONITOR_NAME, "tcp_server_monitor").
--define(TCP_SERVER_PREFIX,       "tcp_server_").
-
 -record(tcp_server_params, {
-    listen = [binary, {packet, line}, {active, false}, {reuseaddr, true}],
-    port                    = 11211,
-    num_of_listeners        = 3,
-    restart_times           = 3,
-
-    time                    = 60,
-    shutdown                = 2000,
-
-    accept_timeout          = infinity,
-    accept_error_sleep_time = 3000,
-    recv_length             = 0,
-    recv_timeout            = infinity
-}).
+          prefix_of_name = "tcp_server_"  :: string(),
+          listen = [binary, {packet, line}, {active, false}, {reuseaddr, true}],
+          port                    = 10010 :: integer(),
+          num_of_listeners        = 3     :: integer(),
+          restart_times           = 3     :: integer(),
+          time                    = 60    :: integer(),
+          shutdown                = 2000  :: integer(),
+          accept_timeout          = infinity,
+          accept_error_sleep_time = 3000  :: integer(),
+          recv_length             = 0     :: integer(),
+          recv_timeout            = infinity
+         }).
 

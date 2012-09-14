@@ -29,6 +29,8 @@
 -export([start_link/3, stop/0]).
 
 -include("tcp_server.hrl").
+-include_lib("eunit/include/eunit.hrl").
+
 
 %% Behaviour Callbacks
 behaviour_info(callbacks) ->
@@ -36,10 +38,53 @@ behaviour_info(callbacks) ->
 behaviour_info(_Other) ->
     undefined.
 
+
 %% External APIs
 start_link(Module, Args, Option) ->
-    tcp_server_sup:start_link({local, ?MODULE}, Module, Args, Option).
+    case Module:init(Args) of
+        {ok, State}  ->
+            case gen_tcp:listen(Option#tcp_server_params.port,
+                                Option#tcp_server_params.listen) of
+                {ok, Socket} ->
+                    add_listener(Socket, State, Module, Option);
+                {error, Reason} ->
+                    {error, Reason}
+            end;
+        {stop, Reason} ->
+            {error, Reason};
+        _ ->
+            {error, []}
+    end.
+
 
 stop() ->
     ok.
+
+
+%% ---------------------------------------------------------------------
+%% Internal Functions
+%% ---------------------------------------------------------------------
+add_listener(Socket, State, Module, Option) ->
+    Index = Option#tcp_server_params.num_of_listeners,
+    add_listener(Index, Socket, State, Module, Option).
+
+add_listener(0,_,_,_,_) ->
+    ok;
+add_listener(Index, Socket, State, Module, Option) ->
+    AcceptorName = list_to_atom(
+                     lists:append([Option#tcp_server_params.prefix_of_name,
+                                   integer_to_list(Index)])),
+    ChildSpec = {AcceptorName,
+                 {tcp_server_acceptor,
+                  start_link, [{local, AcceptorName},
+                               Socket,
+                               State,
+                               Module,
+                               Option]},
+                 permanent,
+                 Option#tcp_server_params.shutdown,
+                 worker,
+                 [tcp_server_acceptor]},
+    {ok, _Pid} = supervisor:start_child(tcp_server_sup, ChildSpec),
+    add_listener(Index - 1, Socket, State, Module, Option).
 

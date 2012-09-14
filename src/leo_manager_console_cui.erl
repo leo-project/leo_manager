@@ -19,11 +19,11 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager - Controller.
+%% LeoFS Manager - CUI Console
 %% @doc
 %% @end
 %%======================================================================
--module(leo_manager_controller).
+-module(leo_manager_console_cui).
 
 -author('Yosuke Hara').
 

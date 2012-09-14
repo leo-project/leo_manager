@@ -23,7 +23,6 @@
 %%
 %% -------------------------------------------------------------------
 -author('yosuke hara').
--vsn('0.9.1').
 -include_lib("eunit/include/eunit.hrl").
 
 %% constants.
@@ -88,6 +87,11 @@
 -define(ERROR_ENDPOINT_NOT_FOUND,       "specified endpoint not found").
 
 
+%% type of console.
+-define(CONSOLE_CUI,  'cui').
+-define(CONSOLE_JSON, 'json').
+
+
 %% records.
 %%
 -record(rebalance_info, {
@@ -117,5 +121,29 @@
         case application:get_env(leo_manager, manager_partners) of
             {ok, EnvPartnerOfManagerNode} -> EnvPartnerOfManagerNode;
             _ -> []
+        end).
+
+-define(env_listening_port_cui(),
+        case application:get_env(leo_manager, port_cui) of
+            {ok, EnvCUIListeningPort} -> EnvCUIListeningPort;
+            _ -> 10010
+        end).
+
+-define(env_listening_port_json(),
+        case application:get_env(leo_manager, port_json) of
+            {ok, EnvJSONListeningPort} -> EnvJSONListeningPort;
+            _ -> 10020
+        end).
+
+-define(env_num_of_acceptors_cui(),
+        case application:get_env(leo_manager, num_of_acceptors_cui) of
+            {ok, EnvCUINumOfAcceptors} -> EnvCUINumOfAcceptors;
+            _ -> 3
+        end).
+
+-define(env_num_of_acceptors_json(),
+        case application:get_env(leo_manager, num_of_acceptors_json) of
+            {ok, EnvJSONNumOfAcceptors} -> EnvJSONNumOfAcceptors;
+            _ -> 3
         end).
 

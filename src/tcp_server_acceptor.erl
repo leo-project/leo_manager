@@ -26,20 +26,20 @@
 -author('Yosuke Hara').
 
 %% External API
--export([start_link/6]).
+-export([start_link/5]).
 
 %% Callbacks
--export([init/6, accept/5]).
+-export([init/5, accept/4]).
 
 -include("tcp_server.hrl").
 
 %%-----------------------------------------------------------------------
 %% External API
 %%-----------------------------------------------------------------------
-start_link({Locale, Name}, Socket, State, MonitorName, Module, Option) ->
+start_link({Locale, Name}, Socket, State, Module, Option) ->
     {ok, Pid} = proc_lib:start_link(
                   ?MODULE, init,
-                  [self(), Socket, State, MonitorName, Module, Option]),
+                  [self(), Socket, State, Module, Option]),
 
     case Locale of
         local -> register(Name, Pid);
@@ -50,12 +50,12 @@ start_link({Locale, Name}, Socket, State, MonitorName, Module, Option) ->
 %% ---------------------------------------------------------------------
 %% Callbacks
 %% ---------------------------------------------------------------------
-init(Parent, Socket, State, MonitorName, Module, Option) ->
+init(Parent, Socket, State, Module, Option) ->
     proc_lib:init_ack(Parent, {ok, self()}),
-    accept(Socket, State, MonitorName, Module, Option).
+    accept(Socket, State, Module, Option).
 
 
-accept(ListenSocket, State, MonitorName, Module, Option) ->
+accept(ListenSocket, State, Module, Option) ->
     case gen_tcp:accept(ListenSocket, Option#tcp_server_params.accept_timeout) of
         {ok, Socket} ->
             try
@@ -74,7 +74,7 @@ accept(ListenSocket, State, MonitorName, Module, Option) ->
                       [?MODULE, "accept/5b", Module, Reason]),
             timer:sleep(Option#tcp_server_params.accept_error_sleep_time)
     end,
-    accept(ListenSocket, State, MonitorName, Module, Option).
+    accept(ListenSocket, State, Module, Option).
 
 recv(false, Socket, State, Module, Option) ->
     case gen_tcp:recv(Socket,

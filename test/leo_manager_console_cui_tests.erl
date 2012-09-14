@@ -23,7 +23,7 @@
 %% @doc
 %% @end
 %%======================================================================
--module(leo_manager_controller_tests).
+-module(leo_manager_console_cui_tests).
 -author('Yosuke Hara').
 
 -include("leo_manager.hrl").
@@ -69,13 +69,13 @@ setup() ->
     true = rpc:call(Node0, code, add_path, ["../deps/meck/ebin"]),
     true = rpc:call(Node1, code, add_path, ["../deps/meck/ebin"]),
 
-    leo_manager_controller:start_link(#tcp_server_params{num_of_listeners = 36}),
-    {ok, Sock} = gen_tcp:connect("127.0.0.1", 11211,[binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
+    _ = tcp_server_sup:start_link(),
+    _ = leo_manager_console_cui:start_link(#tcp_server_params{num_of_listeners = 3}),
+    {ok, Sock} = gen_tcp:connect(
+                   "127.0.0.1", 10010, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]),
     {Node0, Node1, Sock}.
 
 teardown({_, Node1, _}) ->
-    leo_manager_controller:stop(),
-
     meck:unload(),
     net_kernel:stop(),
     slave:stop(Node1),
@@ -134,6 +134,7 @@ status_0_({Node0, Node1, Sock}) ->
     ok.
 
 status_1_({Node0, _, Sock}) ->
+    ?debugVal(Sock),
     ok = meck:new(leo_manager_mnesia),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -594,7 +595,7 @@ start_0_({Node0, _, Sock}) ->
 
     %% @TODO
     %% {ok, Res} = gen_tcp:recv(Sock, 0),
-    %%%?assertEqual(<<"OK\r\n">>, Res),
+%%%?assertEqual(<<"OK\r\n">>, Res),
 
     catch gen_tcp:close(Sock),
     ok.

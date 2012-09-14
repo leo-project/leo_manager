@@ -53,10 +53,7 @@
 %% @doc start link...
 %% @end
 start_link() ->
-    ListenPort     = ?env_listening_port(leo_manager),
-    NumOfAcceptors = ?env_num_of_acceptors(leo_manager),
-    Mode           = ?env_mode_of_manager(),
-
+    Mode = ?env_mode_of_manager(),
     [RedundantNodes0|_] = ?env_partner_of_manager_node(),
     RedundantNodes1     = [{Mode, node()},
                            {'partner', case is_atom(RedundantNodes0) of
@@ -64,10 +61,19 @@ start_link() ->
                                            false -> list_to_atom(RedundantNodes0)
                                        end}],
 
-    case supervisor:start_link({local, ?MODULE}, ?MODULE,
-                               [#tcp_server_params{port = ListenPort,
-                                                   num_of_listeners = NumOfAcceptors}]) of
+    CUI_Console  = #tcp_server_params{prefix_of_name  = "tcp_server_cui_",
+                                      port = ?env_listening_port_cui(),
+                                      num_of_listeners = ?env_num_of_acceptors_cui()},
+    JSON_Console = #tcp_server_params{prefix_of_name  = "tcp_server_json_",
+                                      port = ?env_listening_port_json(),
+                                      num_of_listeners = ?env_num_of_acceptors_json()},
+
+    case supervisor:start_link({local, ?MODULE}, ?MODULE, []) of
         {ok, Pid} ->
+            %% Launch TCP-Server(s)
+            ok = leo_manager_console_cui:start_link(CUI_Console),
+            ok = leo_manager_console_json:start_link(JSON_Console),
+
             %% Launch Logger
             DefLogDir = "./log/",
             LogDir    = case application:get_env(log_appender) of
@@ -142,22 +148,22 @@ stop() ->
 %% @doc stop process.
 %% @end
 %% @private
-init([TCPServerParams]) ->
-    ChildProcs =
-        [{leo_manager_controller,
-          {leo_manager_controller, start_link, [TCPServerParams]},
-          permanent,
-          ?SHUTDOWN_WAITING_TIME,
-          worker,
-          [leo_manager_controller]},
+init([]) ->
+    ChildProcs = [
+                  {tcp_server_sup,
+                   {tcp_server_sup, start_link, []},
+                   permanent,
+                   ?SHUTDOWN_WAITING_TIME,
+                   supervisor,
+                   [tcp_server_sup]},
 
-         {leo_manager_cluster_monitor,
-          {leo_manager_cluster_monitor, start_link, []},
-          permanent,
-          ?SHUTDOWN_WAITING_TIME,
-          worker,
-          [leo_manager_cluster_monitor]}
-        ],
+                  {leo_manager_cluster_monitor,
+                   {leo_manager_cluster_monitor, start_link, []},
+                   permanent,
+                   ?SHUTDOWN_WAITING_TIME,
+                   worker,
+                   [leo_manager_cluster_monitor]}
+                 ],
     {ok, {_SupFlags = {one_for_one, ?MAX_RESTART, ?MAX_TIME}, ChildProcs}}.
 
 
