@@ -85,7 +85,11 @@
 -define(ERROR_FAILED_COMPACTION,        "failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS, "failed to get storage stats").
 -define(ERROR_ENDPOINT_NOT_FOUND,       "specified endpoint not found").
-
+-define(ERROR_COULD_NOT_ATTACH_NODE,    "could not attach a node").
+-define(ERROR_COULD_NOT_DETACH_NODE,    "could not detach a node").
+-define(ERROR_COMMAND_NOT_FOUND,        "command not exist").
+-define(ERROR_NO_NODE_SPECIFIED,        "no node specified").
+-define(ERROR_NO_PATH_SPECIFIED,        "no path specified").
 
 %% type of console.
 -define(CONSOLE_CUI,  'cui').

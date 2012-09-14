@@ -38,12 +38,6 @@
 -export([start_link/1, stop/0]).
 -export([init/1, handle_call/3]).
 
--define(ERROR_COULD_NOT_ATTACH_NODE, "could not attach a node").
--define(ERROR_COULD_NOT_DETACH_NODE, "could not detach a node").
--define(ERROR_COMMAND_NOT_FOUND,     "command not exist").
--define(ERROR_NO_NODE_SPECIFIED,     "no node specified").
--define(ERROR_NO_PATH_SPECIFIED,     "no path specified").
-
 
 %%----------------------------------------------------------------------
 %%
@@ -98,34 +92,22 @@ handle_call(_Socket, <<?HELP>>, State) ->
 
 %% Command: "version"
 %%
-handle_call(_Socket, <<?VERSION, _Option/binary>>, State) ->
-    Reply = case application:get_key(leo_manager, vsn) of
-                {ok, Version} ->
-                    io_lib:format("~s\r\n",[Version]);
-                _ ->
-                    []
-            end,
-    {reply, Reply, State};
+handle_call(_Socket, <<?VERSION, _/binary>>, State) ->
+    {ok, Reply} = leo_manager_console_commons:version(),
+    {reply, lists:append([Reply, ?CRLF, ?CRLF]), State};
 
 
 %% Command: "status"
 %% Command: "status ${NODE_NAME}"
 %%
 handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
-    Reply = case (erlang:length(Token) == 0) of
-                true ->
-                    format_node_list(SystemConf);
-                false ->
-                    [Node|_] = Token,
-                    case leo_manager_api:get_node_status(Node) of
-                        {ok, Status} ->
-                            format_node_state(Status);
-                        {error, Cause} ->
-                            io_lib:format("[ERROR] ~s\r\n", [Cause])
-                    end
+    Reply = case leo_manager_console_commons:status(Command, Option) of
+                {ok, {node_list, Props}} ->
+                    format_node_list(Props);
+                {ok, NodeStatus} ->
+                    format_node_state(NodeStatus);
+                {error, Cause} ->
+                    io_lib:format("[ERROR] ~s\r\n", [Cause])
             end,
     {reply, Reply, State};
 
@@ -207,39 +189,23 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    Reply = case leo_manager_api:get_system_status() of
-                ?STATE_STOP ->
-                    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-
-                    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
-                        {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
-                            case leo_manager_api:start() of
-                                {error, Cause} ->
-                                    io_lib:format("[ERROR] ~s\r\n",[Cause]);
-                                {_ResL, []} ->
-                                    ?OK;
-                                {_ResL, BadNodes} ->
-                                    lists:foldl(fun(Node, Acc) ->
-                                                        Acc ++ io_lib:format("[ERROR] ~w\r\n", [Node])
-                                                end, [], BadNodes)
-                            end;
-                        {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
-                            io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
-                        Error ->
-                            io_lib:format("[ERROR] ~s\r\n~p\r\n",["Could not get node-status", Error])
-                    end;
-                ?STATE_RUNNING ->
-                    io_lib:format("[ERROR] ~s\r\n",["System already started"])
+handle_call(_Socket, <<?START, _/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:start(Command) of
+                ok ->
+                    ?OK;
+                {error, {bad_nodes, BadNodes}} ->
+                    lists:foldl(fun(Node, Acc) ->
+                                        Acc ++ io_lib:format("[ERROR] ~w\r\n", [Node])
+                                end, [], BadNodes);
+                {error, Cause} ->
+                    io_lib:format("[ERROR] ~s\r\n",[Cause])
             end,
     {reply, Reply, State};
 
 
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?REBALANCE, _Option/binary>> = Command, State) ->
+handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
     Reply = case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
@@ -345,6 +311,7 @@ handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+
 %% Command: "s3-set-endpoint ${END_POINT}"
 %%
 handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
@@ -363,6 +330,7 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
                 end
         end,
     {reply, Reply, NewState};
+
 
 %% Command: "s3-del-endpoint ${END_POINT}"
 %%
@@ -385,9 +353,10 @@ handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+
 %% Command: "s3-get-endpoints"
 %%
-handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
+handle_call(_Socket, <<?S3_GET_ENDPOINTS, _/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
     {Reply, NewState} =
@@ -401,9 +370,10 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS, _Option/binary>> = Command, State) ->
         end,
     {reply, Reply, NewState};
 
+
 %% Command: "s3-get-buckets"
 %%
-handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
+handle_call(_Socket, <<?S3_GET_BUCKETS, _/binary>> = Command, State) ->
     _ = leo_manager_mnesia:insert_history(Command),
 
     {Reply, NewState} =
@@ -416,6 +386,7 @@ handle_call(_Socket, <<?S3_GET_BUCKETS, _Option/binary>> = Command, State) ->
                 {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
         end,
     {reply, Reply, NewState};
+
 
 %% Command: "whereis ${PATH}"
 %%
@@ -439,6 +410,7 @@ handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
             end,
     {reply, Reply, State};
 
+
 %% Command: "purge ${PATH}"
 %%
 handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
@@ -458,9 +430,10 @@ handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
             end,
     {reply, Reply, State};
 
+
 %% Command: "history"
 %%
-handle_call(_Socket, <<?HISTORY, _Option/binary>>, State) ->
+handle_call(_Socket, <<?HISTORY, _/binary>>, State) ->
     Reply = case leo_manager_mnesia:get_histories_all() of
                 {ok, Histories} ->
                     format_history_list(Histories) ++ "\r\n";
@@ -468,6 +441,7 @@ handle_call(_Socket, <<?HISTORY, _Option/binary>>, State) ->
                     io_lib:format("[ERROR] ~p\r\n", [Cause])
             end,
     {reply, Reply, State};
+
 
 %% Command: "quit"
 %%
@@ -488,66 +462,33 @@ handle_call(_Socket, _Data, State) ->
 %%----------------------------------------------------------------------
 %% @doc Format a cluster-node list
 %%
-format_node_list(SystemConf) ->
+format_node_list(Props) ->
+    SystemConf = proplists:get_value('system_config', Props),
+    Version    = proplists:get_value('version',       Props),
+    [RH0, RH1] = proplists:get_value('ring_hash',     Props),
+    Nodes      = proplists:get_value('nodes',         Props),
+
     FormattedSystemConf =
-        case is_record(SystemConf, system_conf) of
-            true ->
-                Version = case application:get_key(leo_manager, vsn) of
-                              {ok, Vsn} -> Vsn;
-                              undefined -> []
-                          end,
-                {ok, {RingHash0, RingHash1}} = leo_redundant_manager_api:checksum(ring),
-
-                io_lib:format(lists:append(["[system config]\r\n",
-                                            "             version : ~s\r\n",
-                                            " # of replicas       : ~w\r\n",
-                                            " # of successes of R : ~w\r\n",
-                                            " # of successes of W : ~w\r\n",
-                                            " # of successes of D : ~w\r\n",
-                                            "           ring size : 2^~w\r\n",
-                                            "    ring hash (cur)  : ~s\r\n",
-                                            "    ring hash (prev) : ~s\r\n\r\n",
-                                            "[node(s) state]\r\n"]),
-                              [Version,
-                               SystemConf#system_conf.n,
-                               SystemConf#system_conf.r,
-                               SystemConf#system_conf.w,
-                               SystemConf#system_conf.d,
-                               SystemConf#system_conf.bit_of_ring,
-                               leo_hex:integer_to_hex(RingHash0),
-                               leo_hex:integer_to_hex(RingHash1)
-                              ]);
-            false ->
-                []
-        end,
-
-    S1 = case leo_manager_mnesia:get_storage_nodes_all() of
-             {ok, R1} ->
-                 lists:map(fun(N) ->
-                                   {"S",
-                                    atom_to_list(N#node_state.node),
-                                    atom_to_list(N#node_state.state),
-                                    N#node_state.ring_hash_new,
-                                    N#node_state.ring_hash_old,
-                                    N#node_state.when_is}
-                           end, R1);
-             _ ->
-                 []
-         end,
-    S2 = case leo_manager_mnesia:get_gateway_nodes_all() of
-             {ok, R2} ->
-                 lists:map(fun(N) ->
-                                   {"G",
-                                    atom_to_list(N#node_state.node),
-                                    atom_to_list(N#node_state.state),
-                                    N#node_state.ring_hash_new,
-                                    N#node_state.ring_hash_old,
-                                    N#node_state.when_is}
-                           end, R2);
-             _ ->
-                 []
-         end,
-    format_system_conf_with_node_state(FormattedSystemConf, S1 ++ S2).
+        io_lib:format(lists:append(["[system config]\r\n",
+                                    "             version : ~s\r\n",
+                                    " # of replicas       : ~w\r\n",
+                                    " # of successes of R : ~w\r\n",
+                                    " # of successes of W : ~w\r\n",
+                                    " # of successes of D : ~w\r\n",
+                                    "           ring size : 2^~w\r\n",
+                                    "    ring hash (cur)  : ~s\r\n",
+                                    "    ring hash (prev) : ~s\r\n\r\n",
+                                    "[node(s) state]\r\n"]),
+                      [Version,
+                       SystemConf#system_conf.n,
+                       SystemConf#system_conf.r,
+                       SystemConf#system_conf.w,
+                       SystemConf#system_conf.d,
+                       SystemConf#system_conf.bit_of_ring,
+                       leo_hex:integer_to_hex(RH0),
+                       leo_hex:integer_to_hex(RH1)
+                      ]),
+    format_system_conf_with_node_state(FormattedSystemConf, Nodes).
 
 
 %% @doc Format a cluster node state
