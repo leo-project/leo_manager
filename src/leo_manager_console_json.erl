@@ -81,41 +81,38 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
                     NodeInfo = case Nodes of
                                    [] -> [];
                                    _  ->
-                                       {[{<<"node_list">>,
-                                          lists:map(
-                                            fun({Type, NodeName, NodeState, RingHash0, RingHash1, When}) ->
-                                                    NewRingHash0 = case is_integer(RingHash0) of
-                                                                       true  -> integer_to_list(RingHash0);
-                                                                       false -> RingHash0
-                                                                   end,
-                                                    NewRingHash1 = case is_integer(RingHash1) of
-                                                                       true  -> integer_to_list(RingHash1);
-                                                                       false -> RingHash1
-                                                                   end,
-                                                    {[{<<"type">>,      list_to_binary(Type)},
-                                                      {<<"node">>,      list_to_binary(NodeName)},
-                                                      {<<"state">>,     list_to_binary(NodeState)},
-                                                      {<<"ring_cur">>,  list_to_binary(NewRingHash0)},
-                                                      {<<"ring_prev">>, list_to_binary(NewRingHash1)},
-                                                      {<<"when">>,      list_to_binary(leo_date:date_format(When))}
-                                                     ]}
-                                            end, Nodes)
-                                         }]}
+                                       lists:map(
+                                         fun({Type, NodeName, NodeState, RingHash0, RingHash1, When}) ->
+                                                 NewRingHash0 = case is_integer(RingHash0) of
+                                                                    true  -> integer_to_list(RingHash0);
+                                                                    false -> RingHash0
+                                                                end,
+                                                 NewRingHash1 = case is_integer(RingHash1) of
+                                                                    true  -> integer_to_list(RingHash1);
+                                                                    false -> RingHash1
+                                                                end,
+                                                 {[{<<"type">>,      list_to_binary(Type)},
+                                                   {<<"node">>,      list_to_binary(NodeName)},
+                                                   {<<"state">>,     list_to_binary(NodeState)},
+                                                   {<<"ring_cur">>,  list_to_binary(NewRingHash0)},
+                                                   {<<"ring_prev">>, list_to_binary(NewRingHash1)},
+                                                   {<<"when">>,      list_to_binary(leo_date:date_format(When))}
+                                                  ]}
+                                         end, Nodes)
                                end,
 
-                    gen_json(lists:flatten(
-                               [{[{<<"system_info">>,
-                                   {[{<<"version">>,        list_to_binary(Version)},
-                                     {<<"n">>,              list_to_binary(integer_to_list(SystemConf#system_conf.n))},
-                                     {<<"r">>,              list_to_binary(integer_to_list(SystemConf#system_conf.r))},
-                                     {<<"w">>,              list_to_binary(integer_to_list(SystemConf#system_conf.w))},
-                                     {<<"d">>,              list_to_binary(integer_to_list(SystemConf#system_conf.d))},
-                                     {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))},
-                                     {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
-                                     {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
-                                    ]}
-                                  }]},
-                                NodeInfo]));
+                    gen_json({[{<<"system_info">>,
+                                {[{<<"version">>,        list_to_binary(Version)},
+                                  {<<"n">>,              list_to_binary(integer_to_list(SystemConf#system_conf.n))},
+                                  {<<"r">>,              list_to_binary(integer_to_list(SystemConf#system_conf.r))},
+                                  {<<"w">>,              list_to_binary(integer_to_list(SystemConf#system_conf.w))},
+                                  {<<"d">>,              list_to_binary(integer_to_list(SystemConf#system_conf.d))},
+                                  {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))},
+                                  {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
+                                  {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
+                                 ]}},
+                               {<<"node_list">>, NodeInfo}
+                              ]});
                 {ok, _NodeStatus} ->
                     ?OK;
                 {error, Cause} ->
