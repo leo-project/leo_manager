@@ -76,28 +76,47 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
                     SystemConf = leo_misc:get_value('system_config', Props),
                     Version    = leo_misc:get_value('version',       Props),
                     [RH0, RH1] = leo_misc:get_value('ring_hash',     Props),
-                    _Nodes     = leo_misc:get_value('nodes',         Props),
+                    Nodes      = leo_misc:get_value('nodes',         Props),
 
-                    %% [{[{<<"foo1">>,<<"bar1">>}]},
-                    %%  {[{<<"node_info">>,
-                    %%     [{[{<<"node">>,<<"storage_0@127.0.0.1">>}]},
-                    %%      {[{<<"status">>,<<"running">>}]}]}]},
-                    %%  {[{<<"node_info">>,
-                    %%     [{[{<<"node">>,<<"storage_1@127.0.0.1">>}]},
-                    %%      {[{<<"status">>,<<"suspend">>}]}]}]}]
+                    NodeInfo = case Nodes of
+                                   [] -> [];
+                                   _  ->
+                                       {[{<<"node_list">>,
+                                          lists:map(
+                                            fun({Type, NodeName, NodeState, RingHash0, RingHash1, When}) ->
+                                                    NewRingHash0 = case is_integer(RingHash0) of
+                                                                       true  -> integer_to_list(RingHash0);
+                                                                       false -> RingHash0
+                                                                   end,
+                                                    NewRingHash1 = case is_integer(RingHash1) of
+                                                                       true  -> integer_to_list(RingHash1);
+                                                                       false -> RingHash1
+                                                                   end,
+                                                    {[{<<"type">>,      list_to_binary(Type)},
+                                                      {<<"node">>,      list_to_binary(NodeName)},
+                                                      {<<"state">>,     list_to_binary(NodeState)},
+                                                      {<<"ring_cur">>,  list_to_binary(NewRingHash0)},
+                                                      {<<"ring_prev">>, list_to_binary(NewRingHash1)},
+                                                      {<<"when">>,      list_to_binary(leo_date:date_format(When))}
+                                                     ]}
+                                            end, Nodes)
+                                         }]}
+                               end,
 
-                    gen_json([
-                              {[{<<"version">>,   list_to_binary(Version)}]},
-                              {[{<<"n">>,         list_to_binary(integer_to_list(SystemConf#system_conf.n))}]},
-                              {[{<<"r">>,         list_to_binary(integer_to_list(SystemConf#system_conf.r))}]},
-                              {[{<<"w">>,         list_to_binary(integer_to_list(SystemConf#system_conf.w))}]},
-                              {[{<<"d">>,         list_to_binary(integer_to_list(SystemConf#system_conf.d))}]},
-                              {[{<<"ring_size">>, list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))}]},
-                              {[{<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))}]},
-                              {[{<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}]}
-                             ]);
+                    gen_json(lists:flatten(
+                               [{[{<<"system_info">>,
+                                   {[{<<"version">>,        list_to_binary(Version)},
+                                     {<<"n">>,              list_to_binary(integer_to_list(SystemConf#system_conf.n))},
+                                     {<<"r">>,              list_to_binary(integer_to_list(SystemConf#system_conf.r))},
+                                     {<<"w">>,              list_to_binary(integer_to_list(SystemConf#system_conf.w))},
+                                     {<<"d">>,              list_to_binary(integer_to_list(SystemConf#system_conf.d))},
+                                     {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))},
+                                     {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
+                                     {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
+                                    ]}
+                                  }]},
+                                NodeInfo]));
                 {ok, _NodeStatus} ->
-                    %%format_node_state(NodeStatus);
                     ?OK;
                 {error, Cause} ->
                     gen_json({[{error, list_to_binary(Cause)}]})
@@ -128,8 +147,19 @@ handle_call(_Socket, <<?RESUME, _Option/binary>> = _Command, State) ->
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?START, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:start(Command) of
+                ok ->
+                    gen_json({[{result, <<"OK">>}]});
+                {error, {bad_nodes, BadNodes}} ->
+                    Cause = lists:foldl(fun(Node, [] ) ->        io_lib:format("~w",  [Node]);
+                                           (Node, Acc) -> Acc ++ io_lib:format(",~w", [Node])
+                                        end, [], BadNodes),
+                    gen_json({[{error, list_to_binary(Cause)}]});
+                {error, Cause} ->
+                    gen_json({[{error, list_to_binary(Cause)}]})
+            end,
+    {reply, Reply, State};
 
 
 %% @TODO
