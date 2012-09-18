@@ -33,7 +33,9 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([version/0, status/1, status/2, start/1]).
+-export([version/0, status/1, status/2, start/1,
+         detach/2, suspend/2, resume/2, rebalance/1
+        ]).
 
 
 %%----------------------------------------------------------------------
@@ -52,9 +54,9 @@ version() ->
     end.
 
 
-%% @doc
+%% @doc Retrieve state of each node
 %%
--spec(status(binary(), list()) ->
+-spec(status(binary(), binary()) ->
              {ok, any()} | {error, any()}).
 status(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
@@ -117,7 +119,7 @@ status({node_state, Node}) ->
     end.
 
 
-%% @doc
+%% @doc Launch the storage cluster
 %%
 -spec(start(binary()) ->
              ok | {error, any()}).
@@ -148,4 +150,102 @@ start(CmdBody) ->
         ?STATE_RUNNING ->
             {error, "System already started"}
     end.
+
+
+%% @doc Detach a storage-node
+%%
+-spec(detach(binary(), binary()) ->
+             ok | {error, {atom(), string()}} | {error, any()}).
+detach(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NO_NODE_SPECIFIED};
+        [Node|_] ->
+            NodeAtom = list_to_atom(Node),
+
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
+                    ok = leo_manager_mnesia:delete_storage_node(NodeState),
+                    ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
+                    ok;
+                _ ->
+                    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
+                        {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
+                            case leo_manager_api:detach(NodeAtom) of
+                                ok ->
+                                    ok;
+                                {error, _} ->
+                                    {error, {Node, ?ERROR_COULD_NOT_DETACH_NODE}}
+                            end;
+                        {ok, Nodes} when length(Nodes) =< SystemConf#system_conf.n ->
+                            {error, "Attached nodes less than # of replicas"};
+                        _Error ->
+                            {error, "Could not get node-status"}
+                    end
+            end
+    end.
+
+
+%% @doc Suspend a storage-node
+%%
+-spec(suspend(binary(), binary()) ->
+             ok | {error, any()}).
+suspend(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NO_NODE_SPECIFIED};
+        [Node|_] ->
+            case leo_manager_api:suspend(list_to_atom(Node)) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Resume a storage-node
+%%
+-spec(resume(binary(), binary()) ->
+             ok | {error, any()}).
+resume(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NO_NODE_SPECIFIED};
+        [Node|_] ->
+            case leo_manager_api:resume(list_to_atom(Node)) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Rebalance the storage cluster
+%%
+-spec(rebalance(binary()) ->
+             ok | {error, any()}).
+rebalance(CmdBody) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+        {ok, {CurRingHash, PrevRingHash}} when CurRingHash =/= PrevRingHash ->
+            case leo_manager_api:rebalance() of
+                ok ->
+                    ok;
+                _Other ->
+                    {error, "Fail rebalance"}
+            end;
+        _Other ->
+            {error, "Could not launch the storage"}
+    end.
+
 

@@ -114,6 +114,7 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
                                {<<"node_list">>, NodeInfo}
                               ]});
                 {ok, _NodeStatus} ->
+                    %% @TODO
                     ?OK;
                 {error, Cause} ->
                     gen_json({[{error, list_to_binary(Cause)}]})
@@ -121,30 +122,50 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
-%% @TODO
 %% Command : "detach ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?DETACH_SERVER, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:detach(Command, Option) of
+                ok ->
+                    gen_json({[{result, <<"OK">>}]});
+                {error, {Node, Cause}} ->
+                    gen_json({[{error,
+                                {[{<<"node">>,  list_to_binary(atom_to_list(Node))},
+                                  {<<"cause">>, list_to_binary(Cause)}]}
+                               }]});
+                {error, Cause} ->
+                    gen_json({[{error, list_to_binary(Cause)}]})
+            end,
+    {reply, Reply, State};
 
 
-%% @TODO
 %% Command: "suspend ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?SUSPEND, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:suspend(Command, Option) of
+                ok ->
+                    gen_json({[{result, <<"OK">>}]});
+                {error, Cause} ->
+                    gen_json({[{error, list_to_binary(Cause)}]})
+            end,
+    {reply, Reply, State};
 
 
-%% @TODO
 %% Command: "resume ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?RESUME, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:resume(Command, Option) of
+                ok ->
+                    gen_json({[{result, <<"OK">>}]});
+                {error, Cause} ->
+                    gen_json({[{error, list_to_binary(Cause)}]})
+            end,
+    {reply, Reply, State};
 
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
+handle_call(_Socket, <<?START, _/binary>> = Command, State) ->
     Reply = case leo_manager_console_commons:start(Command) of
                 ok ->
                     gen_json({[{result, <<"OK">>}]});
@@ -159,11 +180,16 @@ handle_call(_Socket, <<?START, _Option/binary>> = Command, State) ->
     {reply, Reply, State};
 
 
-%% @TODO
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?REBALANCE, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:rebalance(Command) of
+                ok ->
+                    gen_json({[{result, <<"OK">>}]});
+                {error, Cause} ->
+                    gen_json({[{error, list_to_binary(Cause)}]})
+            end,
+    {reply, Reply, State};
 
 
 %%----------------------------------------------------------------------

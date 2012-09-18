@@ -115,55 +115,25 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
 %% Command : "detach ${NODE_NAME}"
 %%
 handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-
-    Reply =
-        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-            [] ->
-                io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
-            [Node|_] ->
-                NodeAtom = list_to_atom(Node),
-
-                case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                    {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
-                        ok = leo_manager_mnesia:delete_storage_node(NodeState),
-                        ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
-                        ?OK;
-                    _ ->
-                        case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-                            {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
-                                case leo_manager_api:detach(NodeAtom) of
-                                    ok ->
-                                        ?OK;
-                                    {error, _} ->
-                                        io_lib:format("[ERROR] ~s - ~s\r\n", [?ERROR_COULD_NOT_DETACH_NODE, Node])
-                                end;
-                            {ok, Nodes} when length(Nodes) =< SystemConf#system_conf.n ->
-                                io_lib:format("[ERROR] ~s\r\n",["Attached nodes less than # of replicas"]);
-                            _Error ->
-                                io_lib:format("[ERROR] ~s\r\n",["Could not get node-status"])
-                        end
-                end
-        end,
+    Reply = case leo_manager_console_commons:detach(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, {Node, Cause}} ->
+                    io_lib:format("[ERROR] node:~w, ~s\r\n",[Node, Cause]);
+                {error, Cause} ->
+                    io_lib:format("[ERROR] ~s\r\n",[Cause])
+            end,
     {reply, Reply, State};
 
 
 %% Command: "suspend ${NODE_NAME}"
 %%
 handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
-                [Node|_] ->
-                    case leo_manager_api:suspend(list_to_atom(Node)) of
-                        ok ->
-                            ?OK;
-                        {error, Cause} ->
-                            io_lib:format("[ERROR] ~s\r\n",[Cause])
-                    end
+    Reply = case leo_manager_console_commons:suspend(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    io_lib:format("[ERROR] ~s\r\n",[Cause])
             end,
     {reply, Reply, State};
 
@@ -171,18 +141,11 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
 %% Command: "resume ${NODE_NAME}"
 %%
 handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]);
-                [Node|_] ->
-                    case leo_manager_api:resume(list_to_atom(Node)) of
-                        ok ->
-                            ?OK;
-                        {error, Cause} ->
-                            io_lib:format("[ERROR] ~s\r\n",[Cause])
-                    end
+    Reply = case leo_manager_console_commons:resume(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    io_lib:format("[ERROR] ~s\r\n",[Cause])
             end,
     {reply, Reply, State};
 
@@ -206,18 +169,11 @@ handle_call(_Socket, <<?START, _/binary>> = Command, State) ->
 %% Command: "rebalance"
 %%
 handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    Reply = case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {CurRingHash, PrevRingHash}} when CurRingHash =/= PrevRingHash ->
-                    case leo_manager_api:rebalance() of
-                        ok ->
-                            ?OK;
-                        _Other ->
-                            io_lib:format("[ERROR] ~s\r\n",["fail rebalance"])
-                    end;
-                _Other ->
-                    io_lib:format("[ERROR] ~s\r\n",["could not start"])
+    Reply = case leo_manager_console_commons:rebalance(Command) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    io_lib:format("[ERROR] ~s\r\n",[Cause])
             end,
     {reply, Reply, State};
 
