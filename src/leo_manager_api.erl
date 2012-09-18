@@ -448,9 +448,9 @@ rebalance2(Tbl, []) ->
     end;
 rebalance2(Tbl, [Item|T]) ->
     %% Item: [{vnode_id, VNodeId0}, {src, SrcNode}, {dest, DestNode}]
-    VNodeId  = proplists:get_value('vnode_id', Item),
-    SrcNode  = proplists:get_value('src',      Item),
-    DestNode = proplists:get_value('dest',     Item),
+    VNodeId  = leo_misc:get_value('vnode_id', Item),
+    SrcNode  = leo_misc:get_value('src',      Item),
+    DestNode = leo_misc:get_value('dest',     Item),
 
     ok = leo_hashtable:append(Tbl, SrcNode, {VNodeId, DestNode}),
     rebalance2(Tbl, T).
@@ -793,7 +793,7 @@ synchronize(Type, Node, Members) when Type == ?CHECKSUM_RING;
     case rpc:call(Node, leo_redundant_manager_api, synchronize,
                   [?SYNC_MODE_BOTH, Members, Options], ?DEF_TIMEOUT) of
         {ok, _Members, Chksums} ->
-            {RingHash0, RingHash1} = proplists:get_value(?CHECKSUM_RING, Chksums),
+            {RingHash0, RingHash1} = leo_misc:get_value(?CHECKSUM_RING, Chksums),
 
             leo_manager_mnesia:update_storage_node_status(
               update_chksum, #node_state{node          = Node,

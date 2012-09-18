@@ -300,8 +300,8 @@ handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
             [UserId|_] ->
                 case leo_s3_auth:gen_key(UserId) of
                     {ok, Keys} ->
-                        AccessKeyId     = proplists:get_value(access_key_id,     Keys),
-                        SecretAccessKey = proplists:get_value(secret_access_key, Keys),
+                        AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
+                        SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),
                         {io_lib:format("access-key-id: ~s\r\n"
                                        ++ "secret-access-key: ~s\r\n\r\n",
                                        [AccessKeyId, SecretAccessKey]), State};
@@ -463,10 +463,10 @@ handle_call(_Socket, _Data, State) ->
 %% @doc Format a cluster-node list
 %%
 format_node_list(Props) ->
-    SystemConf = proplists:get_value('system_config', Props),
-    Version    = proplists:get_value('version',       Props),
-    [RH0, RH1] = proplists:get_value('ring_hash',     Props),
-    Nodes      = proplists:get_value('nodes',         Props),
+    SystemConf = leo_misc:get_value('system_config', Props),
+    Version    = leo_misc:get_value('version',       Props),
+    [RH0, RH1] = leo_misc:get_value('ring_hash',     Props),
+    Nodes      = leo_misc:get_value('nodes',         Props),
 
     FormattedSystemConf =
         io_lib:format(lists:append(["[system config]\r\n",
@@ -515,14 +515,14 @@ format_node_state(State) ->
                                 "    # of procs      : ~w\r\n\r\n"]),
                   [State#cluster_node_status.version,
                    ObjContainer,
-                   proplists:get_value('log',              Directories, []),
-                   proplists:get_value('ring_cur',         RingHashes,  []),
-                   proplists:get_value('ring_prev',        RingHashes,  []),
-                   proplists:get_value('total_mem_usage',  Statistics, 0),
-                   proplists:get_value('system_mem_usage', Statistics, 0),
-                   proplists:get_value('proc_mem_usage',   Statistics, 0),
-                   proplists:get_value('ets_mem_usage',    Statistics, 0),
-                   proplists:get_value('num_of_procs',     Statistics, 0)
+                   leo_misc:get_value('log',              Directories, []),
+                   leo_misc:get_value('ring_cur',         RingHashes,  []),
+                   leo_misc:get_value('ring_prev',        RingHashes,  []),
+                   leo_misc:get_value('total_mem_usage',  Statistics, 0),
+                   leo_misc:get_value('system_mem_usage', Statistics, 0),
+                   leo_misc:get_value('proc_mem_usage',   Statistics, 0),
+                   leo_misc:get_value('ets_mem_usage',    Statistics, 0),
+                   leo_misc:get_value('num_of_procs',     Statistics, 0)
                   ]).
 
 

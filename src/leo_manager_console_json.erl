@@ -73,10 +73,10 @@ handle_call(_Socket, <<?VERSION, _/binary>>, State) ->
 handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
     Reply = case leo_manager_console_commons:status(Command, Option) of
                 {ok, {node_list, Props}} ->
-                    SystemConf = proplists:get_value('system_config', Props),
-                    Version    = proplists:get_value('version',       Props),
-                    [RH0, RH1] = proplists:get_value('ring_hash',     Props),
-                    _Nodes     = proplists:get_value('nodes',         Props),
+                    SystemConf = leo_misc:get_value('system_config', Props),
+                    Version    = leo_misc:get_value('version',       Props),
+                    [RH0, RH1] = leo_misc:get_value('ring_hash',     Props),
+                    _Nodes     = leo_misc:get_value('nodes',         Props),
 
                     %% [{[{<<"foo1">>,<<"bar1">>}]},
                     %%  {[{<<"node_info">>,
@@ -241,6 +241,6 @@ gen_json(JSON) ->
         {'EXIT', _} ->
             [];
         Result ->
-            Result
+            <<Result/binary, ?CRLF>>
     end.
 

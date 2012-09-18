@@ -59,8 +59,7 @@ accept(ListenSocket, State, Module, Option) ->
     case gen_tcp:accept(ListenSocket, Option#tcp_server_params.accept_timeout) of
         {ok, Socket} ->
             try
-                recv(proplists:get_value(
-                       active, Option#tcp_server_params.listen),
+                recv(leo_misc:get_value(active, Option#tcp_server_params.listen),
                      Socket, State, Module, Option)
             catch
                 Type:Reason ->

@@ -78,7 +78,7 @@ start_link() ->
             DefLogDir = "./log/",
             LogDir    = case application:get_env(log_appender) of
                             {ok, [{file, Options}|_]} ->
-                                proplists:get_value(path, Options,  DefLogDir);
+                                leo_misc:get_value(path, Options,  DefLogDir);
                             _ ->
                                 DefLogDir
                         end,
@@ -116,7 +116,7 @@ start_link() ->
 create_mnesia_tables(_, []) ->
     {error, badarg};
 create_mnesia_tables(Mode, RedundantNodes) ->
-    case proplists:get_value('partner', RedundantNodes) of
+    case leo_misc:get_value('partner', RedundantNodes) of
         undefined ->
             create_mnesia_tables1(Mode, RedundantNodes);
         PartnerNode ->
@@ -277,11 +277,11 @@ log_file_appender([{Type, _}|T], Acc) when Type == file ->
 %% @private
 load_system_config() ->
     {ok, Props} = application:get_env(leo_manager, system),
-    SystemConf = #system_conf{n = proplists:get_value(n, Props, 1),
-                              w = proplists:get_value(w, Props, 1),
-                              r = proplists:get_value(r, Props, 1),
-                              d = proplists:get_value(d, Props, 1),
-                              bit_of_ring = proplists:get_value(bit_of_ring, Props, 128)},
+    SystemConf = #system_conf{n = leo_misc:get_value(n, Props, 1),
+                              w = leo_misc:get_value(w, Props, 1),
+                              r = leo_misc:get_value(r, Props, 1),
+                              d = leo_misc:get_value(d, Props, 1),
+                              bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128)},
     SystemConf.
 
 %% @doc load a system config file. a system config file store to mnesia.
