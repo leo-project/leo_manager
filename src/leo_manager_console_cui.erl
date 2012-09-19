@@ -528,8 +528,8 @@ format_where_is(AssignedInfo) ->
 -spec(format_stats_list(summary | detail, {integer(), integer()} | list()) ->
              string()).
 format_stats_list(summary, {FileSize, Total}) ->
-    io_lib:format(lists:append(["              file size: ~w\r\n",
-                                " number of total object: ~w\r\n\r\n"]), [FileSize, Total]);
+    io_lib:format(lists:append(["        file size: ~w\r\n",
+                                " total of objects: ~w\r\n\r\n"]), [FileSize, Total]);
 
 format_stats_list(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
