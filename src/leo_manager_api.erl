@@ -47,8 +47,11 @@
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
--define(ERROR_COULD_NOT_GET_RTABLE_CHKSUM, "could not get a routing talble checksum").
--define(ERROR_META_NOT_FOUND,              "metadata not found").
+-define(ERROR_COULD_NOT_MODIFY_STORAGE_STATE, "Could not modify the storage status").
+-define(ERROR_COULD_NOT_GET_GATEWAY,          "Could not get gateway nodes").
+-define(ERROR_COULD_NOT_GET_RTABLE_CHKSUM,    "Could not get a routing talble checksum").
+-define(ERROR_META_NOT_FOUND,                 "Metadata not found").
+
 
 %%----------------------------------------------------------------------
 %% API-Function(s) - retrieve system information.
@@ -585,10 +588,10 @@ notify(error, Node, ?ERR_TYPE_NODE_DOWN) ->
                             notify1(error, Node, NumOfErrors, Size)
                     end;
                 _ ->
-                    {error, "could not modify storage status"}
+                    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
             end;
         _Error ->
-            {error, "could not modify storage status"}
+            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
     end;
 
 notify(synchronized, VNodeId, Node) ->
@@ -624,7 +627,7 @@ notify(_,_,_,_) ->
 
 notify1(error, Node, NumOfErrors, Thresholds) when NumOfErrors >= Thresholds ->
     State = ?STATE_STOP,
-    Cause = "could not modify storage status",
+    Cause = ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE,
 
     case leo_manager_mnesia:update_storage_node_status(
            update_state, #node_state{node  = Node,
@@ -645,8 +648,8 @@ notify1(error, Node,_NumOfErrors,_Thresholds) ->
     case leo_manager_mnesia:update_storage_node_status(increment_error, #node_state{node = Node}) of
         ok ->
             ok;
-        _ ->
-            {error, "could not modify storage status"}
+        _Error ->
+            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
     end.
 
 notify2(error, Node, Clock, State) ->
@@ -920,8 +923,8 @@ purge(Path) ->
                                 end, [], R1),
             rpc:multicall(Nodes, leo_gateway_api, purge, [Path], ?DEF_TIMEOUT),
             ok;
-        _ ->
-            {error, "could not get gateway-nodes"}
+        _Error ->
+            {error, ?ERROR_COULD_NOT_GET_GATEWAY}
     end.
 
 %% @doc
