@@ -38,6 +38,8 @@
 -export([start_link/1, stop/0]).
 -export([init/1, handle_call/3]).
 
+-define(output_error_1(Cause),       io_lib:format("[ERROR] ~s\r\n",          [Cause])).
+-define(output_error_2(Node, Cause), io_lib:format("[ERROR] node:~w, ~s\r\n", [Node, Cause])).
 
 %%----------------------------------------------------------------------
 %%
@@ -77,8 +79,9 @@ handle_call(_Socket, <<?HELP>>, State) ->
                              io_lib:format("[S3]\r\n", []),
                              io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"]),
                              io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"]),
-                             io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"]),
                              io_lib:format("~s\r\n",["s3-get-endpoints"]),
+                             io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"]),
+                             io_lib:format("~s\r\n",["s3-add-bucket ${BUCKET} ${ACCESS_KEY_ID}"]),
                              io_lib:format("~s\r\n",["s3-get-buckets"]),
                              ?CRLF,
                              io_lib:format("[Misc]\r\n", []),
@@ -107,7 +110,7 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
                 {ok, NodeStatus} ->
                     format_node_state(NodeStatus);
                 {error, Cause} ->
-                    io_lib:format("[ERROR] ~s\r\n", [Cause])
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -119,9 +122,9 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
                 ok ->
                     ?OK;
                 {error, {Node, Cause}} ->
-                    io_lib:format("[ERROR] node:~w, ~s\r\n",[Node, Cause]);
+                    ?output_error_2(Node, Cause);
                 {error, Cause} ->
-                    io_lib:format("[ERROR] ~s\r\n",[Cause])
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -133,7 +136,7 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
                 ok ->
                     ?OK;
                 {error, Cause} ->
-                    io_lib:format("[ERROR] ~s\r\n",[Cause])
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -145,7 +148,7 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
                 ok ->
                     ?OK;
                 {error, Cause} ->
-                    io_lib:format("[ERROR] ~s\r\n",[Cause])
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -161,7 +164,7 @@ handle_call(_Socket, <<?START, _/binary>> = Command, State) ->
                                         Acc ++ io_lib:format("[ERROR] ~w\r\n", [Node])
                                 end, [], BadNodes);
                 {error, Cause} ->
-                    io_lib:format("[ERROR] ~s\r\n",[Cause])
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -173,7 +176,7 @@ handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, State) ->
                 ok ->
                     ?OK;
                 {error, Cause} ->
-                    io_lib:format("[ERROR] ~s\r\n",[Cause])
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -184,61 +187,25 @@ handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, State) ->
 %% Command: "du ${NODE_NAME}"
 %%
 handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    {Reply, NewState} =
-        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-            [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]), State};
-            Tokens ->
-                Res = case length(Tokens) of
-                          1 -> {summary, lists:nth(1, Tokens)};
-                          2 -> {list_to_atom(lists:nth(1, Tokens)),  lists:nth(2, Tokens)};
-                          _ -> {error, badarg}
-                      end,
-
-                case Res of
-                    {error, _Cause} ->
-                        {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]), State};
-                    {Option1, Node1} ->
-                        case leo_manager_api:stats(Option1, Node1) of
-                            {ok, StatsList} ->
-                                {format_stats_list(Option1, StatsList), State};
-                            {error, Cause} ->
-                                {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
-                        end
-                end
-        end,
-    {reply, Reply, NewState};
+    Reply = case leo_manager_console_commons:du(Command, Option) of
+                {ok, {Option1, StorageStats}} ->
+                    format_stats_list(Option1, StorageStats);
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %% Command: "compact ${NODE_NAME}"
 %%
 handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    {Reply, NewState} =
-        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-            [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_NODE_SPECIFIED]),State};
-            [Node|_] ->
-                case leo_manager_api:suspend(list_to_atom(Node)) of
-                    ok ->
-                        try
-                            case leo_manager_api:compact(Node) of
-                                {ok, _} ->
-                                    {?OK, State};
-                                {error, CompactionError} ->
-                                    {io_lib:format("[ERROR] ~s\r\n",[CompactionError]), State}
-                            end
-                        after
-                            leo_manager_api:resume(list_to_atom(Node))
-                        end;
-                    {error, SuspendError} ->
-                        {io_lib:format("[ERROR] ~s\r\n",[SuspendError]), State}
-                end
-        end,
-    {reply, Reply, NewState};
+    Reply = case leo_manager_console_commons:compact(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %%----------------------------------------------------------------------
@@ -247,122 +214,86 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
 %% Command: "s3-gen-key ${USER_ID}"
 %%
 handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    {Reply, NewState} =
-        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-            [] ->
-                {io_lib:format("[ERROR] ~s\r\n",["no user specified"]),State};
-            [UserId|_] ->
-                case leo_s3_auth:gen_key(UserId) of
-                    {ok, Keys} ->
-                        AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
-                        SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),
-                        {io_lib:format("access-key-id: ~s\r\n"
-                                       ++ "secret-access-key: ~s\r\n\r\n",
-                                       [AccessKeyId, SecretAccessKey]), State};
-                    {error, Cause} ->
-                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
-                end
-        end,
-    {reply, Reply, NewState};
+    Reply = case leo_manager_console_commons:s3_gen_key(Command, Option) of
+                {ok, PropList} ->
+                    AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
+                    SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
+                    io_lib:format("  access-key-id: ~s\r\n  secret-access-key: ~s\r\n\r\n",
+                                  [AccessKeyId, SecretAccessKey]);
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %% Command: "s3-set-endpoint ${END_POINT}"
 %%
 handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    {Reply, NewState} =
-        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-            [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
-            [EndPoint|_] ->
-                case leo_s3_endpoint:set_endpoint(EndPoint) of
-                    ok ->
-                        {?OK, State};
-                    {error, Cause} ->
-                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
-                end
-        end,
-    {reply, Reply, NewState};
-
-
-%% Command: "s3-del-endpoint ${END_POINT}"
-%%
-handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    {Reply, NewState} =
-        case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-            [] ->
-                {io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),State};
-            [EndPoint|_] ->
-                case leo_s3_endpoint:delete_endpoint(EndPoint) of
-                    ok ->
-                        {?OK, State};
-                    not_found ->
-                        {io_lib:format("[ERROR] ~s\r\n",[?ERROR_ENDPOINT_NOT_FOUND]),State};
-                    {error, Cause} ->
-                        {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
-                end
-        end,
-    {reply, Reply, NewState};
+    Reply = case leo_manager_console_commons:s3_set_endpoint(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %% Command: "s3-get-endpoints"
 %%
 handle_call(_Socket, <<?S3_GET_ENDPOINTS, _/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
+    Reply = case leo_manager_console_commons:s3_get_endpoints(Command) of
+                {ok, EndPoints} ->
+                    format_endpoint_list(EndPoints);
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
-    {Reply, NewState} =
-        case leo_s3_endpoint:get_endpoints() of
-            {ok, EndPoints} ->
-                {format_endpoint_list(EndPoints), State};
-            not_found ->
-                {io_lib:format("not found\r\n", []), State};
-            {error, Cause} ->
-                {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
-        end,
-    {reply, Reply, NewState};
+
+%% Command: "s3-del-endpoint ${END_POINT}"
+%%
+handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:s3_del_endpoint(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-get-buckets"
+%%
+handle_call(_Socket, <<?S3_ADD_BUCKET, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:s3_add_bucket(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %% Command: "s3-get-buckets"
 %%
 handle_call(_Socket, <<?S3_GET_BUCKETS, _/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    {Reply, NewState} =
-        case leo_s3_bucket:find_all_including_owner() of
-            {ok, Buckets} ->
-                {format_bucket_list(Buckets), State};
-            not_found ->
-                {io_lib:format("not found\r\n", []), State};
-            {error, Cause} ->
-                {io_lib:format("[ERROR] ~s\r\n",[Cause]), State}
-        end,
-    {reply, Reply, NewState};
+    Reply = case leo_manager_console_commons:s3_get_buckets(Command) of
+                {ok, Buckets} ->
+                    format_bucket_list(Buckets);
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %% Command: "whereis ${PATH}"
 %%
 handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-
-    Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_PATH_SPECIFIED]);
-                Key ->
-                    HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
-
-                    case catch leo_manager_api:whereis(Key, HasRoutingTable) of
-                        {ok, AssignedInfo} ->
-                            format_where_is(AssignedInfo);
-                        {error, Cause} ->
-                            io_lib:format("[ERROR] ~s\r\n", [Cause]);
-                        _ ->
-                            io_lib:format("[ERROR] ~s\r\n", [?ERROR_COMMAND_NOT_FOUND])
-                    end
+    Reply = case leo_manager_console_commons:whereis(Command, Option) of
+                {ok, AssignedInfo} ->
+                    format_where_is(AssignedInfo);
+                {error, Cause} ->
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -370,19 +301,11 @@ handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, State) ->
 %% Command: "purge ${PATH}"
 %%
 handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
-    _ = leo_manager_mnesia:insert_history(Command),
-    Reply = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                [] ->
-                    io_lib:format("[ERROR] ~s\r\n",[?ERROR_NO_PATH_SPECIFIED]);
-                [Key|_] ->
-                    case catch leo_manager_api:purge(Key) of
-                        ok ->
-                            ?OK;
-                        {error, Cause} ->
-                            io_lib:format("[ERROR] ~s\r\n", [Cause]);
-                        _ ->
-                            io_lib:format("[ERROR] ~s\r\n", [?ERROR_COMMAND_NOT_FOUND])
-                    end
+    Reply = case leo_manager_console_commons:purge(Command, Option) of
+                ok ->
+                    ?OK;
+                {error, Cause} ->
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -394,7 +317,7 @@ handle_call(_Socket, <<?HISTORY, _/binary>>, State) ->
                 {ok, Histories} ->
                     format_history_list(Histories) ++ "\r\n";
                 {error, Cause} ->
-                    io_lib:format("[ERROR] ~p\r\n", [Cause])
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -410,7 +333,7 @@ handle_call(_Socket, <<?CRLF>>, State) ->
 
 
 handle_call(_Socket, _Data, State) ->
-    Reply = io_lib:format("[ERROR] ~s\r\n",[?ERROR_COMMAND_NOT_FOUND]),
+    Reply = ?output_error_1(?ERROR_COMMAND_NOT_FOUND),
     {reply, Reply, State}.
 
 %%----------------------------------------------------------------------

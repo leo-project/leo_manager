@@ -34,7 +34,10 @@
 
 %% API
 -export([version/0, status/1, status/2, start/1,
-         detach/2, suspend/2, resume/2, rebalance/1
+         detach/2, suspend/2, resume/2, rebalance/1,
+         purge/2, du/2, compact/2, whereis/2,
+         s3_gen_key/2, s3_set_endpoint/2, s3_del_endpoint/2, s3_get_endpoints/1,
+         s3_add_bucket/2, s3_get_buckets/1
         ]).
 
 
@@ -248,4 +251,219 @@ rebalance(CmdBody) ->
             {error, "Could not launch the storage"}
     end.
 
+
+%% @doc Purge an object from the cache
+%%
+-spec(purge(binary(), binary()) ->
+             ok | {error, any()}).
+purge(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NO_PATH_SPECIFIED};
+        [Key|_] ->
+            case leo_manager_api:purge(Key) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Retrieve the storage stats
+%%
+-spec(du(binary(), binary()) ->
+             ok | {error, any()}).
+du(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NO_NODE_SPECIFIED};
+        Tokens ->
+            Mode = case length(Tokens) of
+                      1 -> {summary, lists:nth(1, Tokens)};
+                      2 -> {list_to_atom(lists:nth(1, Tokens)),  lists:nth(2, Tokens)};
+                      _ -> {error, badarg}
+                  end,
+
+            case Mode of
+                {error, _Cause} ->
+                    {error, ?ERROR_INVALID_ARGS};
+                {Option1, Node1} ->
+                    case leo_manager_api:stats(Option1, Node1) of
+                        {ok, StatsList} ->
+                            {ok, {Option1, StatsList}};
+                        {error, Cause} ->
+                            {error, Cause}
+                    end
+            end
+    end.
+
+
+%% @doc Compact target node of objects into the object-storages
+%%
+-spec(compact(binary(), binary()) ->
+             ok | {error, any()}).
+compact(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NO_NODE_SPECIFIED};
+        [Node|_] ->
+            case leo_manager_api:suspend(list_to_atom(Node)) of
+                ok ->
+                    try
+                        case leo_manager_api:compact(Node) of
+                            {ok, _} ->
+                                ok;
+                            {error, Cause} ->
+                                {error, Cause}
+                        end
+                    after
+                        leo_manager_api:resume(list_to_atom(Node))
+                    end;
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Retrieve information of an Assigned object
+%%
+-spec(whereis(binary(), binary()) ->
+             ok | {error, any()}).
+whereis(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NO_PATH_SPECIFIED};
+        Key ->
+            HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
+
+            case catch leo_manager_api:whereis(Key, HasRoutingTable) of
+                {ok, AssignedInfo} ->
+                    {ok, AssignedInfo};
+                {_, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Generate S3-KEY by user-name
+%%
+-spec(s3_gen_key(binary(), binary()) ->
+             ok | {error, any()}).
+s3_gen_key(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, "No user specified"};
+        [UserId|_] ->
+            case leo_s3_auth:gen_key(UserId) of
+                {ok, Keys} ->
+                    AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
+                    SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),
+                    {ok, [{access_key_id,     AccessKeyId},
+                          {secret_access_key, SecretAccessKey}]};
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Insert S3-Endpoint into the manager
+%%
+-spec(s3_set_endpoint(binary(), binary()) ->
+             ok | {error, any()}).
+s3_set_endpoint(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_INVALID_ARGS};
+        [EndPoint|_] ->
+            case leo_s3_endpoint:set_endpoint(EndPoint) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Retrieve S3-Endpoint from the manager
+%%
+-spec(s3_get_endpoints(binary()) ->
+             ok | {error, any()}).
+s3_get_endpoints(CmdBody) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case leo_s3_endpoint:get_endpoints() of
+        {ok, EndPoints} ->
+            {ok, EndPoints};
+        not_found ->
+            {ok, "Not Found"};
+        {error, Cause} ->
+            {error, Cause}
+    end.
+
+
+%% @doc Remove S3-Endpoint from the manager
+%%
+-spec(s3_del_endpoint(binary(), binary()) ->
+             ok | {error, any()}).
+s3_del_endpoint(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_INVALID_ARGS};
+        [EndPoint|_] ->
+            case leo_s3_endpoint:delete_endpoint(EndPoint) of
+                ok ->
+                    ok;
+                not_found ->
+                    {error, ?ERROR_ENDPOINT_NOT_FOUND};
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc Retrieve S3-Buckets from the manager
+%%
+-spec(s3_add_bucket(binary(), binary()) ->
+             ok | {error, any()}).
+s3_add_bucket(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, AccessKey] ->
+            leo_s3_bucket:put(AccessKey, Bucket);
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
+%% @doc Retrieve S3-Buckets from the manager
+%%
+-spec(s3_get_buckets(binary()) ->
+             ok | {error, any()}).
+s3_get_buckets(CmdBody) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case leo_s3_bucket:find_all_including_owner() of
+        {ok, Buckets} ->
+            {ok, Buckets};
+        not_found ->
+            {error, "Not Found"};
+        {error, Cause} ->
+            {error, Cause}
+    end.
 

@@ -69,6 +69,7 @@
 -define(S3_SET_ENDPOINT,      "s3-set-endpoint").
 -define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").
 -define(S3_GET_ENDPOINTS,     "s3-get-endpoints").
+-define(S3_ADD_BUCKET,        "s3-add-bucket").
 -define(S3_GET_BUCKETS,       "s3-get-buckets").
 
 -define(STORAGE_STATS,        "du").
@@ -76,20 +77,21 @@
 -define(HISTORY,              "history").
 -define(PURGE,                "purge").
 
-
 %% membership.
 -define(DEF_NUM_OF_ERROR_COUNT, 3).
 
 %% error.
--define(ERROR_COULD_NOT_CONNECT,        "could not connect").
--define(ERROR_FAILED_COMPACTION,        "failed compaction").
--define(ERROR_FAILED_GET_STORAGE_STATS, "failed to get storage stats").
--define(ERROR_ENDPOINT_NOT_FOUND,       "specified endpoint not found").
--define(ERROR_COULD_NOT_ATTACH_NODE,    "could not attach a node").
--define(ERROR_COULD_NOT_DETACH_NODE,    "could not detach a node").
--define(ERROR_COMMAND_NOT_FOUND,        "command not exist").
--define(ERROR_NO_NODE_SPECIFIED,        "no node specified").
--define(ERROR_NO_PATH_SPECIFIED,        "no path specified").
+-define(ERROR_COULD_NOT_CONNECT,        "Could not connect").
+-define(ERROR_FAILED_COMPACTION,        "Failed compaction").
+-define(ERROR_FAILED_GET_STORAGE_STATS, "Failed to get storage stats").
+-define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").
+-define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach a node").
+-define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach a node").
+-define(ERROR_COMMAND_NOT_FOUND,        "Command not exist").
+-define(ERROR_NO_NODE_SPECIFIED,        "No node specified").
+-define(ERROR_NO_PATH_SPECIFIED,        "No path specified").
+-define(ERROR_INVALID_ARGS,             "Invalid arguments").
+
 
 %% type of console.
 -define(CONSOLE_CUI,  'cui').
