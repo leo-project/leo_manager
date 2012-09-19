@@ -71,8 +71,8 @@ start_link() ->
     case supervisor:start_link({local, ?MODULE}, ?MODULE, []) of
         {ok, Pid} ->
             %% Launch TCP-Server(s)
-            ok = leo_manager_console_cui:start_link(CUI_Console),
-            ok = leo_manager_console_json:start_link(JSON_Console),
+            ok = leo_manager_console:start_link(leo_manager_formatter_cui,  CUI_Console),
+            ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console),
 
             %% Launch Logger
             DefLogDir = "./log/",

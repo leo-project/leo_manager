@@ -19,30 +19,296 @@
 %% under the License.
 %%
 %% ---------------------------------------------------------------------
-%% LeoFS Manager - Console Commons
+%% LeoFS Manager - CUI Console
 %% @doc
 %% @end
 %%======================================================================
--module(leo_manager_console_commons).
+-module(leo_manager_console).
 
 -author('Yosuke Hara').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([version/0, status/1, status/2, start/1,
-         detach/2, suspend/2, resume/2, rebalance/1,
-         purge/2, du/2, compact/2, whereis/2,
-         s3_gen_key/2, s3_set_endpoint/2, s3_del_endpoint/2, s3_get_endpoints/1,
-         s3_add_bucket/2, s3_get_buckets/1
-        ]).
+-export([start_link/2, stop/0]).
+-export([init/1, handle_call/3]).
+
+-record(state, {formatter :: atom()
+               }).
+
+%%----------------------------------------------------------------------
+%%
+%%----------------------------------------------------------------------
+start_link(Formatter, Params) ->
+    tcp_server:start_link(?MODULE, [Formatter], Params).
+
+stop() ->
+    tcp_server:stop().
+
+%%----------------------------------------------------------------------
+%% Callback function(s)
+%%----------------------------------------------------------------------
+init([Formatter]) ->
+    {ok, #state{formatter = Formatter}}.
 
 
 %%----------------------------------------------------------------------
-%% API
+%% Operation-1
+%%----------------------------------------------------------------------
+handle_call(_Socket, <<?HELP>>, #state{formatter = Formatter} = State) ->
+    Reply = Formatter:help(),
+    {reply, Reply, State};
+
+
+%% Command: "version"
+%%
+handle_call(_Socket, <<?VERSION, _/binary>>, #state{formatter = Formatter} = State) ->
+    {ok, Version} = version(),
+    Reply = Formatter:version(Version),
+    {reply, Reply, State};
+
+
+%% Command: "status"
+%% Command: "status ${NODE_NAME}"
+%%
+handle_call(_Socket, <<?STATUS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case status(Command, Option) of
+                {ok, {node_list, Props}} ->
+                    Formatter:system_info_and_nodes_stat(Props);
+                {ok, NodeStatus} ->
+                    Formatter:node_stat(NodeStatus);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command : "detach ${NODE_NAME}"
+%%
+handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case detach(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, {Node, Cause}} ->
+                    Formatter:error(Node, Cause);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "suspend ${NODE_NAME}"
+%%
+handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case suspend(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "resume ${NODE_NAME}"
+%%
+handle_call(_Socket, <<?RESUME, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case resume(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "start"
+%%
+handle_call(_Socket, <<?START, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case start(Command) of
+                ok ->
+                    Formatter:ok();
+                {error, {bad_nodes, BadNodes}} ->
+                    Formatter:bad_nodes(BadNodes);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "rebalance"
+%%
+handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case rebalance(Command) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%%----------------------------------------------------------------------
+%% Operation-2
+%%----------------------------------------------------------------------
+%% Command: "du ${NODE_NAME}"
+%%
+handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case du(Command, Option) of
+                {ok, {Option1, StorageStats}} ->
+                    Formatter:du(Option1, StorageStats);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "compact ${NODE_NAME}"
+%%
+handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case compact(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%%----------------------------------------------------------------------
+%% Operation-3
+%%----------------------------------------------------------------------
+%% Command: "s3-gen-key ${USER_ID}"
+%%
+handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_gen_key(Command, Option) of
+                {ok, PropList} ->
+                    AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
+                    SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
+                    Formatter:s3_keys(AccessKeyId, SecretAccessKey);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-set-endpoint ${END_POINT}"
+%%
+handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_set_endpoint(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-get-endpoints"
+%%
+handle_call(_Socket, <<?S3_GET_ENDPOINTS, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_get_endpoints(Command) of
+                {ok, EndPoints} ->
+                    Formatter:endpoints(EndPoints);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-del-endpoint ${END_POINT}"
+%%
+handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_del_endpoint(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-get-buckets"
+%%
+handle_call(_Socket, <<?S3_ADD_BUCKET, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_add_bucket(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-get-buckets"
+%%
+handle_call(_Socket, <<?S3_GET_BUCKETS, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_get_buckets(Command) of
+                {ok, Buckets} ->
+                    Formatter:buckets(Buckets);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "whereis ${PATH}"
+%%
+handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case whereis(Command, Option) of
+                {ok, AssignedInfo} ->
+                    Formatter:whereis(AssignedInfo);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "purge ${PATH}"
+%%
+handle_call(_Socket, <<?PURGE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case purge(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "history"
+%%
+handle_call(_Socket, <<?HISTORY, _/binary>>, #state{formatter = Formatter} = State) ->
+    Reply = case leo_manager_mnesia:get_histories_all() of
+                {ok, Histories} ->
+                    Formatter:histories(Histories);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "quit"
+%%
+handle_call(_Socket, <<?QUIT>>, State) ->
+    {close, <<?BYE>>, State};
+
+
+handle_call(_Socket, <<?CRLF>>, State) ->
+    {reply, "", State};
+
+
+handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
+    Reply = Formatter:error(?ERROR_COMMAND_NOT_FOUND),
+    {reply, Reply, State}.
+
+
+%%----------------------------------------------------------------------
+%% Inner function(s)
 %%----------------------------------------------------------------------
 %% @doc Retrieve version of the system
 %%
@@ -284,10 +550,10 @@ du(CmdBody, Option) ->
             {error, ?ERROR_NO_NODE_SPECIFIED};
         Tokens ->
             Mode = case length(Tokens) of
-                      1 -> {summary, lists:nth(1, Tokens)};
-                      2 -> {list_to_atom(lists:nth(1, Tokens)),  lists:nth(2, Tokens)};
-                      _ -> {error, badarg}
-                  end,
+                       1 -> {summary, lists:nth(1, Tokens)};
+                       2 -> {list_to_atom(lists:nth(1, Tokens)),  lists:nth(2, Tokens)};
+                       _ -> {error, badarg}
+                   end,
 
             case Mode of
                 {error, _Cause} ->
