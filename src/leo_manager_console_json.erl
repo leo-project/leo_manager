@@ -29,12 +29,15 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
 -export([start_link/1, stop/0]).
 -export([init/1, handle_call/3]).
 
+-define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
+-define(output_error_1(Cause), gen_json({[{error, list_to_binary(Cause)}]})).
 
 %%----------------------------------------------------------------------
 %%
@@ -117,7 +120,7 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
                     %% @TODO
                     ?OK;
                 {error, Cause} ->
-                    gen_json({[{error, list_to_binary(Cause)}]})
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -127,14 +130,14 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, State) ->
 handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
     Reply = case leo_manager_console_commons:detach(Command, Option) of
                 ok ->
-                    gen_json({[{result, <<"OK">>}]});
+                    ?output_ok();
                 {error, {Node, Cause}} ->
                     gen_json({[{error,
                                 {[{<<"node">>,  list_to_binary(atom_to_list(Node))},
                                   {<<"cause">>, list_to_binary(Cause)}]}
                                }]});
                 {error, Cause} ->
-                    gen_json({[{error, list_to_binary(Cause)}]})
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -144,9 +147,9 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, State) ->
 handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
     Reply = case leo_manager_console_commons:suspend(Command, Option) of
                 ok ->
-                    gen_json({[{result, <<"OK">>}]});
+                    ?output_ok();
                 {error, Cause} ->
-                    gen_json({[{error, list_to_binary(Cause)}]})
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -156,9 +159,9 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, State) ->
 handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
     Reply = case leo_manager_console_commons:resume(Command, Option) of
                 ok ->
-                    gen_json({[{result, <<"OK">>}]});
+                    ?output_ok();
                 {error, Cause} ->
-                    gen_json({[{error, list_to_binary(Cause)}]})
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -168,14 +171,14 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, State) ->
 handle_call(_Socket, <<?START, _/binary>> = Command, State) ->
     Reply = case leo_manager_console_commons:start(Command) of
                 ok ->
-                    gen_json({[{result, <<"OK">>}]});
+                    ?output_ok();
                 {error, {bad_nodes, BadNodes}} ->
                     Cause = lists:foldl(fun(Node, [] ) ->        io_lib:format("~w",  [Node]);
                                            (Node, Acc) -> Acc ++ io_lib:format(",~w", [Node])
                                         end, [], BadNodes),
-                    gen_json({[{error, list_to_binary(Cause)}]});
+                    ?output_error_1(Cause);
                 {error, Cause} ->
-                    gen_json({[{error, list_to_binary(Cause)}]})
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -185,9 +188,9 @@ handle_call(_Socket, <<?START, _/binary>> = Command, State) ->
 handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, State) ->
     Reply = case leo_manager_console_commons:rebalance(Command) of
                 ok ->
-                    gen_json({[{result, <<"OK">>}]});
+                    ?output_ok();
                 {error, Cause} ->
-                    gen_json({[{error, list_to_binary(Cause)}]})
+                    ?output_error_1(Cause)
             end,
     {reply, Reply, State};
 
@@ -195,18 +198,28 @@ handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, State) ->
 %%----------------------------------------------------------------------
 %% Operation-2
 %%----------------------------------------------------------------------
-%% @TODO
 %% Command: "du ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?STORAGE_STATS, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:du(Command, Option) of
+                {ok, {Option1, StorageStats}} ->
+                    format_stats_list(Option1, StorageStats);
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
-%% @TODO
 %% Command: "compact ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?COMPACT, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:compact(Command, Option) of
+                ok ->
+                    ?output_ok();
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %%----------------------------------------------------------------------
@@ -254,11 +267,16 @@ handle_call(_Socket, <<?WHEREIS, _Option/binary>> = _Command, State) ->
     {reply, [], State};
 
 
-%% @TODO
 %% Command: "purge ${PATH}"
 %%
-handle_call(_Socket, <<?PURGE, _Option/binary>> = _Command, State) ->
-    {reply, [], State};
+handle_call(_Socket, <<?PURGE, Option/binary>> = Command, State) ->
+    Reply = case leo_manager_console_commons:purge(Command, Option) of
+                ok ->
+                    ?output_ok();
+                {error, Cause} ->
+                    ?output_error_1(Cause)
+            end,
+    {reply, Reply, State};
 
 
 %% @TODO
@@ -297,3 +315,25 @@ gen_json(JSON) ->
             <<Result/binary, ?CRLF>>
     end.
 
+
+%% @doc Format s stats-list
+%% @private
+-spec(format_stats_list(summary | detail, {integer(), integer()} | list()) ->
+             string()).
+format_stats_list(summary, {FileSize, Total}) ->
+    gen_json({[{<<"file_size">>, FileSize},{<<"total_of_objects">>, Total}]});
+
+format_stats_list(detail, StatsList) when is_list(StatsList) ->
+    JSON = lists:map(fun({ok, #storage_stats{file_path   = FilePath,
+                                             total_sizes = FileSize,
+                                             total_num   = ObjTotal}}) ->
+                             {[{<<"file_path">>,        list_to_binary(FilePath)},
+                               {<<"file_size">>,        FileSize},
+                               {<<"total_of_objects">>, ObjTotal}
+                              ]};
+                        (_) ->
+                             []
+                     end, StatsList),
+    gen_json(JSON);
+format_stats_list(_, _) ->
+    [].
