@@ -151,7 +151,7 @@ system_info_and_nodes_stat(Props) ->
 
 
 %% @doc Format a system-configuration w/node-state
-%% @private
+%%
 -spec(system_conf_with_node_stat(string(), list()) ->
              string()).
 system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
@@ -203,7 +203,7 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 
 
 %% @doc Format a cluster node state
-%% @private
+%%
 -spec(node_stat(#cluster_node_status{}) ->
              string()).
 node_stat(State) ->
@@ -216,8 +216,8 @@ node_stat(State) ->
                                 "            version : ~s\r\n",
                                 "      obj-container : ~p\r\n",
                                 "            log-dir : ~s\r\n",
-                                "  ring state (cur)  : ~w\r\n",
-                                "  ring state (prev) : ~w\r\n",
+                                "  ring state (cur)  : ~s\r\n",
+                                "  ring state (prev) : ~s\r\n",
                                 "\r\n[erlang-vm status]\r\n",
                                 "    total mem usage : ~w\r\n",
                                 "   system mem usage : ~w\r\n",
@@ -226,9 +226,9 @@ node_stat(State) ->
                                 "    # of procs      : ~w\r\n\r\n"]),
                   [State#cluster_node_status.version,
                    ObjContainer,
-                   leo_misc:get_value('log',              Directories, []),
-                   leo_misc:get_value('ring_cur',         RingHashes,  []),
-                   leo_misc:get_value('ring_prev',        RingHashes,  []),
+                   leo_misc:get_value('log', Directories, []),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)),
                    leo_misc:get_value('total_mem_usage',  Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
                    leo_misc:get_value('proc_mem_usage',   Statistics, 0),
@@ -238,7 +238,7 @@ node_stat(State) ->
 
 
 %% @doc Format storge stats-list
-%% @private
+%%
 -spec(du(summary | detail, {integer(), integer()} | list()) ->
              string()).
 du(summary, {FileSize, Total}) ->
@@ -275,7 +275,7 @@ s3_keys(AccessKeyId, SecretAccessKey) ->
 
 
 %% @doc Format a endpoint list
-%% @private
+%%
 -spec(endpoints(list(tuple())) ->
              string()).
 endpoints(EndPoints) ->
@@ -298,7 +298,7 @@ endpoints(EndPoints) ->
 
 
 %% @doc Format a bucket list
-%% @private
+%%
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
@@ -335,7 +335,7 @@ buckets(Buckets) ->
 
 
 %% @doc Format an assigned file
-%% @private
+%%
 -spec(whereis(list()) ->
              string()).
 whereis(AssignedInfo) ->
@@ -387,7 +387,7 @@ whereis(AssignedInfo) ->
                                                string:left(DelStr,                            lists:nth(1,LenPerCol)),
                                                string:left(Node,                              lists:nth(2,LenPerCol)),
                                                string:left(leo_hex:integer_to_hex(VNodeId),   lists:nth(3,LenPerCol)),
-                                               string:left(dsize(DSize),                      lists:nth(4,LenPerCol)),
+                                               string:left(leo_file:dsize(DSize),             lists:nth(4,LenPerCol)),
                                                string:left(string:sub_string(leo_hex:integer_to_hex(Checksum), 1, 10),
                                                            lists:nth(5,LenPerCol)),
                                                string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol)),
@@ -401,7 +401,7 @@ whereis(AssignedInfo) ->
 
 
 %% @doc Format a history list
-%% @private
+%%
 -spec(histories(list(#history{})) ->
              string()).
 histories(Histories) ->
@@ -417,14 +417,4 @@ histories(Histories) ->
 %%----------------------------------------------------------------------
 %% Inner function(s)
 %%----------------------------------------------------------------------
-%% @doc Retrieve data-size w/unit.
-%% @private
--define(FILE_KB,       1024).
--define(FILE_MB,    1048586).
--define(FILE_GB, 1073741824).
-
-dsize(Size) when Size =< ?FILE_KB -> integer_to_list(Size) ++ "B";
-dsize(Size) when Size  > ?FILE_KB -> integer_to_list(erlang:round(Size / ?FILE_KB)) ++ "K";
-dsize(Size) when Size  > ?FILE_MB -> integer_to_list(erlang:round(Size / ?FILE_MB)) ++ "M";
-dsize(Size) when Size  > ?FILE_GB -> integer_to_list(erlang:round(Size / ?FILE_GB)) ++ "G".
 

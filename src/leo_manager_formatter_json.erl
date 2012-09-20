@@ -99,7 +99,7 @@ bad_nodes(BadNodes) ->
 
 
 %% @doc Format a cluster-node list
-%% @private
+%%
 -spec(system_info_and_nodes_stat(list()) ->
              string()).
 system_info_and_nodes_stat(Props) ->
@@ -146,12 +146,27 @@ system_info_and_nodes_stat(Props) ->
 
 
 %% @doc Format a cluster node state
-%% @private
+%%
 -spec(node_stat(#cluster_node_status{}) ->
              string()).
-node_stat(_) ->
-    [].
+node_stat(State) ->
+    Version      = State#cluster_node_status.version,
+    Directories  = State#cluster_node_status.dirs,
+    RingHashes   = State#cluster_node_status.ring_checksum,
+    Statistics   = State#cluster_node_status.statistics,
 
+    gen_json({[{<<"node_stat">>,
+                {[{<<"version">>,          list_to_binary(Version)},
+                  {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log',       Directories, []))},
+                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)))},
+                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)))},
+                  {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
+                  {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
+                  {<<"procs_mem_usage">>,  leo_misc:get_value('proc_mem_usage',   Statistics, 0)},
+                  {<<"ets_mem_usage">>,    leo_misc:get_value('ets_mem_usage',    Statistics, 0)},
+                  {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)}
+                 ]}}
+              ]}).
 
 
 %% @doc Format storage stats
@@ -177,45 +192,72 @@ du(_, _) ->
     gen_json([]).
 
 
-%% @TODO
 %% @doc Format s3-gen-key result
 %%
 -spec(s3_keys(string(), string()) ->
              string()).
-s3_keys(_,_) ->
-    [].
+s3_keys(AccessKeyId, SecretAccessKey) ->
+    gen_json({[
+               {access_key_id,     list_to_binary(AccessKeyId)},
+               {secret_access_key, list_to_binary(SecretAccessKey)}
+              ]}).
 
 
-%% @TODO
 %% @doc Format a endpoint list
-%% @private
+%%
 -spec(endpoints(list(tuple())) ->
              string()).
-endpoints(_) ->
-    [].
+endpoints(EndPoints) ->
+    JSON = lists:map(fun({endpoint, EP, CreatedAt}) ->
+                             {[{<<"endpoint">>,   list_to_binary(EP)},
+                               {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
+                              ]}
+                     end, EndPoints),
+    gen_json({[{<<"endpoints">>, JSON}]}).
 
 
-%% @TODO
 %% @doc Format a bucket list
-%% @private
+%%
 -spec(buckets(list(tuple())) ->
              string()).
-buckets(_) ->
-    [].
+buckets(Buckets) ->
+    JSON = lists:map(fun({Bucket, Owner, CreatedAt}) ->
+                             {[{<<"bucket">>,     list_to_binary(Bucket)},
+                               {<<"owner">>,      list_to_binary(Owner)},
+                               {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
+                              ]}
+                     end, Buckets),
+    gen_json({[{<<"buckets">>, JSON}]}).
 
 
-%% @TODO
 %% @doc Format an assigned file
-%% @private
+%%
 -spec(whereis(list()) ->
              string()).
-whereis(_) ->
-    [].
+whereis(AssignedInfo) ->
+    JSON = lists:map(fun({Node, not_found}) ->
+                             {[{<<"node">>,      list_to_binary(Node)},
+                               {<<"vnode_id">>,  <<>>},
+                               {<<"size">>,      <<>>},
+                               {<<"clock">>,     <<>>},
+                               {<<"checksum">>,  <<>>},
+                               {<<"timestamp">>, <<>>},
+                               {<<"delete">>,    0}
+                              ]};
+                        ({Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag}) ->
+                             {[{<<"node">>,      list_to_binary(Node)},
+                               {<<"vnode_id">>,  list_to_binary(leo_hex:integer_to_hex(VNodeId))},
+                               {<<"size">>,      list_to_binary(leo_file:dsize(DSize))},
+                               {<<"clock">>,     list_to_binary(leo_hex:integer_to_hex(Clock))},
+                               {<<"checksum">>,  list_to_binary(leo_hex:integer_to_hex(Checksum))},
+                               {<<"timestamp">>, list_to_binary(leo_date:date_format(Timestamp))},
+                               {<<"delete">>,    DelFlag}
+                              ]}
+                     end, AssignedInfo),
+    gen_json({[{<<"buckets">>, JSON}]}).
 
-
-%% @TODO
 %% @doc Format a history list
-%% @private
+%%
 -spec(histories(list(#history{})) ->
              string()).
 histories(_) ->
