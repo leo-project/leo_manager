@@ -254,7 +254,7 @@ whereis(AssignedInfo) ->
                                {<<"delete">>,    DelFlag}
                               ]}
                      end, AssignedInfo),
-    gen_json({[{<<"buckets">>, JSON}]}).
+    gen_json({[{<<"assigned_info">>, JSON}]}).
 
 %% @doc Format a history list
 %%
