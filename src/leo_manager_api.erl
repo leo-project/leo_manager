@@ -47,8 +47,11 @@
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
--define(ERROR_COULD_NOT_GET_RTABLE_CHKSUM, "could not get a routing talble checksum").
--define(ERROR_META_NOT_FOUND,              "metadata not found").
+-define(ERROR_COULD_NOT_MODIFY_STORAGE_STATE, "Could not modify the storage status").
+-define(ERROR_COULD_NOT_GET_GATEWAY,          "Could not get gateway nodes").
+-define(ERROR_COULD_NOT_GET_RTABLE_CHKSUM,    "Could not get a routing talble checksum").
+-define(ERROR_META_NOT_FOUND,                 "Metadata not found").
+
 
 %%----------------------------------------------------------------------
 %% API-Function(s) - retrieve system information.
@@ -163,6 +166,7 @@ get_nodes(Node) ->
                               [N|Acc]
                       end, [], Nodes0),
     {ok, Res}.
+
 
 
 %%----------------------------------------------------------------------
@@ -447,9 +451,9 @@ rebalance2(Tbl, []) ->
     end;
 rebalance2(Tbl, [Item|T]) ->
     %% Item: [{vnode_id, VNodeId0}, {src, SrcNode}, {dest, DestNode}]
-    VNodeId  = proplists:get_value('vnode_id', Item),
-    SrcNode  = proplists:get_value('src',      Item),
-    DestNode = proplists:get_value('dest',     Item),
+    VNodeId  = leo_misc:get_value('vnode_id', Item),
+    SrcNode  = leo_misc:get_value('src',      Item),
+    DestNode = leo_misc:get_value('dest',     Item),
 
     ok = leo_hashtable:append(Tbl, SrcNode, {VNodeId, DestNode}),
     rebalance2(Tbl, T).
@@ -584,10 +588,10 @@ notify(error, Node, ?ERR_TYPE_NODE_DOWN) ->
                             notify1(error, Node, NumOfErrors, Size)
                     end;
                 _ ->
-                    {error, "could not modify storage status"}
+                    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
             end;
         _Error ->
-            {error, "could not modify storage status"}
+            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
     end;
 
 notify(synchronized, VNodeId, Node) ->
@@ -623,7 +627,7 @@ notify(_,_,_,_) ->
 
 notify1(error, Node, NumOfErrors, Thresholds) when NumOfErrors >= Thresholds ->
     State = ?STATE_STOP,
-    Cause = "could not modify storage status",
+    Cause = ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE,
 
     case leo_manager_mnesia:update_storage_node_status(
            update_state, #node_state{node  = Node,
@@ -644,8 +648,8 @@ notify1(error, Node,_NumOfErrors,_Thresholds) ->
     case leo_manager_mnesia:update_storage_node_status(increment_error, #node_state{node = Node}) of
         ok ->
             ok;
-        _ ->
-            {error, "could not modify storage status"}
+        _Error ->
+            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
     end.
 
 notify2(error, Node, Clock, State) ->
@@ -792,7 +796,7 @@ synchronize(Type, Node, Members) when Type == ?CHECKSUM_RING;
     case rpc:call(Node, leo_redundant_manager_api, synchronize,
                   [?SYNC_MODE_BOTH, Members, Options], ?DEF_TIMEOUT) of
         {ok, _Members, Chksums} ->
-            {RingHash0, RingHash1} = proplists:get_value(?CHECKSUM_RING, Chksums),
+            {RingHash0, RingHash1} = leo_misc:get_value(?CHECKSUM_RING, Chksums),
 
             leo_manager_mnesia:update_storage_node_status(
               update_chksum, #node_state{node          = Node,
@@ -919,8 +923,8 @@ purge(Path) ->
                                 end, [], R1),
             rpc:multicall(Nodes, leo_gateway_api, purge, [Path], ?DEF_TIMEOUT),
             ok;
-        _ ->
-            {error, "could not get gateway-nodes"}
+        _Error ->
+            {error, ?ERROR_COULD_NOT_GET_GATEWAY}
     end.
 
 %% @doc

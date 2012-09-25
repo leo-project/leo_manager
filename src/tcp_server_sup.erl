@@ -32,7 +32,7 @@
 -include("tcp_server.hrl").
 
 %% External API
--export([start_link/4,
+-export([start_link/0,
          stop/0]).
 
 %% Callbacks
@@ -41,8 +41,8 @@
 %%-----------------------------------------------------------------------
 %% External API
 %%-----------------------------------------------------------------------
-start_link(Name, Module, Args, Option) ->
-    supervisor:start_link(Name, ?MODULE, [Name, Module, Args, Option]).
+start_link() ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 stop() ->
     case whereis(?MODULE) of
@@ -56,56 +56,6 @@ stop() ->
 %% ---------------------------------------------------------------------
 %% Callbacks
 %% ---------------------------------------------------------------------
-init([Name, Module, Args, Option]) ->
-    case Module:init(Args) of
-        {ok, State}  ->
-            case gen_tcp:listen(Option#tcp_server_params.port,
-                                Option#tcp_server_params.listen) of
-                {ok, Socket} ->
-                    init_result(Socket, State, Name, Module, Option);
-                {error, Reason} ->
-                    %% LOG
-                    io:format("~p~n", [Reason]),
-                    {stop, Reason}
-            end;
-        {stop, Reason} ->
-            Reason;
-        _ ->
-            {error, []}
-    end.
-
-
-%% ---------------------------------------------------------------------
-%% Internal Functions
-%% ---------------------------------------------------------------------
-init_result(Socket, State, {Locale, Name}, Module, Option) ->
-    #tcp_server_params{restart_times = MaxRestarts,
-                       time          = Time} = Option,
-
-    MonitorName = list_to_atom(?TCP_SERVER_MONITOR_NAME),
-    {ok, {{one_for_one, MaxRestarts, Time},
-          gen_tcp_acceptor_specs(Socket, State, {Locale, Name}, MonitorName, Module, Option)}}.
-
-gen_tcp_acceptor_specs(Socket, State, {Locale,_Name}, MonitorName, Module, Option) ->
-    NewMonitorName = case Locale of
-                         local -> MonitorName;
-                         _ -> {Locale, MonitorName}
-                     end,
-    Ret = lists:map(
-            fun (Id) ->
-                    AcceptorName = list_to_atom(?TCP_SERVER_PREFIX ++ integer_to_list(Id)),
-                    {AcceptorName, {tcp_server_acceptor,
-                                    start_link, [{Locale, AcceptorName},
-                                                 Socket,
-                                                 State,
-                                                 NewMonitorName,
-                                                 Module,
-                                                 Option]},
-                     permanent,
-                     Option#tcp_server_params.shutdown,
-                     worker,
-                     []}
-            end,
-            lists:seq(1, Option#tcp_server_params.num_of_listeners)),
-    Ret.
+init([]) ->
+    {ok, {{one_for_one, 5, 60}, []}}.
 
