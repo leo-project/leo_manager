@@ -71,7 +71,7 @@ start_link() ->
     case supervisor:start_link({local, ?MODULE}, ?MODULE, []) of
         {ok, Pid} ->
             %% Launch TCP-Server(s)
-            ok = leo_manager_console:start_link(leo_manager_formatter_cui,  CUI_Console),
+            ok = leo_manager_console:start_link(leo_manager_formatter_text, CUI_Console),
             ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console),
 
             %% Launch Logger
