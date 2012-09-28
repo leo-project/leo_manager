@@ -49,6 +49,10 @@
 %%-----------------------------------------------------------------------
 %% External API
 %%-----------------------------------------------------------------------
+-define(STAT_INTERVAL_10,   10000).
+-define(STAT_INTERVAL_60,   60000).
+-define(STAT_INTERVAL_300, 300000).
+
 %% @spec () -> ok
 %% @doc start link...
 %% @end
@@ -85,9 +89,10 @@ start_link() ->
             ok = leo_logger_client_message:new(LogDir, ?env_log_level(leo_manager), log_file_appender()),
 
             %% Launch Statistics
-            ok = leo_statistics_api:start(?MODULE, leo_manager,
-                                          [{snmp, [leo_statistics_metrics_vm]},
-                                           {stat, [leo_statistics_metrics_vm]}]),
+            ok = leo_statistics_api:start_link(leo_manager),
+            ok = leo_statistics_metrics_vm:start_link(?STAT_INTERVAL_10),
+            ok = leo_statistics_metrics_vm:start_link(?STAT_INTERVAL_60),
+            ok = leo_statistics_metrics_vm:start_link(?STAT_INTERVAL_300),
 
             %% Launch Redundant-manager
             SystemConf = load_system_config(),
