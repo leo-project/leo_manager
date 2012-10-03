@@ -702,7 +702,7 @@ s3_del_endpoint(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve S3-Buckets from the manager
+%% @doc Insert S3-Buckets in the manager
 %%
 -spec(s3_add_bucket(binary(), binary()) ->
              ok | {error, any()}).

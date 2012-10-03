@@ -34,6 +34,7 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
+-include_lib("leo_statistics/include/leo_statistics.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% External API
@@ -71,7 +72,7 @@ start_link() ->
     case supervisor:start_link({local, ?MODULE}, ?MODULE, []) of
         {ok, Pid} ->
             %% Launch TCP-Server(s)
-            ok = leo_manager_console:start_link(leo_manager_formatter_cui,  CUI_Console),
+            ok = leo_manager_console:start_link(leo_manager_formatter_text, CUI_Console),
             ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console),
 
             %% Launch Logger
@@ -85,9 +86,10 @@ start_link() ->
             ok = leo_logger_client_message:new(LogDir, ?env_log_level(leo_manager), log_file_appender()),
 
             %% Launch Statistics
-            ok = leo_statistics_api:start(?MODULE, leo_manager,
-                                          [{snmp, [leo_statistics_metrics_vm]},
-                                           {stat, [leo_statistics_metrics_vm]}]),
+            ok = leo_statistics_api:start_link(leo_manager),
+            ok = leo_statistics_metrics_vm:start_link(?STATISTICS_SYNC_INTERVAL),
+            ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_S),
+            ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_L),
 
             %% Launch Redundant-manager
             SystemConf = load_system_config(),

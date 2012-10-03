@@ -23,7 +23,7 @@
 %% @doc
 %% @end
 %%======================================================================
--module(leo_manager_formatter_cui).
+-module(leo_manager_formatter_text).
 
 -author('Yosuke Hara').
 
