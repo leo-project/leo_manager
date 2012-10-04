@@ -719,7 +719,7 @@ compact(Node) when is_list(Node) ->
 compact(Node) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_object_storage_api, compact, [], infinity) of
+            case rpc:call(Node, leo_storage_api, compact, [], infinity) of
                 Result when is_list(Result) ->
                     {ok, Result};
                 {error, _} ->
