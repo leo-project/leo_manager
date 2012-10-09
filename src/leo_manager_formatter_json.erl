@@ -209,7 +209,7 @@ s3_keys(AccessKeyId, SecretAccessKey) ->
              string()).
 endpoints(EndPoints) ->
     JSON = lists:map(fun({endpoint, EP, CreatedAt}) ->
-                             {[{<<"endpoint">>,   list_to_binary(EP)},
+                             {[{<<"endpoint">>,   EP},
                                {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
                               ]}
                      end, EndPoints),

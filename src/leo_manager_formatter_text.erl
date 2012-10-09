@@ -280,7 +280,7 @@ s3_keys(AccessKeyId, SecretAccessKey) ->
              string()).
 endpoints(EndPoints) ->
     Col1Len = lists:foldl(fun({_, EP, _}, Acc) ->
-                                  Len = length(EP),
+                                  Len = byte_size(EP),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
@@ -291,8 +291,9 @@ endpoints(EndPoints) ->
     Header = lists:append([string:left("endpoint", Col1Len), " | ", string:left("created at", Col2Len), "\r\n",
                            lists:duplicate(Col1Len, "-"),    "-+-", lists:duplicate(Col2Len, "-"),      "\r\n"]),
     Fun = fun({endpoint, EP, Created}, Acc) ->
+                  EndpointStr = binary_to_list(EP),
                   Acc ++ io_lib:format("~s | ~s\r\n",
-                                       [string:left(EP,Col1Len), leo_date:date_format(Created)])
+                                       [string:left(EndpointStr,Col1Len), leo_date:date_format(Created)])
           end,
     lists:append([lists:foldl(Fun, Header, EndPoints), "\r\n"]).
 
