@@ -56,8 +56,14 @@ ok() ->
 %%
 -spec(error(string()) ->
              string()).
-error(Cause) ->
-    gen_json({[{error, list_to_binary(Cause)}]}).
+error(not_found)  ->
+    gen_json({[{error,<<"not found">>}]});
+error(nodedown)  ->
+    gen_json({[{error,<<"node down">>}]});
+error(Cause) when is_list(Cause) ->
+    gen_json({[{error, list_to_binary(Cause)}]});
+error(Cause) when is_atom(Cause) ->
+    gen_json({[{error, list_to_binary(atom_to_list(Cause))}]}).
 
 
 %% @doc Format 'error'
