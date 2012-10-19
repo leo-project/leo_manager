@@ -692,11 +692,12 @@ whereis1(AddrId, Key, [{Node, true }|T], Acc) ->
     Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
                   {value, {ok, #metadata{addr_id   = AddrId,
                                          dsize     = DSize,
+                                         cnumber   = ChunkedObjs,
                                          clock     = Clock,
                                          timestamp = Timestamp,
                                          checksum  = Checksum,
                                          del       = DelFlag}}} ->
-                      {NodeStr, AddrId, DSize, Clock, Timestamp, Checksum, DelFlag};
+                      {NodeStr, AddrId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag};
                   _ ->
                       {NodeStr, not_found}
               end,

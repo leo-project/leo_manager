@@ -250,14 +250,15 @@ whereis(AssignedInfo) ->
                                {<<"timestamp">>, <<>>},
                                {<<"delete">>,    0}
                               ]};
-                        ({Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag}) ->
-                             {[{<<"node">>,      list_to_binary(Node)},
-                               {<<"vnode_id">>,  list_to_binary(leo_hex:integer_to_hex(VNodeId))},
-                               {<<"size">>,      list_to_binary(leo_file:dsize(DSize))},
-                               {<<"clock">>,     list_to_binary(leo_hex:integer_to_hex(Clock))},
-                               {<<"checksum">>,  list_to_binary(leo_hex:integer_to_hex(Checksum))},
-                               {<<"timestamp">>, list_to_binary(leo_date:date_format(Timestamp))},
-                               {<<"delete">>,    DelFlag}
+                        ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
+                             {[{<<"node">>,          list_to_binary(Node)},
+                               {<<"vnode_id">>,      list_to_binary(leo_hex:integer_to_hex(VNodeId))},
+                               {<<"size">>,          list_to_binary(leo_file:dsize(DSize))},
+                               {<<"num_of_chunks">>, list_to_binary(integer_to_list(ChunkedObjs))},
+                               {<<"clock">>,         list_to_binary(leo_hex:integer_to_hex(Clock))},
+                               {<<"checksum">>,      list_to_binary(leo_hex:integer_to_hex(Checksum))},
+                               {<<"timestamp">>,     list_to_binary(leo_date:date_format(Timestamp))},
+                               {<<"delete">>,        DelFlag}
                               ]}
                      end, AssignedInfo),
     gen_json({[{<<"assigned_info">>, JSON}]}).

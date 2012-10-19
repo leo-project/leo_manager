@@ -350,8 +350,9 @@ whereis(AssignedInfo) ->
     CellColumns = [{"del?",          5},
                    {"node",    Col2Len},
                    {"ring address", 36},
-                   {"size",          8},
+                   {"size",         10},
                    {"checksum",     12},
+                   {"# of chunks",  14},
                    {"clock",        14},
                    {"when",         28},
                    {"END",           0}],
@@ -378,7 +379,7 @@ whereis(AssignedInfo) ->
                                                string:left("", lists:nth(1,LenPerCol)),
                                                Node,
                                                ?CRLF]);
-                             {Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag} ->
+                             {Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag} ->
                                  FormattedDate = leo_date:date_format(Timestamp),
                                  DelStr = case DelFlag of
                                               0 -> " ";
@@ -391,7 +392,8 @@ whereis(AssignedInfo) ->
                                                string:left(leo_file:dsize(DSize),             lists:nth(4,LenPerCol)),
                                                string:left(string:sub_string(leo_hex:integer_to_hex(Checksum), 1, 10),
                                                            lists:nth(5,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol)),
+                                               string:left(integer_to_list(ChunkedObjs),      lists:nth(6,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(Clock),     lists:nth(7,LenPerCol)),
                                                FormattedDate,
                                                ?CRLF])
                          end,
