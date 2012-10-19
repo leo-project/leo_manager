@@ -208,13 +208,13 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 %%    - s3-endpoint
                 %%    - s3-credential
                 leo_s3_libs_data_handler:insert(
-                  {mnesia, credentials}, {[], #credential{access_key_id     = "05236",
-                                                          secret_access_key = "802562235",
+                  {mnesia, credentials}, {[], #credential{access_key_id     = <<"05236">>,
+                                                          secret_access_key = <<"802562235">>,
                                                           user_id           = "__leofs__",
                                                           created_at        = leo_date:clock()}}),
-                leo_s3_endpoint:set_endpoint("localhost"),
-                leo_s3_endpoint:set_endpoint("leofs.org"),
-                leo_s3_endpoint:set_endpoint("s3.amazonaws.com"),
+                leo_s3_endpoint:set_endpoint(<<"localhost">>),
+                leo_s3_endpoint:set_endpoint(<<"leofs.org">>),
+                leo_s3_endpoint:set_endpoint(<<"s3.amazonaws.com">>),
                 ok
             catch _:Reason ->
                     ?error("create_mnesia_tables1/3", "cause:~p", [Reason])

@@ -280,7 +280,7 @@ s3_keys(AccessKeyId, SecretAccessKey) ->
              string()).
 endpoints(EndPoints) ->
     Col1Len = lists:foldl(fun({_, EP, _}, Acc) ->
-                                  Len = length(EP),
+                                  Len = byte_size(EP),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
@@ -291,8 +291,9 @@ endpoints(EndPoints) ->
     Header = lists:append([string:left("endpoint", Col1Len), " | ", string:left("created at", Col2Len), "\r\n",
                            lists:duplicate(Col1Len, "-"),    "-+-", lists:duplicate(Col2Len, "-"),      "\r\n"]),
     Fun = fun({endpoint, EP, Created}, Acc) ->
+                  EndpointStr = binary_to_list(EP),
                   Acc ++ io_lib:format("~s | ~s\r\n",
-                                       [string:left(EP,Col1Len), leo_date:date_format(Created)])
+                                       [string:left(EndpointStr,Col1Len), leo_date:date_format(Created)])
           end,
     lists:append([lists:foldl(Fun, Header, EndPoints), "\r\n"]).
 
@@ -349,8 +350,9 @@ whereis(AssignedInfo) ->
     CellColumns = [{"del?",          5},
                    {"node",    Col2Len},
                    {"ring address", 36},
-                   {"size",          8},
+                   {"size",         10},
                    {"checksum",     12},
+                   {"# of chunks",  14},
                    {"clock",        14},
                    {"when",         28},
                    {"END",           0}],
@@ -377,7 +379,7 @@ whereis(AssignedInfo) ->
                                                string:left("", lists:nth(1,LenPerCol)),
                                                Node,
                                                ?CRLF]);
-                             {Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag} ->
+                             {Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag} ->
                                  FormattedDate = leo_date:date_format(Timestamp),
                                  DelStr = case DelFlag of
                                               0 -> " ";
@@ -390,7 +392,8 @@ whereis(AssignedInfo) ->
                                                string:left(leo_file:dsize(DSize),             lists:nth(4,LenPerCol)),
                                                string:left(string:sub_string(leo_hex:integer_to_hex(Checksum), 1, 10),
                                                            lists:nth(5,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(Clock),     lists:nth(6,LenPerCol)),
+                                               string:left(integer_to_list(ChunkedObjs),      lists:nth(6,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(Clock),     lists:nth(7,LenPerCol)),
                                                FormattedDate,
                                                ?CRLF])
                          end,

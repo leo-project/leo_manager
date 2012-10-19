@@ -56,8 +56,14 @@ ok() ->
 %%
 -spec(error(string()) ->
              string()).
-error(Cause) ->
-    gen_json({[{error, list_to_binary(Cause)}]}).
+error(not_found)  ->
+    gen_json({[{error,<<"not found">>}]});
+error(nodedown)  ->
+    gen_json({[{error,<<"node down">>}]});
+error(Cause) when is_list(Cause) ->
+    gen_json({[{error, list_to_binary(Cause)}]});
+error(Cause) when is_atom(Cause) ->
+    gen_json({[{error, list_to_binary(atom_to_list(Cause))}]}).
 
 
 %% @doc Format 'error'
@@ -209,7 +215,7 @@ s3_keys(AccessKeyId, SecretAccessKey) ->
              string()).
 endpoints(EndPoints) ->
     JSON = lists:map(fun({endpoint, EP, CreatedAt}) ->
-                             {[{<<"endpoint">>,   list_to_binary(EP)},
+                             {[{<<"endpoint">>,   EP},
                                {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
                               ]}
                      end, EndPoints),
@@ -244,14 +250,15 @@ whereis(AssignedInfo) ->
                                {<<"timestamp">>, <<>>},
                                {<<"delete">>,    0}
                               ]};
-                        ({Node, VNodeId, DSize, Clock, Timestamp, Checksum, DelFlag}) ->
-                             {[{<<"node">>,      list_to_binary(Node)},
-                               {<<"vnode_id">>,  list_to_binary(leo_hex:integer_to_hex(VNodeId))},
-                               {<<"size">>,      list_to_binary(leo_file:dsize(DSize))},
-                               {<<"clock">>,     list_to_binary(leo_hex:integer_to_hex(Clock))},
-                               {<<"checksum">>,  list_to_binary(leo_hex:integer_to_hex(Checksum))},
-                               {<<"timestamp">>, list_to_binary(leo_date:date_format(Timestamp))},
-                               {<<"delete">>,    DelFlag}
+                        ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
+                             {[{<<"node">>,          list_to_binary(Node)},
+                               {<<"vnode_id">>,      list_to_binary(leo_hex:integer_to_hex(VNodeId))},
+                               {<<"size">>,          list_to_binary(leo_file:dsize(DSize))},
+                               {<<"num_of_chunks">>, list_to_binary(integer_to_list(ChunkedObjs))},
+                               {<<"clock">>,         list_to_binary(leo_hex:integer_to_hex(Clock))},
+                               {<<"checksum">>,      list_to_binary(leo_hex:integer_to_hex(Checksum))},
+                               {<<"timestamp">>,     list_to_binary(leo_date:date_format(Timestamp))},
+                               {<<"delete">>,        DelFlag}
                               ]}
                      end, AssignedInfo),
     gen_json({[{<<"assigned_info">>, JSON}]}).

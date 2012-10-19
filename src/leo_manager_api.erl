@@ -692,11 +692,12 @@ whereis1(AddrId, Key, [{Node, true }|T], Acc) ->
     Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
                   {value, {ok, #metadata{addr_id   = AddrId,
                                          dsize     = DSize,
+                                         cnumber   = ChunkedObjs,
                                          clock     = Clock,
                                          timestamp = Timestamp,
                                          checksum  = Checksum,
                                          del       = DelFlag}}} ->
-                      {NodeStr, AddrId, DSize, Clock, Timestamp, Checksum, DelFlag};
+                      {NodeStr, AddrId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag};
                   _ ->
                       {NodeStr, not_found}
               end,
@@ -719,7 +720,7 @@ compact(Node) when is_list(Node) ->
 compact(Node) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_object_storage_api, compact, [], infinity) of
+            case rpc:call(Node, leo_storage_api, compact, [], infinity) of
                 Result when is_list(Result) ->
                     {ok, Result};
                 {error, _} ->

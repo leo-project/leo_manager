@@ -654,7 +654,7 @@ s3_set_endpoint(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_INVALID_ARGS};
         [EndPoint|_] ->
-            case leo_s3_endpoint:set_endpoint(EndPoint) of
+            case leo_s3_endpoint:set_endpoint(list_to_binary(EndPoint)) of
                 ok ->
                     ok;
                 {error, Cause} ->
