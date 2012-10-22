@@ -691,7 +691,7 @@ s3_del_endpoint(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_INVALID_ARGS};
         [EndPoint|_] ->
-            case leo_s3_endpoint:delete_endpoint(EndPoint) of
+            case leo_s3_endpoint:delete_endpoint(list_to_binary(EndPoint)) of
                 ok ->
                     ok;
                 not_found ->
