@@ -711,7 +711,7 @@ s3_add_bucket(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, AccessKey] ->
-            leo_s3_bucket:put(AccessKey, Bucket);
+            leo_s3_bucket:put(list_to_binary(AccessKey), Bucket);
         _ ->
             {error, ?ERROR_INVALID_ARGS}
     end.
