@@ -200,12 +200,12 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_keys(string(), string()) ->
+-spec(s3_keys(binary(), binary()) ->
              string()).
 s3_keys(AccessKeyId, SecretAccessKey) ->
     gen_json({[
-               {access_key_id,     list_to_binary(AccessKeyId)},
-               {secret_access_key, list_to_binary(SecretAccessKey)}
+               {access_key_id,     AccessKeyId},
+               {secret_access_key, SecretAccessKey}
               ]}).
 
 
