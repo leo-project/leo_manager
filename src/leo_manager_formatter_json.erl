@@ -243,12 +243,13 @@ buckets(Buckets) ->
 whereis(AssignedInfo) ->
     JSON = lists:map(fun({Node, not_found}) ->
                              {[{<<"node">>,      list_to_binary(Node)},
-                               {<<"vnode_id">>,  <<>>},
-                               {<<"size">>,      <<>>},
-                               {<<"clock">>,     <<>>},
-                               {<<"checksum">>,  <<>>},
-                               {<<"timestamp">>, <<>>},
-                               {<<"delete">>,    0}
+                               {<<"vnode_id">>,      <<>>},
+                               {<<"size">>,          <<>>},
+                               {<<"num_of_chunks">>, <<>>},
+                               {<<"clock">>,         <<>>},
+                               {<<"checksum">>,      <<>>},
+                               {<<"timestamp">>,     <<>>},
+                               {<<"delete">>,        0}
                               ]};
                         ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
                              {[{<<"node">>,          list_to_binary(Node)},
