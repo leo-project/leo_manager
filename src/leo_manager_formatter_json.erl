@@ -228,7 +228,7 @@ endpoints(EndPoints) ->
              string()).
 buckets(Buckets) ->
     JSON = lists:map(fun({Bucket, Owner, CreatedAt}) ->
-                             {[{<<"bucket">>,     list_to_binary(Bucket)},
+                             {[{<<"bucket">>,     Bucket},
                                {<<"owner">>,      list_to_binary(Owner)},
                                {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
                               ]}
