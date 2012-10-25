@@ -304,7 +304,8 @@ endpoints(EndPoints) ->
              string()).
 buckets(Buckets) ->
     {Col1Len, Col2Len} = lists:foldl(fun({Bucket, Owner, _}, {C1, C2}) ->
-                                             Len1 = length(Bucket),
+                                             BucketStr = binary_to_list(Bucket),
+                                             Len1 = length(BucketStr),
                                              Len2 = length(Owner),
 
                                              {case (Len1 > C1) of
@@ -327,9 +328,10 @@ buckets(Buckets) ->
                 lists:duplicate(Col3Len, "-"), "\r\n"]),
 
     Fun = fun({Bucket, Owner, Created}, Acc) ->
+                  BucketStr = binary_to_list(Bucket),
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
-                                       [string:left(Bucket, Col1Len),
-                                        string:left(Owner,  Col2Len),
+                                       [string:left(BucketStr, Col1Len),
+                                        string:left(Owner,     Col2Len),
                                         leo_date:date_format(Created)])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).

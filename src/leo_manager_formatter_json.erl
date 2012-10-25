@@ -200,12 +200,12 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_keys(string(), string()) ->
+-spec(s3_keys(binary(), binary()) ->
              string()).
 s3_keys(AccessKeyId, SecretAccessKey) ->
     gen_json({[
-               {access_key_id,     list_to_binary(AccessKeyId)},
-               {secret_access_key, list_to_binary(SecretAccessKey)}
+               {access_key_id,     AccessKeyId},
+               {secret_access_key, SecretAccessKey}
               ]}).
 
 
@@ -243,18 +243,19 @@ buckets(Buckets) ->
 whereis(AssignedInfo) ->
     JSON = lists:map(fun({Node, not_found}) ->
                              {[{<<"node">>,      list_to_binary(Node)},
-                               {<<"vnode_id">>,  <<>>},
-                               {<<"size">>,      <<>>},
-                               {<<"clock">>,     <<>>},
-                               {<<"checksum">>,  <<>>},
-                               {<<"timestamp">>, <<>>},
-                               {<<"delete">>,    0}
+                               {<<"vnode_id">>,      <<>>},
+                               {<<"size">>,          <<>>},
+                               {<<"num_of_chunks">>, 0},
+                               {<<"clock">>,         <<>>},
+                               {<<"checksum">>,      <<>>},
+                               {<<"timestamp">>,     <<>>},
+                               {<<"delete">>,        0}
                               ]};
                         ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
                              {[{<<"node">>,          list_to_binary(Node)},
                                {<<"vnode_id">>,      list_to_binary(leo_hex:integer_to_hex(VNodeId))},
                                {<<"size">>,          list_to_binary(leo_file:dsize(DSize))},
-                               {<<"num_of_chunks">>, list_to_binary(integer_to_list(ChunkedObjs))},
+                               {<<"num_of_chunks">>, ChunkedObjs},
                                {<<"clock">>,         list_to_binary(leo_hex:integer_to_hex(Clock))},
                                {<<"checksum">>,      list_to_binary(leo_hex:integer_to_hex(Checksum))},
                                {<<"timestamp">>,     list_to_binary(leo_date:date_format(Timestamp))},

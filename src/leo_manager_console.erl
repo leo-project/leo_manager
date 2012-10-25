@@ -691,7 +691,7 @@ s3_del_endpoint(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_INVALID_ARGS};
         [EndPoint|_] ->
-            case leo_s3_endpoint:delete_endpoint(EndPoint) of
+            case leo_s3_endpoint:delete_endpoint(list_to_binary(EndPoint)) of
                 ok ->
                     ok;
                 not_found ->
@@ -711,7 +711,7 @@ s3_add_bucket(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, AccessKey] ->
-            leo_s3_bucket:put(AccessKey, Bucket);
+            leo_s3_bucket:put(list_to_binary(AccessKey), list_to_binary(Bucket));
         _ ->
             {error, ?ERROR_INVALID_ARGS}
     end.
