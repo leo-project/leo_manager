@@ -33,6 +33,13 @@
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
+-define(TBL_STORAGE_NODES,  'leo_storage_nodes').
+-define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
+-define(TBL_SYSTEM_CONF,    'leo_system_conf').
+-define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
+-define(TBL_HISTORIES,      'leo_histories').
+
+
 %% API
 -export([create_storage_nodes/2,
          create_gateway_nodes/2,
@@ -70,7 +77,7 @@
              ok).
 create_storage_nodes(Mode, Nodes) ->
     mnesia:create_table(
-      storage_nodes,
+      ?TBL_STORAGE_NODES,
       [{Mode, Nodes},
        {type, set},
        {record_name, node_state},
@@ -92,7 +99,7 @@ create_storage_nodes(Mode, Nodes) ->
              ok).
 create_gateway_nodes(Mode, Nodes) ->
     mnesia:create_table(
-      gateway_nodes,
+      ?TBL_GATEWAY_NODES,
       [{Mode, Nodes},
        {type, set},
        {record_name, node_state},
@@ -114,7 +121,7 @@ create_gateway_nodes(Mode, Nodes) ->
              ok).
 create_system_config(Mode, Nodes) ->
     mnesia:create_table(
-      system_conf,
+      ?TBL_SYSTEM_CONF,
       [{Mode, Nodes},
        {type, set},
        {record_name, system_conf},
@@ -136,7 +143,7 @@ create_system_config(Mode, Nodes) ->
              ok).
 create_rebalance_info(Mode, Nodes) ->
     mnesia:create_table(
-      rebalance_info,
+      ?TBL_REBALANCE_INFO,
       [{Mode, Nodes},
        {type, set},
        {record_name, rebalance_info},
@@ -153,7 +160,7 @@ create_rebalance_info(Mode, Nodes) ->
 
 create_histories(Mode, Nodes) ->
     mnesia:create_table(
-      histories,
+      ?TBL_HISTORIES,
       [{Mode, Nodes},
        {type, set},
        {record_name, history},
@@ -174,7 +181,7 @@ create_histories(Mode, Nodes) ->
              {ok, list()} | not_found | {error, any()}).
 get_storage_nodes_all() ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(storage_nodes)]),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_STORAGE_NODES)]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
@@ -186,7 +193,7 @@ get_storage_nodes_all() ->
              {ok, list()} | not_found | {error, any()}).
 get_storage_node_by_name(Node) ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(storage_nodes),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_STORAGE_NODES),
                                  X#node_state.node =:= Node]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
@@ -200,7 +207,7 @@ get_storage_node_by_name(Node) ->
              {ok, list()} | not_found | {error, any()}).
 get_storage_nodes_by_status(Status) ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(storage_nodes),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_STORAGE_NODES),
                                  X#node_state.state =:= Status]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
@@ -214,7 +221,7 @@ get_storage_nodes_by_status(Status) ->
              {ok, list()} | not_found | {error, any()}).
 get_gateway_nodes_all() ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(gateway_nodes)]),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_GATEWAY_NODES)]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
@@ -226,7 +233,7 @@ get_gateway_nodes_all() ->
              {ok, list()} | not_found | {error, any()}).
 get_gateway_node_by_name(Node) ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(gateway_nodes),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_GATEWAY_NODES),
                                  X#node_state.node =:= Node]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
@@ -240,7 +247,7 @@ get_gateway_node_by_name(Node) ->
              {ok, #system_conf{}} | not_found | {error, any()}).
 get_system_config() ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(system_conf)]),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_SYSTEM_CONF)]),
                 Q2 = qlc:sort(Q1, [{order, descending}]),
                 qlc:e(Q2)
         end,
@@ -256,7 +263,7 @@ get_system_config(Other) ->
              {ok, list()} | not_found | {error, any()}).
 get_rebalance_info_all() ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(rebalance_info)]),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_REBALANCE_INFO)]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
@@ -269,7 +276,7 @@ get_rebalance_info_all() ->
              {ok, list()} | not_found | {error, any()}).
 get_rebalance_info_by_node(Node) ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(rebalance_info),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_REBALANCE_INFO),
                                  X#rebalance_info.node =:= Node]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
@@ -283,7 +290,7 @@ get_rebalance_info_by_node(Node) ->
              {ok, list()} | not_found | {error, any()}).
 get_histories_all() ->
     F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(histories)]),
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_HISTORIES)]),
                 Q2 = qlc:sort(Q1, [{order, ascending}]),
                 qlc:e(Q2)
         end,
@@ -302,7 +309,7 @@ update_storage_node_status(NodeState) ->
 -spec(update_storage_node_status(update | update_state | keep_state | update_chksum | increment_error | init_error, atom()) ->
              ok | {error, any()}).
 update_storage_node_status(update, NodeState) ->
-    F = fun()-> mnesia:write(storage_nodes, NodeState, write) end,
+    F = fun()-> mnesia:write(?TBL_STORAGE_NODES, NodeState, write) end,
     leo_mnesia:write(F);
 
 update_storage_node_status(update_state, NodeState) ->
@@ -370,7 +377,7 @@ update_storage_node_status(_, _) ->
 -spec(update_gateway_node(#node_state{}) ->
              ok | {error, any()}).
 update_gateway_node(NodeState) ->
-    F = fun() -> mnesia:write(gateway_nodes, NodeState, write) end,
+    F = fun() -> mnesia:write(?TBL_GATEWAY_NODES, NodeState, write) end,
     leo_mnesia:write(F).
 
 
@@ -379,7 +386,7 @@ update_gateway_node(NodeState) ->
 -spec(update_system_config(#system_conf{}) ->
              ok | {error, any()}).
 update_system_config(SystemConfig) ->
-    F = fun()-> mnesia:write(system_conf, SystemConfig, write) end,
+    F = fun()-> mnesia:write(?TBL_SYSTEM_CONF, SystemConfig, write) end,
     leo_mnesia:write(F).
 
 
@@ -388,7 +395,7 @@ update_system_config(SystemConfig) ->
 -spec(update_rebalance_info(#rebalance_info{}) ->
              ok | {error, any()}).
 update_rebalance_info(RebalanceInfo) ->
-    F = fun()-> mnesia:write(rebalance_info, RebalanceInfo, write) end,
+    F = fun()-> mnesia:write(?TBL_REBALANCE_INFO, RebalanceInfo, write) end,
     leo_mnesia:write(F).
 
 
@@ -408,9 +415,9 @@ insert_history(Command) ->
         {error, Reason} ->
             {error, Reason};
         _ ->
-            F = fun() -> mnesia:write(histories, #history{id = Id,
-                                                          command = NewCommand,
-                                                          created = leo_date:now()}, write) end,
+            F = fun() -> mnesia:write(?TBL_HISTORIES, #history{id = Id,
+                                                               command = NewCommand,
+                                                               created = leo_date:now()}, write) end,
             leo_mnesia:write(F)
     end.
 
@@ -423,7 +430,7 @@ insert_history(Command) ->
              ok | {error, any()}).
 delete_storage_node(Node) ->
     F = fun() ->
-                mnesia:delete_object(storage_nodes, Node, write)
+                mnesia:delete_object(?TBL_STORAGE_NODES, Node, write)
         end,
     leo_mnesia:delete(F).
 
