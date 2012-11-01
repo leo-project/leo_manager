@@ -494,13 +494,18 @@ rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
             %%     Error
     end;
 
-rebalance3(?STATE_DETACHED, Node, Members) ->
-    _ = rpc:call(Node, leo_storage_api, stop, [], ?DEF_TIMEOUT),
+rebalance3(?STATE_DETACHED, [Node|_Rest], Members) ->
     {ok, Ring} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
-    ok = leo_redundant_manager_api:update_member_by_node(Node, leo_date:clock(), ?STATE_DETACHED),
-    _ = leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, Ring),
-    rebalance4(Members, Members, []).
+    ok = leo_redundant_manager_api:update_member_by_node(Node, leo_date:clock(), ?STATE_STOP),
 
+    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+        {ok, [NodeInfo|_]} ->
+            leo_manager_mnesia:delete_storage_node(NodeInfo),
+            _ = leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, Ring),
+            rebalance4(Members, Members, []);
+        Error ->
+            Error
+    end.
 
 rebalance4(_Members, [], []) ->
     ok;

@@ -1,4 +1,4 @@
-%%======================================================================
+%======================================================================
 %%
 %% LeoFS Manager
 %%
@@ -206,6 +206,16 @@ detach_0_({Node0,_, Sock}) ->
                              ok
                      end),
 
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{}]}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, delete_storage_node,
+                     fun(_Node) ->
+                             ok
+                     end),
+
+
     ok = meck:new(leo_redundant_manager_api),
     ok = meck:expect(leo_redundant_manager_api, has_member,
                      fun(_Node) ->
@@ -254,6 +264,14 @@ detach_1_({Node0, _, Sock}) ->
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
                      fun(_State) ->
                              {ok, [#node_state{}, #node_state{}]}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{}]}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, delete_storage_node,
+                     fun(_Node) ->
+                             ok
                      end),
 
     ok = meck:new(leo_redundant_manager_api),
@@ -307,6 +325,14 @@ detach_2_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
                      fun(_State) ->
+                             ok
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{}]}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, delete_storage_node,
+                     fun(_Node) ->
                              ok
                      end),
 
