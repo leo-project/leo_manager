@@ -674,9 +674,10 @@ notify2(error, Node, Clock, State) ->
              {ok, any()} |
              {error, any()}).
 whereis([Key|_], true) ->
-    case leo_redundant_manager_api:get_redundancies_by_key(Key) of
+    KeyBin = list_to_binary(Key),
+    case leo_redundant_manager_api:get_redundancies_by_key(KeyBin) of
         {ok, #redundancies{id = AddrId, nodes = Redundancies}} ->
-            whereis1(AddrId, Key, Redundancies, []);
+            whereis1(AddrId, KeyBin, Redundancies, []);
         undefined ->
             {error, ?ERROR_META_NOT_FOUND}
     end;
