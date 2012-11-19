@@ -128,7 +128,7 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, #state{formatter = Fo
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?START, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?START>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case start(Command) of
                 ok ->
                     Formatter:ok();
@@ -142,7 +142,7 @@ handle_call(_Socket, <<?START, _/binary>> = Command, #state{formatter = Formatte
 
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?REBALANCE>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case rebalance(Command) of
                 ok ->
                     Formatter:ok();
@@ -210,7 +210,7 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, #state{forma
 
 %% Command: "s3-get-endpoints"
 %%
-handle_call(_Socket, <<?S3_GET_ENDPOINTS, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_endpoints(Command) of
                 {ok, EndPoints} ->
                     Formatter:endpoints(EndPoints);
@@ -246,7 +246,7 @@ handle_call(_Socket, <<?S3_ADD_BUCKET, Option/binary>> = Command, #state{formatt
 
 %% Command: "s3-get-buckets"
 %%
-handle_call(_Socket, <<?S3_GET_BUCKETS, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_GET_BUCKETS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_buckets(Command) of
                 {ok, Buckets} ->
                     Formatter:buckets(Buckets);
@@ -282,7 +282,7 @@ handle_call(_Socket, <<?PURGE, Option/binary>> = Command, #state{formatter = For
 
 %% Command: "history"
 %%
-handle_call(_Socket, <<?HISTORY, _/binary>>, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?HISTORY>>, #state{formatter = Formatter} = State) ->
     Reply = case leo_manager_mnesia:get_histories_all() of
                 {ok, Histories} ->
                     Formatter:histories(Histories);

@@ -254,7 +254,7 @@ whereis(AssignedInfo) ->
                         ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
                              {[{<<"node">>,          list_to_binary(Node)},
                                {<<"vnode_id">>,      list_to_binary(leo_hex:integer_to_hex(VNodeId))},
-                               {<<"size">>,          list_to_binary(leo_file:dsize(DSize))},
+                               {<<"size">>,          DSize},
                                {<<"num_of_chunks">>, ChunkedObjs},
                                {<<"clock">>,         list_to_binary(leo_hex:integer_to_hex(Clock))},
                                {<<"checksum">>,      list_to_binary(leo_hex:integer_to_hex(Checksum))},
