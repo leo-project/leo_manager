@@ -580,20 +580,27 @@ compact(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NO_NODE_SPECIFIED};
         [Node|_] ->
-            case leo_manager_api:suspend(list_to_atom(Node)) of
-                ok ->
-                    try
-                        case leo_manager_api:compact(Node) of
-                            {ok, _} ->
-                                ok;
-                            {error, Cause} ->
-                                {error, Cause}
-                        end
-                    after
-                        leo_manager_api:resume(list_to_atom(Node))
+            NodeAtom = list_to_atom(Node),
+
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                    case leo_manager_api:suspend(NodeAtom) of
+                        ok ->
+                            try
+                                case leo_manager_api:compact(NodeAtom) of
+                                    {ok, _} ->
+                                        ok;
+                                    {error, Cause} ->
+                                        {error, Cause}
+                                end
+                            after
+                                leo_manager_api:resume(NodeAtom)
+                            end;
+                        {error, Cause} ->
+                            {error, Cause}
                     end;
-                {error, Cause} ->
-                    {error, Cause}
+                _ ->
+                    {error, not_running}
             end
     end.
 
