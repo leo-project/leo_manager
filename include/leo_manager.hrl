@@ -55,26 +55,27 @@
 -define(QUIT,                 "quit\r\n").
 -define(BYE,                  "BYE\r\n").
 -define(COMMAND_DELIMITER,    " \r\n").
--define(VERSION,              "version").
+-define(VERSION,              "version\r\n").
 -define(STATUS,               "status").
 -define(ATTACH_SERVER,        "attach").
 -define(DETACH_SERVER,        "detach").
 -define(SUSPEND,              "suspend").
 -define(RESUME,               "resume").
--define(START,                "start").
--define(REBALANCE,            "rebalance").
+-define(START,                "start\r\n").
+-define(REBALANCE,            "rebalance\r\n").
 -define(COMPACT,              "compact").
 
--define(S3_GEN_KEY,           "s3-gen-key").
+-define(S3_CREATE_KEY,        "s3-create-key").
+-define(S3_GET_KEYS,          "s3-get-keys\r\n").
 -define(S3_SET_ENDPOINT,      "s3-set-endpoint").
 -define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").
--define(S3_GET_ENDPOINTS,     "s3-get-endpoints").
+-define(S3_GET_ENDPOINTS,     "s3-get-endpoints\r\n").
 -define(S3_ADD_BUCKET,        "s3-add-bucket").
--define(S3_GET_BUCKETS,       "s3-get-buckets").
+-define(S3_GET_BUCKETS,       "s3-get-buckets\r\n").
 
 -define(STORAGE_STATS,        "du").
 -define(WHEREIS,              "whereis").
--define(HISTORY,              "history").
+-define(HISTORY,              "history\r\n").
 -define(PURGE,                "purge").
 
 %% membership.

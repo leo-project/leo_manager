@@ -32,6 +32,7 @@
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -128,7 +129,7 @@ handle_call(_Socket, <<?RESUME, Option/binary>> = Command, #state{formatter = Fo
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?START, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?START>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case start(Command) of
                 ok ->
                     Formatter:ok();
@@ -142,7 +143,7 @@ handle_call(_Socket, <<?START, _/binary>> = Command, #state{formatter = Formatte
 
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?REBALANCE, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?REBALANCE>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case rebalance(Command) of
                 ok ->
                     Formatter:ok();
@@ -184,12 +185,24 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, #state{formatter = F
 %%----------------------------------------------------------------------
 %% Command: "s3-gen-key ${USER_ID}"
 %%
-handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_gen_key(Command, Option) of
+handle_call(_Socket, <<?S3_CREATE_KEY, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_create_key(Command, Option) of
                 {ok, PropList} ->
                     AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
                     SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
-                    Formatter:s3_keys(AccessKeyId, SecretAccessKey);
+                    Formatter:s3_credential(AccessKeyId, SecretAccessKey);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-get-keys"
+%%
+handle_call(_Socket, <<?S3_GET_KEYS>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_get_users(Command) of
+                {ok, List} ->
+                    Formatter:s3_users(List);
                 {error, Cause} ->
                     Formatter:error(Cause)
             end,
@@ -210,7 +223,7 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, #state{forma
 
 %% Command: "s3-get-endpoints"
 %%
-handle_call(_Socket, <<?S3_GET_ENDPOINTS, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_endpoints(Command) of
                 {ok, EndPoints} ->
                     Formatter:endpoints(EndPoints);
@@ -246,7 +259,7 @@ handle_call(_Socket, <<?S3_ADD_BUCKET, Option/binary>> = Command, #state{formatt
 
 %% Command: "s3-get-buckets"
 %%
-handle_call(_Socket, <<?S3_GET_BUCKETS, _/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_GET_BUCKETS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_buckets(Command) of
                 {ok, Buckets} ->
                     Formatter:buckets(Buckets);
@@ -282,7 +295,7 @@ handle_call(_Socket, <<?PURGE, Option/binary>> = Command, #state{formatter = For
 
 %% Command: "history"
 %%
-handle_call(_Socket, <<?HISTORY, _/binary>>, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?HISTORY>>, #state{formatter = Formatter} = State) ->
     Reply = case leo_manager_mnesia:get_histories_all() of
                 {ok, Histories} ->
                     Formatter:histories(Histories);
@@ -580,20 +593,27 @@ compact(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NO_NODE_SPECIFIED};
         [Node|_] ->
-            case leo_manager_api:suspend(list_to_atom(Node)) of
-                ok ->
-                    try
-                        case leo_manager_api:compact(Node) of
-                            {ok, _} ->
-                                ok;
-                            {error, Cause} ->
-                                {error, Cause}
-                        end
-                    after
-                        leo_manager_api:resume(list_to_atom(Node))
+            NodeAtom = list_to_atom(Node),
+
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                    case leo_manager_api:suspend(NodeAtom) of
+                        ok ->
+                            try
+                                case leo_manager_api:compact(NodeAtom) of
+                                    {ok, _} ->
+                                        ok;
+                                    {error, Cause} ->
+                                        {error, Cause}
+                                end
+                            after
+                                leo_manager_api:resume(NodeAtom)
+                            end;
+                        {error, Cause} ->
+                            {error, Cause}
                     end;
-                {error, Cause} ->
-                    {error, Cause}
+                _ ->
+                    {error, not_running}
             end
     end.
 
@@ -622,9 +642,9 @@ whereis(CmdBody, Option) ->
 
 %% @doc Generate S3-KEY by user-name
 %%
--spec(s3_gen_key(binary(), binary()) ->
+-spec(s3_create_key(binary(), binary()) ->
              ok | {error, any()}).
-s3_gen_key(CmdBody, Option) ->
+s3_create_key(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -640,6 +660,21 @@ s3_gen_key(CmdBody, Option) ->
                 {error, Cause} ->
                     {error, Cause}
             end
+    end.
+
+
+%% @doc
+%%
+-spec(s3_get_users(binary()) ->
+             {ok, list(#credential{})} | {error, any()}).
+s3_get_users(CmdBody) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case leo_s3_auth:get_owners() of
+        {ok, Keys} ->
+            {ok, Keys};
+        {error, Cause} ->
+            {error, Cause}
     end.
 
 

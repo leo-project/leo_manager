@@ -948,6 +948,10 @@ compact_0_({Node0, _, Sock}) ->
                      fun(_) ->
                              ok
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{state = ?STATE_RUNNING}]}
+                     end),
 
     ok = meck:new(leo_manager_api),
     ok = meck:expect(leo_manager_api, compact,
@@ -964,7 +968,6 @@ compact_0_({Node0, _, Sock}) ->
                      end),
 
 
-
     Command = "compact " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
     timer:sleep(100),
@@ -978,6 +981,10 @@ compact_1_({Node0, _, Sock}) ->
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
                              ok
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_) ->
+                             {ok, [#node_state{state = ?STATE_RUNNING}]}
                      end),
 
     ok = meck:new(leo_manager_api),
