@@ -31,12 +31,13 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
-         du/2, s3_keys/2, endpoints/1, buckets/1,
+         du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
         ]).
 
@@ -200,13 +201,29 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_keys(binary(), binary()) ->
+-spec(s3_credential(binary(), binary()) ->
              string()).
-s3_keys(AccessKeyId, SecretAccessKey) ->
+s3_credential(AccessKeyId, SecretAccessKey) ->
     gen_json({[
                {access_key_id,     AccessKeyId},
                {secret_access_key, SecretAccessKey}
               ]}).
+
+
+%% @doc Format s3-owers
+%%
+-spec(s3_users(list(#credential{})) ->
+             string()).
+s3_users(Owners) ->
+    JSON = lists:map(fun(#credential{access_key_id = AccessKeyId,
+                                     user_id       = UserId,
+                                     created_at    = CreatedAt}) ->
+                             {[{<<"access_key_id">>, AccessKeyId},
+                               {<<"user_id">>,       list_to_binary(UserId)},
+                               {<<"created_at">>,    list_to_binary(leo_date:date_format(CreatedAt))}
+                              ]}
+                     end, Owners),
+    gen_json(JSON).
 
 
 %% @doc Format a endpoint list

@@ -32,6 +32,7 @@
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -184,12 +185,24 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, #state{formatter = F
 %%----------------------------------------------------------------------
 %% Command: "s3-gen-key ${USER_ID}"
 %%
-handle_call(_Socket, <<?S3_GEN_KEY, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_gen_key(Command, Option) of
+handle_call(_Socket, <<?S3_CREATE_KEY, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_create_key(Command, Option) of
                 {ok, PropList} ->
                     AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
                     SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
-                    Formatter:s3_keys(AccessKeyId, SecretAccessKey);
+                    Formatter:s3_credential(AccessKeyId, SecretAccessKey);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-get-keys"
+%%
+handle_call(_Socket, <<?S3_GET_KEYS>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_get_users(Command) of
+                {ok, List} ->
+                    Formatter:s3_users(List);
                 {error, Cause} ->
                     Formatter:error(Cause)
             end,
@@ -629,9 +642,9 @@ whereis(CmdBody, Option) ->
 
 %% @doc Generate S3-KEY by user-name
 %%
--spec(s3_gen_key(binary(), binary()) ->
+-spec(s3_create_key(binary(), binary()) ->
              ok | {error, any()}).
-s3_gen_key(CmdBody, Option) ->
+s3_create_key(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -647,6 +660,21 @@ s3_gen_key(CmdBody, Option) ->
                 {error, Cause} ->
                     {error, Cause}
             end
+    end.
+
+
+%% @doc
+%%
+-spec(s3_get_users(binary()) ->
+             {ok, list(#credential{})} | {error, any()}).
+s3_get_users(CmdBody) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case leo_s3_auth:get_owners() of
+        {ok, Keys} ->
+            {ok, Keys};
+        {error, Cause} ->
+            {error, Cause}
     end.
 
 

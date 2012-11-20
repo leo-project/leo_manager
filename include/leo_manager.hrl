@@ -65,7 +65,8 @@
 -define(REBALANCE,            "rebalance\r\n").
 -define(COMPACT,              "compact").
 
--define(S3_GEN_KEY,           "s3-gen-key").
+-define(S3_CREATE_KEY,        "s3-create-key").
+-define(S3_GET_KEYS,          "s3-get-keys\r\n").
 -define(S3_SET_ENDPOINT,      "s3-set-endpoint").
 -define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").
 -define(S3_GET_ENDPOINTS,     "s3-get-endpoints\r\n").

@@ -31,11 +31,12 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
-         du/2, s3_keys/2, endpoints/1, buckets/1,
+         du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
         ]).
 
@@ -84,7 +85,8 @@ help() ->
                   io_lib:format("~s\r\n",["purge ${PATH}"]),
                   ?CRLF,
                   io_lib:format("[S3]\r\n", []),
-                  io_lib:format("~s\r\n",["s3-gen-key ${USER-ID}"]),
+                  io_lib:format("~s\r\n",["s3-create-key ${USER-ID}"]),
+                  io_lib:format("~s\r\n",["s3-get-keys"]),
                   io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"]),
                   io_lib:format("~s\r\n",["s3-get-endpoints"]),
                   io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"]),
@@ -267,11 +269,45 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_keys(string(), string()) ->
+-spec(s3_credential(string(), string()) ->
              string()).
-s3_keys(AccessKeyId, SecretAccessKey) ->
+s3_credential(AccessKeyId, SecretAccessKey) ->
     io_lib:format("  access-key-id: ~s\r\n  secret-access-key: ~s\r\n\r\n",
                   [AccessKeyId, SecretAccessKey]).
+
+
+%% @doc Format s3-users result
+%%
+-spec(s3_users(list(#credential{})) ->
+             string()).
+s3_users(Owners) ->
+    Col1Len = lists:foldl(fun(#credential{user_id = UserId}, Acc) ->
+                                  Len = length(UserId),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, 0, Owners),
+    Col2Len = 22,
+    Col3Len = 26,
+
+    Header = lists:append([string:left("user_id",       Col1Len), " | ",
+                           string:left("access_key_id", Col2Len), " | ",
+                           string:left("created_at",    Col3Len), "\r\n",
+                           lists:duplicate(Col1Len, "-"), "-+-",
+                           lists:duplicate(Col2Len, "-"), "-+-",
+                           lists:duplicate(Col3Len, "-"), "\r\n"]),
+
+    Fun = fun(#credential{access_key_id = AccessKeyId,
+                          user_id       = UserId,
+                          created_at    = CreatedAt}, Acc) ->
+                  AccessKeyIdStr = binary_to_list(AccessKeyId),
+                  Acc ++ io_lib:format("~s | ~s | ~s\r\n",
+                                       [string:left(UserId,         Col1Len),
+                                        string:left(AccessKeyIdStr, Col2Len),
+                                        leo_date:date_format(CreatedAt)])
+          end,
+    lists:append([lists:foldl(Fun, Header, Owners), "\r\n"]).
 
 
 %% @doc Format a endpoint list
