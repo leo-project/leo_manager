@@ -223,7 +223,7 @@ s3_users(Owners) ->
                                {<<"created_at">>,    list_to_binary(leo_date:date_format(CreatedAt))}
                               ]}
                      end, Owners),
-    gen_json(JSON).
+    gen_json({[{<<"users">>, JSON}]}).
 
 
 %% @doc Format a endpoint list
