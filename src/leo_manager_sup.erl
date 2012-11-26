@@ -80,7 +80,7 @@ start_link() ->
             DefLogDir = "./log/",
             LogDir    = case application:get_env(log_appender) of
                             {ok, [{file, Options}|_]} ->
-                                leo_misc:get_value(path, Options, DefLog);
+                                leo_misc:get_value(path, Options, DefLogDir);
                             _ ->
                                 DefLogDir
                         end,
@@ -220,6 +220,7 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
 
                 leo_s3_libs_data_handler:insert(
                   {mnesia, leo_s3_users}, {[], #user{id         = TestUserId,
+                                                     role_id    = 9,
                                                      created_at = CreatedAt}}),
                 leo_s3_libs_data_handler:insert(
                   {mnesia, leo_s3_user_credential}, {[], #user_credential{user_id       = TestUserId,
