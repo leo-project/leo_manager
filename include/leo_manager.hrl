@@ -119,11 +119,19 @@
                 ?AUTH_PASSWORD |
                 ?AUTH_DONE).
 
--record(state, {formatter     :: atom(),
-                auth = 0      :: auth(),
-                user_id = []  :: string(),
-                password = [] :: string()
+-ifdef(TEST).
+-record(state, {formatter         :: atom(),
+                auth = ?AUTH_DONE :: auth(),
+                user_id = []      :: string(),
+                password = []     :: string()
                }).
+-else.
+-record(state, {formatter            :: atom(),
+                auth = ?AUTH_NOT_YET :: auth(),
+                user_id = []         :: string(),
+                password = []        :: string()
+               }).
+-endif.
 
 -record(rebalance_info, {
           vnode_id         = -1  :: integer(),
