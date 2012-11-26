@@ -29,15 +29,15 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
--include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
--include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
          du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
-         whereis/1, histories/1
+         whereis/1, histories/1,
+         authorized/0, user_id/0, password/0
         ]).
 
 
@@ -85,13 +85,13 @@ help() ->
                   io_lib:format("~s\r\n",["purge ${PATH}"]),
                   ?CRLF,
                   io_lib:format("[S3]\r\n", []),
-                  io_lib:format("~s\r\n",["s3-create-key ${USER-ID}"]),
-                  io_lib:format("~s\r\n",["s3-get-keys"]),
-                  io_lib:format("~s\r\n",["s3-set-endpoint ${ENDPOINT}"]),
-                  io_lib:format("~s\r\n",["s3-get-endpoints"]),
-                  io_lib:format("~s\r\n",["s3-delete-endpoint ${ENDPOINT}"]),
-                  io_lib:format("~s\r\n",["s3-add-bucket ${BUCKET} ${ACCESS_KEY_ID}"]),
-                  io_lib:format("~s\r\n",["s3-get-buckets"]),
+                  io_lib:format("~s\r\n", ["s3-create-key ${USER-ID} ${PASSWORD}"]),
+                  io_lib:format("~s\r\n", ["s3-get-keys"]),
+                  io_lib:format("~s\r\n", ["s3-set-endpoint ${ENDPOINT}"]),
+                  io_lib:format("~s\r\n", ["s3-get-endpoints"]),
+                  io_lib:format("~s\r\n", ["s3-delete-endpoint ${ENDPOINT}"]),
+                  io_lib:format("~s\r\n", ["s3-add-bucket ${BUCKET} ${ACCESS_KEY_ID}"]),
+                  io_lib:format("~s\r\n", ["s3-get-buckets"]),
                   ?CRLF,
                   io_lib:format("[Misc]\r\n", []),
                   io_lib:format("~s\r\n",["version"]),
@@ -278,10 +278,10 @@ s3_credential(AccessKeyId, SecretAccessKey) ->
 
 %% @doc Format s3-users result
 %%
--spec(s3_users(list(#credential{})) ->
+-spec(s3_users(list(#user_credential{})) ->
              string()).
 s3_users(Owners) ->
-    Col1Len = lists:foldl(fun(#credential{user_id = UserId}, Acc) ->
+    Col1Len = lists:foldl(fun(#user_credential{user_id = UserId}, Acc) ->
                                   Len = length(UserId),
                                   case (Len > Acc) of
                                       true  -> Len;
@@ -298,9 +298,9 @@ s3_users(Owners) ->
                            lists:duplicate(Col2Len, "-"), "-+-",
                            lists:duplicate(Col3Len, "-"), "\r\n"]),
 
-    Fun = fun(#credential{access_key_id = AccessKeyId,
-                          user_id       = UserId,
-                          created_at    = CreatedAt}, Acc) ->
+    Fun = fun(#user_credential{access_key_id = AccessKeyId,
+                               user_id       = UserId,
+                               created_at    = CreatedAt}, Acc) ->
                   AccessKeyIdStr = binary_to_list(AccessKeyId),
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
                                        [string:left(UserId,         Col1Len),
@@ -453,6 +453,16 @@ histories(Histories) ->
                                        [string:left(integer_to_list(Id), 4), leo_date:date_format(Created), Command])
           end,
     lists:foldl(Fun, "[Histories]\r\n", Histories).
+
+
+authorized() ->
+    io_lib:format("OK\r\n\r\n", []).
+
+user_id() ->
+    io_lib:format("~s\r\n",["user-id:"]).
+
+password() ->
+    io_lib:format("~s\r\n",["password:"]).
 
 
 %%----------------------------------------------------------------------

@@ -29,9 +29,7 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
--include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
--include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -39,17 +37,16 @@
 -export([start_link/2, stop/0]).
 -export([init/1, handle_call/3]).
 
--record(state, {formatter :: atom()
-               }).
-
 %%----------------------------------------------------------------------
-%%
+%% API
 %%----------------------------------------------------------------------
 start_link(Formatter, Params) ->
     tcp_server:start_link(?MODULE, [Formatter], Params).
 
+
 stop() ->
     tcp_server:stop().
+
 
 %%----------------------------------------------------------------------
 %% Callback function(s)
@@ -71,6 +68,26 @@ handle_call(_Socket, <<?HELP>>, #state{formatter = Formatter} = State) ->
 handle_call(_Socket, <<?VERSION, _/binary>>, #state{formatter = Formatter} = State) ->
     {ok, Version} = version(),
     Reply = Formatter:version(Version),
+    {reply, Reply, State};
+
+
+%% Command: "user-id"
+%%
+handle_call(_Socket, ?USER_ID, #state{formatter = Formatter} = State) ->
+    Reply = Formatter:user_id(),
+    {reply, Reply, State};
+
+
+%% Command: "password"
+%%
+handle_call(_Socket, ?PASSWORD, #state{formatter = Formatter} = State) ->
+    Reply = Formatter:password(),
+    {reply, Reply, State};
+
+%% Command: "authorized"
+%%
+handle_call(_Socket, ?AUTHORIZED, #state{formatter = Formatter} = State) ->
+    Reply = Formatter:authorized(),
     {reply, Reply, State};
 
 
@@ -648,10 +665,8 @@ s3_create_key(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, "No user specified"};
-        [UserId|_] ->
-            case leo_s3_auth:gen_key(UserId) of
+        [UserId, Password|_] ->
+            case leo_s3_user:create_user(UserId, Password, true) of
                 {ok, Keys} ->
                     AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
                     SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),
@@ -659,7 +674,9 @@ s3_create_key(CmdBody, Option) ->
                           {secret_access_key, SecretAccessKey}]};
                 {error, Cause} ->
                     {error, Cause}
-            end
+            end;
+        _ ->
+            {error, "No user-id/password specified"}
     end.
 
 
@@ -670,11 +687,11 @@ s3_create_key(CmdBody, Option) ->
 s3_get_users(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_s3_auth:get_owners() of
-        {ok, Keys} ->
-            {ok, Keys};
-        {error, Cause} ->
-            {error, Cause}
+    case leo_s3_users:find_users_all() of
+        {ok, Users} ->
+            {ok, Users};
+        Error ->
+            Error
     end.
 
 

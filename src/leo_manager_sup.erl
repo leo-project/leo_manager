@@ -33,8 +33,9 @@
 -include("tcp_server.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
--include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("leo_statistics/include/leo_statistics.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% External API
@@ -79,7 +80,7 @@ start_link() ->
             DefLogDir = "./log/",
             LogDir    = case application:get_env(log_appender) of
                             {ok, [{file, Options}|_]} ->
-                                leo_misc:get_value(path, Options,  DefLogDir);
+                                leo_misc:get_value(path, Options, DefLog);
                             _ ->
                                 DefLogDir
                         end,
@@ -201,19 +202,36 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 leo_s3_auth:create_credential_table(disc_copies, Nodes1),
                 leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes1),
                 leo_s3_bucket:create_bucket_table(disc_copies, Nodes1),
+                leo_s3_user:create_user_table(disc_copies, Nodes1),
+                leo_s3_user:create_user_credential_table(disc_copies, Nodes1),
 
                 {ok, _} = load_system_config_with_store_data(),
 
-                %% PUT default values:
-                %%    - s3-endpoint
-                %%    - s3-credential
+                %% PUT console-related values:
+                ConsoleUserId   = ?env_console_user_id(),
+                ConsolePassword = ?env_console_password(),
+                leo_s3_user:create_user(ConsoleUserId, ConsolePassword, true),
+
+                %% PUT test-credential-related values:
+                TestUserId    = "_test_leofs",
+                TestAccessKey = <<"05236">>,
+                TestSecretKey = <<"802562235">>,
+                CreatedAt     = leo_date:now(),
+
                 leo_s3_libs_data_handler:insert(
-                  {mnesia, leo_s3_credentials}, {[], #credential{access_key_id     = <<"05236">>,
-                                                                 secret_access_key = <<"802562235">>,
-                                                                 user_id           = "_test_leofs_",
-                                                                 created_at        = leo_date:now()}}),
+                  {mnesia, leo_s3_users}, {[], #user{id         = TestUserId,
+                                                     created_at = CreatedAt}}),
+                leo_s3_libs_data_handler:insert(
+                  {mnesia, leo_s3_user_credential}, {[], #user_credential{user_id       = TestUserId,
+                                                                          access_key_id = TestAccessKey,
+                                                                          created_at    = CreatedAt}}),
+                leo_s3_libs_data_handler:insert(
+                  {mnesia, leo_s3_credentials}, {[], #credential{access_key_id     = TestAccessKey,
+                                                                 secret_access_key = TestSecretKey,
+                                                                 created_at        = CreatedAt}}),
+
+                %% PUT default s3-endpoint values:
                 leo_s3_endpoint:set_endpoint(<<"localhost">>),
-                leo_s3_endpoint:set_endpoint(<<"leofs.org">>),
                 leo_s3_endpoint:set_endpoint(<<"s3.amazonaws.com">>),
                 ok
             catch _:Reason ->

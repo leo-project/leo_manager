@@ -31,7 +31,10 @@
 %% Callbacks
 -export([init/5, accept/4]).
 
+-include("leo_manager.hrl").
 -include("tcp_server.hrl").
+-include_lib("leo_logger/include/leo_logger.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 %%-----------------------------------------------------------------------
 %% External API
@@ -75,17 +78,48 @@ accept(ListenSocket, State, Module, Option) ->
     end,
     accept(ListenSocket, State, Module, Option).
 
+
+recv(false, Socket, #state{auth = ?AUTH_NOT_YET,
+                           formatter =?MOD_TEXT_FORMATTER} = State, Module, Option) ->
+    call(false, Socket, ?USER_ID, State#state{auth = ?AUTH_USERID_1}, Module, Option);
+recv(false, Socket, #state{auth = ?AUTH_USERID_2,
+                           formatter =?MOD_TEXT_FORMATTER} = State, Module, Option) ->
+    call(false, Socket, ?PASSWORD, State#state{auth = ?AUTH_PASSWORD}, Module, Option);
+
 recv(false, Socket, State, Module, Option) ->
+    AuthSt    = State#state.auth,
+    Formatter = State#state.formatter,
+
     case gen_tcp:recv(Socket,
                       Option#tcp_server_params.recv_length,
                       Option#tcp_server_params.recv_timeout) of
+        {ok, Data} when AuthSt    == ?AUTH_USERID_1 andalso
+                        Formatter == ?MOD_TEXT_FORMATTER ->
+            UserId = hd(string:tokens(
+                          binary_to_list(Data), ?COMMAND_DELIMITER)),
+            recv(false, Socket, State#state{user_id = UserId,
+                                            auth    = 2}, Module, Option);
+        {ok, Data} when AuthSt    == ?AUTH_PASSWORD andalso
+                        Formatter == ?MOD_TEXT_FORMATTER ->
+            UserId   = State#state.user_id,
+            Password = hd(string:tokens(
+                            binary_to_list(Data), ?COMMAND_DELIMITER)),
+
+            case leo_s3_user:auth(UserId, Password) of
+                {ok, _} ->
+                    call(false, Socket, ?AUTHORIZED,
+                         State#state{auth = ?AUTH_DONE}, Module, Option);
+                {error, _} ->
+                    recv(false, Socket, State#state{user_id = UserId,
+                                                    auth    = ?AUTH_NOT_YET}, Module, Option)
+            end;
         {ok, Data} ->
             call(false, Socket, Data, State, Module, Option);
         {error, closed} ->
             tcp_closed;
-        {error,_Reason} ->
-            %% TODO LOG
-            error
+        {error, Reason} ->
+            ?warn("recv/5", "cause:~p", [Reason]),
+            {error, Reason}
     end;
 
 recv(true, _DummySocket, State, Module, Option) ->
@@ -94,9 +128,9 @@ recv(true, _DummySocket, State, Module, Option) ->
             call(true, Socket, Data, State, Module, Option);
         {tcp_closed, _Socket} ->
             tcp_closed;
-        _Error ->
-            %% TODO LOG
-            error
+        {error, Reason} ->
+            ?warn("recv/5", "cause:~p", [Reason]),
+            {error, Reason}
     after Option#tcp_server_params.recv_timeout ->
             tcp_timeout
     end.
@@ -113,7 +147,6 @@ call(Active, Socket, Data, State, Module, Option) ->
         {close, DataToSend, State} ->
             gen_tcp:send(Socket, DataToSend);
         Other ->
-            %% TODO LOG
-            io:format("~p~n", [Other])
+            ?warn("recv/5", "cause:~p", [Other])
     end.
 
