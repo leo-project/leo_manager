@@ -722,7 +722,7 @@ s3_create_key(CmdBody, Option) ->
 s3_get_users(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_s3_users:find_users_all() of
+    case leo_s3_user:find_users_all() of
         {ok, Users} ->
             {ok, Users};
         Error ->
