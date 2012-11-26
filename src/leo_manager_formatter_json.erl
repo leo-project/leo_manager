@@ -29,9 +29,8 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
--include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
--include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 
@@ -212,12 +211,12 @@ s3_credential(AccessKeyId, SecretAccessKey) ->
 
 %% @doc Format s3-owers
 %%
--spec(s3_users(list(#credential{})) ->
+-spec(s3_users(list(#user_credential{})) ->
              string()).
 s3_users(Owners) ->
-    JSON = lists:map(fun(#credential{access_key_id = AccessKeyId,
-                                     user_id       = UserId,
-                                     created_at    = CreatedAt}) ->
+    JSON = lists:map(fun(#user_credential{access_key_id = AccessKeyId,
+                                          user_id       = UserId,
+                                          created_at    = CreatedAt}) ->
                              {[{<<"access_key_id">>, AccessKeyId},
                                {<<"user_id">>,       list_to_binary(UserId)},
                                {<<"created_at">>,    list_to_binary(leo_date:date_format(CreatedAt))}

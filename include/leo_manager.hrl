@@ -78,6 +78,11 @@
 -define(HISTORY,              "history\r\n").
 -define(PURGE,                "purge").
 
+-define(AUTHORIZED,           <<"_authorized_\r\n">>).
+-define(USER_ID,              <<"_user_id_\r\n">>).
+-define(PASSWORD,             <<"_password_\r\n">>).
+
+
 %% membership.
 -define(DEF_NUM_OF_ERROR_COUNT, 3).
 
@@ -97,10 +102,28 @@
 %% type of console.
 -define(CONSOLE_CUI,  'cui').
 -define(CONSOLE_JSON, 'json').
-
+-define(MOD_TEXT_FORMATTER, 'leo_manager_formatter_text').
+-define(MOD_JSON_FORMATTER, 'leo_manager_formatter_json').
 
 %% records.
 %%
+-define(AUTH_NOT_YET, 0).
+-define(AUTH_USERID_1, 1).
+-define(AUTH_USERID_2, 2).
+-define(AUTH_PASSWORD, 3).
+-define(AUTH_DONE,     5).
+-type(auth() :: ?AUTH_NOT_YET  |
+                ?AUTH_USERID_1 |
+                ?AUTH_USERID_2 |
+                ?AUTH_PASSWORD |
+                ?AUTH_DONE).
+
+-record(state, {formatter     :: atom(),
+                auth = 0      :: auth(),
+                user_id = []  :: string(),
+                password = [] :: string()
+               }).
+
 -record(rebalance_info, {
           vnode_id         = -1  :: integer(),
           node                   :: atom(),
@@ -152,5 +175,17 @@
         case application:get_env(leo_manager, num_of_acceptors_json) of
             {ok, EnvJSONNumOfAcceptors} -> EnvJSONNumOfAcceptors;
             _ -> 3
+        end).
+
+-define(env_console_user_id(),
+        case application:get_env(leo_manager, console_user_id) of
+            {ok, EnvConsoleUserId} -> EnvConsoleUserId;
+            _ -> "leo"
+        end).
+
+-define(env_console_password(),
+        case application:get_env(leo_manager, console_password) of
+            {ok, EnvConsolePassword} -> EnvConsolePassword;
+            _ -> "faststorage"
         end).
 
