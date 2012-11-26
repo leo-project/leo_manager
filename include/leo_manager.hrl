@@ -78,6 +78,7 @@
 -define(HISTORY,              "history\r\n").
 -define(PURGE,                "purge").
 
+-define(LOGIN,                "login").
 -define(AUTHORIZED,           <<"_authorized_\r\n">>).
 -define(USER_ID,              <<"_user_id_\r\n">>).
 -define(PASSWORD,             <<"_password_\r\n">>).

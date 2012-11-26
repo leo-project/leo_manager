@@ -31,6 +31,7 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -71,23 +72,34 @@ handle_call(_Socket, <<?VERSION, _/binary>>, #state{formatter = Formatter} = Sta
     {reply, Reply, State};
 
 
-%% Command: "user-id"
+%% Command: "_user-id_"
 %%
 handle_call(_Socket, ?USER_ID, #state{formatter = Formatter} = State) ->
     Reply = Formatter:user_id(),
     {reply, Reply, State};
 
 
-%% Command: "password"
+%% Command: "_password_"
 %%
 handle_call(_Socket, ?PASSWORD, #state{formatter = Formatter} = State) ->
     Reply = Formatter:password(),
     {reply, Reply, State};
 
-%% Command: "authorized"
+%% Command: "_authorized_"
 %%
 handle_call(_Socket, ?AUTHORIZED, #state{formatter = Formatter} = State) ->
     Reply = Formatter:authorized(),
+    {reply, Reply, State};
+
+%% Command: "_authorized_"
+%%
+handle_call(_Socket, <<?LOGIN, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case login(Command, Option) of
+                {ok, User, Credential} ->
+                    Formatter:login(User, Credential);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
     {reply, Reply, State};
 
 
@@ -350,6 +362,29 @@ version() ->
             {ok, Version};
         _ ->
             {ok, []}
+    end.
+
+
+login(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
+
+    case (erlang:length(Token) == 2) of
+        true ->
+            [UserId, Password] = Token,
+            case leo_s3_user:auth(UserId, Password) of
+                {ok, #user{id = UserId} = User} ->
+                    case leo_s3_user:get_credential_by_id(UserId) of
+                        {ok, Credential} ->
+                            {ok, User, Credential};
+                        Error ->
+                            Error
+                    end;
+                Error ->
+                    Error
+            end;
+        false ->
+            {error, invalid_args}
     end.
 
 

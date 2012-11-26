@@ -34,7 +34,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
--export([ok/0, error/1, error/2, help/0, version/1,
+-export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
          du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
@@ -91,6 +91,21 @@ help() ->
              string()).
 version(Version) ->
     gen_json({[{result, list_to_binary(Version)}]}).
+
+
+%% Format 'version'
+%%
+-spec(login(#user{}, list(tuple())) ->
+             string()).
+login(User, Credential) ->
+    gen_json({[{<<"user">>,
+                {[{<<"id">>,            list_to_binary(User#user.id)},
+                  {<<"role_id">>,       User#user.role_id},
+                  {<<"access_key_id">>, leo_misc:get_value('access_key_id',     Credential)},
+                  {<<"secret_key">>,    leo_misc:get_value('secret_access_key', Credential)},
+                  {<<"created_at">>,    list_to_binary(leo_date:date_format(User#user.created_at))}
+                 ]}}
+              ]}).
 
 
 %% @doc Format 'bad nodes'
