@@ -701,7 +701,7 @@ s3_create_key(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, Password|_] ->
-            case leo_s3_user:create_user(UserId, Password, true) of
+            case leo_s3_user:add(UserId, Password, true) of
                 {ok, Keys} ->
                     AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
                     SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),

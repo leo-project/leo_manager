@@ -210,7 +210,7 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 %% PUT console-related values:
                 ConsoleUserId   = ?env_console_user_id(),
                 ConsolePassword = ?env_console_password(),
-                leo_s3_user:create_user(ConsoleUserId, ConsolePassword, true),
+                leo_s3_user:add(ConsoleUserId, ConsolePassword, true),
 
                 %% PUT test-credential-related values:
                 TestUserId    = "_test_leofs",
