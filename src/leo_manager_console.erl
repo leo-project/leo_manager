@@ -66,7 +66,7 @@ handle_call(_Socket, <<?HELP>>, #state{formatter = Formatter} = State) ->
 
 %% Command: "version"
 %%
-handle_call(_Socket, <<?VERSION, _/binary>>, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?VERSION>>, #state{formatter = Formatter} = State) ->
     {ok, Version} = version(),
     Reply = Formatter:version(Version),
     {reply, Reply, State};
@@ -93,7 +93,7 @@ handle_call(_Socket, ?AUTHORIZED, #state{formatter = Formatter} = State) ->
 
 %% Command: "_authorized_"
 %%
-handle_call(_Socket, <<?LOGIN, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?LOGIN, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case login(Command, Option) of
                 {ok, User, Credential} ->
                     Formatter:login(User, Credential);
@@ -120,7 +120,7 @@ handle_call(_Socket, <<?STATUS, Option/binary>> = Command, #state{formatter = Fo
 
 %% Command : "detach ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?DETACH_SERVER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case detach(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -134,7 +134,7 @@ handle_call(_Socket, <<?DETACH_SERVER, Option/binary>> = Command, #state{formatt
 
 %% Command: "suspend ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?SUSPEND, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case suspend(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -146,7 +146,7 @@ handle_call(_Socket, <<?SUSPEND, Option/binary>> = Command, #state{formatter = F
 
 %% Command: "resume ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?RESUME, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?RESUME, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case resume(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -187,7 +187,7 @@ handle_call(_Socket, <<?REBALANCE>> = Command, #state{formatter = Formatter} = S
 %%----------------------------------------------------------------------
 %% Command: "du ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?STORAGE_STATS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case du(Command, Option) of
                 {ok, {Option1, StorageStats}} ->
                     Formatter:du(Option1, StorageStats);
@@ -199,7 +199,7 @@ handle_call(_Socket, <<?STORAGE_STATS, Option/binary>> = Command, #state{formatt
 
 %% Command: "compact ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?COMPACT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case compact(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -214,7 +214,7 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, #state{formatter = F
 %%----------------------------------------------------------------------
 %% Command: "s3-create-user ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?S3_CREATE_USER, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_CREATE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_create_user(Command, Option) of
                 {ok, PropList} ->
                     AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
@@ -282,7 +282,7 @@ handle_call(_Socket, <<?S3_GET_KEYS>> = Command, #state{formatter = Formatter} =
 
 %% Command: "s3-set-endpoint ${END_POINT}"
 %%
-handle_call(_Socket, <<?S3_SET_ENDPOINT, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_set_endpoint(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -306,7 +306,7 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatt
 
 %% Command: "s3-del-endpoint ${END_POINT}"
 %%
-handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_del_endpoint(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -318,7 +318,7 @@ handle_call(_Socket, <<?S3_DEL_ENDPOINT, Option/binary>> = Command, #state{forma
 
 %% Command: "s3-get-buckets"
 %%
-handle_call(_Socket, <<?S3_ADD_BUCKET, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_add_bucket(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -342,7 +342,7 @@ handle_call(_Socket, <<?S3_GET_BUCKETS>> = Command, #state{formatter = Formatter
 
 %% Command: "whereis ${PATH}"
 %%
-handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?WHEREIS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case whereis(Command, Option) of
                 {ok, AssignedInfo} ->
                     Formatter:whereis(AssignedInfo);
@@ -354,7 +354,7 @@ handle_call(_Socket, <<?WHEREIS, Option/binary>> = Command, #state{formatter = F
 
 %% Command: "purge ${PATH}"
 %%
-handle_call(_Socket, <<?PURGE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?PURGE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case purge(Command, Option) of
                 ok ->
                     Formatter:ok();
@@ -370,6 +370,8 @@ handle_call(_Socket, <<?HISTORY>>, #state{formatter = Formatter} = State) ->
     Reply = case leo_manager_mnesia:get_histories_all() of
                 {ok, Histories} ->
                     Formatter:histories(Histories);
+                not_found ->
+                    Formatter:histories([]);
                 {error, Cause} ->
                     Formatter:error(Cause)
             end,
