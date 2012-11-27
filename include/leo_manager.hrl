@@ -45,6 +45,7 @@
 -define(OK,                   "OK\r\n").
 -define(ERROR,                "ERROR\r\n").
 -define(CRLF,                 "\r\n").
+-define(SPACE,                " ").
 -define(STORED,               "STORED\r\n").
 -define(NOT_STORED,           "NOT_STORED\r\n").
 -define(DELETED,              "DELETED\r\n").
@@ -65,7 +66,11 @@
 -define(REBALANCE,            "rebalance\r\n").
 -define(COMPACT,              "compact").
 
--define(S3_CREATE_KEY,        "s3-create-key").
+-define(S3_CREATE_USER,       "s3-create-user").
+-define(S3_UPDATE_USER_ROLE,  "s3-update-user-role").
+-define(S3_UPDATE_USER_PW,    "s3-update-user-password").
+-define(S3_DELETE_USER,       "s3-delete-user").
+
 -define(S3_GET_KEYS,          "s3-get-keys\r\n").
 -define(S3_SET_ENDPOINT,      "s3-set-endpoint").
 -define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").

@@ -212,14 +212,56 @@ handle_call(_Socket, <<?COMPACT, Option/binary>> = Command, #state{formatter = F
 %%----------------------------------------------------------------------
 %% Operation-3
 %%----------------------------------------------------------------------
-%% Command: "s3-gen-key ${USER_ID}"
+%% Command: "s3-create-user ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?S3_CREATE_KEY, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_create_key(Command, Option) of
+handle_call(_Socket, <<?S3_CREATE_USER, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_create_user(Command, Option) of
                 {ok, PropList} ->
                     AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
                     SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
                     Formatter:s3_credential(AccessKeyId, SecretAccessKey);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-update-user-role ${USER_ID} ${ROLE}"
+%%
+handle_call(_Socket, <<?S3_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_update_user_role(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                not_found = Cause ->
+                    Formatter:error(Cause);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-update-user-password ${USER_ID} ${PASSWORD}"
+%%
+handle_call(_Socket, <<?S3_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_update_user_password(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                not_found = Cause ->
+                    Formatter:error(Cause);
+                {error, Cause} ->
+                    Formatter:error(Cause)
+            end,
+    {reply, Reply, State};
+
+
+%% Command: "s3-delete-user ${USER_ID} ${PASSWORD}"
+%%
+handle_call(_Socket, <<?S3_DELETE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Reply = case s3_delete_user(Command, Option) of
+                ok ->
+                    Formatter:ok();
+                not_found = Cause ->
+                    Formatter:error(Cause);
                 {error, Cause} ->
                     Formatter:error(Cause)
             end,
@@ -353,7 +395,7 @@ handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
 %% Inner function(s)
 %%----------------------------------------------------------------------
 %% @doc Retrieve version of the system
-%%
+%% @private
 -spec(version() ->
              {ok, string() | list()}).
 version() ->
@@ -365,6 +407,10 @@ version() ->
     end.
 
 
+%% @doc Exec login
+%% @private
+-spec(login(binary(), binary()) ->
+             {ok, #user{}, list()} | {error, any()}).
 login(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
@@ -389,7 +435,7 @@ login(CmdBody, Option) ->
 
 
 %% @doc Retrieve state of each node
-%%
+%% @private
 -spec(status(binary(), binary()) ->
              {ok, any()} | {error, any()}).
 status(CmdBody, Option) ->
@@ -454,7 +500,7 @@ status({node_state, Node}) ->
 
 
 %% @doc Launch the storage cluster
-%%
+%% @private
 -spec(start(binary()) ->
              ok | {error, any()}).
 start(CmdBody) ->
@@ -487,7 +533,7 @@ start(CmdBody) ->
 
 
 %% @doc Detach a storage-node
-%%
+%% @private
 -spec(detach(binary(), binary()) ->
              ok | {error, {atom(), string()}} | {error, any()}).
 detach(CmdBody, Option) ->
@@ -524,7 +570,7 @@ detach(CmdBody, Option) ->
 
 
 %% @doc Suspend a storage-node
-%%
+%% @private
 -spec(suspend(binary(), binary()) ->
              ok | {error, any()}).
 suspend(CmdBody, Option) ->
@@ -544,7 +590,7 @@ suspend(CmdBody, Option) ->
 
 
 %% @doc Resume a storage-node
-%%
+%% @private
 -spec(resume(binary(), binary()) ->
              ok | {error, any()}).
 resume(CmdBody, Option) ->
@@ -564,7 +610,7 @@ resume(CmdBody, Option) ->
 
 
 %% @doc Rebalance the storage cluster
-%%
+%% @private
 -spec(rebalance(binary()) ->
              ok | {error, any()}).
 rebalance(CmdBody) ->
@@ -584,7 +630,7 @@ rebalance(CmdBody) ->
 
 
 %% @doc Purge an object from the cache
-%%
+%% @private
 -spec(purge(binary(), binary()) ->
              ok | {error, any()}).
 purge(CmdBody, Option) ->
@@ -604,7 +650,7 @@ purge(CmdBody, Option) ->
 
 
 %% @doc Retrieve the storage stats
-%%
+%% @private
 -spec(du(binary(), binary()) ->
              ok | {error, any()}).
 du(CmdBody, Option) ->
@@ -635,7 +681,7 @@ du(CmdBody, Option) ->
 
 
 %% @doc Compact target node of objects into the object-storages
-%%
+%% @private
 -spec(compact(binary(), binary()) ->
              ok | {error, any()}).
 compact(CmdBody, Option) ->
@@ -671,7 +717,7 @@ compact(CmdBody, Option) ->
 
 
 %% @doc Retrieve information of an Assigned object
-%%
+%% @private
 -spec(whereis(binary(), binary()) ->
              ok | {error, any()}).
 whereis(CmdBody, Option) ->
@@ -692,11 +738,11 @@ whereis(CmdBody, Option) ->
     end.
 
 
-%% @doc Generate S3-KEY by user-name
-%%
--spec(s3_create_key(binary(), binary()) ->
+%% @doc Create a user account (S3)
+%% @private
+-spec(s3_create_user(binary(), binary()) ->
              ok | {error, any()}).
-s3_create_key(CmdBody, Option) ->
+s3_create_user(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -715,8 +761,71 @@ s3_create_key(CmdBody, Option) ->
     end.
 
 
-%% @doc
-%%
+%% @doc Update user's role-id
+%% @private
+-spec(s3_update_user_role(binary(), binary()) ->
+             ok | {error, any()}).
+s3_update_user_role(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [UserId, RoleId|_] ->
+            case leo_s3_user:update(#user{id       = UserId,
+                                          role_id  = RoleId,
+                                          password = <<>>}) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end;
+        _ ->
+            {error, "No user-id/role_id specified"}
+    end.
+
+
+%% @doc Update user's password
+%% @private
+-spec(s3_update_user_password(binary(), binary()) ->
+             ok | {error, any()}).
+s3_update_user_password(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [UserId, Password|_] ->
+            case leo_s3_user:update(#user{id       = UserId,
+                                          password = Password}) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end;
+        _ ->
+            {error, "No user-id/password specified"}
+    end.
+
+
+%% @doc Remove a user
+%% @private
+-spec(s3_delete_user(binary(), binary()) ->
+             ok | {error, any()}).
+s3_delete_user(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [UserId|_] ->
+            case leo_s3_user:delete(UserId) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end;
+        _ ->
+            {error, "No user-id specified"}
+    end.
+
+
+%% @doc Retrieve S3-Users
+%% @private
 -spec(s3_get_users(binary()) ->
              {ok, list(#credential{})} | {error, any()}).
 s3_get_users(CmdBody) ->
@@ -730,8 +839,8 @@ s3_get_users(CmdBody) ->
     end.
 
 
-%% @doc Insert S3-Endpoint into the manager
-%%
+%% @doc Insert an S3-Endpoint into the manager
+%% @private
 -spec(s3_set_endpoint(binary(), binary()) ->
              ok | {error, any()}).
 s3_set_endpoint(CmdBody, Option) ->
@@ -750,8 +859,8 @@ s3_set_endpoint(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve S3-Endpoint from the manager
-%%
+%% @doc Retrieve an S3-Endpoint from the manager
+%% @private
 -spec(s3_get_endpoints(binary()) ->
              ok | {error, any()}).
 s3_get_endpoints(CmdBody) ->
@@ -767,8 +876,8 @@ s3_get_endpoints(CmdBody) ->
     end.
 
 
-%% @doc Remove S3-Endpoint from the manager
-%%
+%% @doc Remove an S3-Endpoint from the manager
+%% @private
 -spec(s3_del_endpoint(binary(), binary()) ->
              ok | {error, any()}).
 s3_del_endpoint(CmdBody, Option) ->
@@ -789,8 +898,8 @@ s3_del_endpoint(CmdBody, Option) ->
     end.
 
 
-%% @doc Insert S3-Buckets in the manager
-%%
+%% @doc Insert an S3-Buckets in the manager
+%% @private
 -spec(s3_add_bucket(binary(), binary()) ->
              ok | {error, any()}).
 s3_add_bucket(CmdBody, Option) ->
@@ -804,8 +913,8 @@ s3_add_bucket(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve S3-Buckets from the manager
-%%
+%% @doc Retrieve an S3-Buckets from the manager
+%% @private
 -spec(s3_get_buckets(binary()) ->
              ok | {error, any()}).
 s3_get_buckets(CmdBody) ->
