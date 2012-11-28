@@ -178,14 +178,18 @@ node_stat(State) ->
 
     gen_json({[{<<"node_stat">>,
                 {[{<<"version">>,          list_to_binary(Version)},
-                  {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log',       Directories, []))},
+                  {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
                   {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)))},
                   {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)))},
+                  {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
                   {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
                   {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
                   {<<"procs_mem_usage">>,  leo_misc:get_value('proc_mem_usage',   Statistics, 0)},
                   {<<"ets_mem_usage">>,    leo_misc:get_value('ets_mem_usage',    Statistics, 0)},
-                  {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)}
+                  {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
+                  {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
+                  {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
+                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)}
                  ]}}
               ]}).
 
