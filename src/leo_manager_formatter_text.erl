@@ -222,21 +222,28 @@ node_stat(State) ->
                                 "  ring state (cur)  : ~s\r\n",
                                 "  ring state (prev) : ~s\r\n",
                                 "\r\n[erlang-vm status]\r\n",
+                                "         vm version : ~s\r\n",
                                 "    total mem usage : ~w\r\n",
                                 "   system mem usage : ~w\r\n",
                                 "    procs mem usage : ~w\r\n",
                                 "      ets mem usage : ~w\r\n",
-                                "    # of procs      : ~w\r\n\r\n"]),
+                                "              procs : ~w/~w\r\n",
+                                "        kernel_poll : ~w\r\n",
+                                "   thread_pool_size : ~w\r\n\r\n"]),
                   [State#cluster_node_status.version,
                    ObjContainer,
                    leo_misc:get_value('log', Directories, []),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)),
+                   leo_misc:get_value('vm_version',       Statistics, []),
                    leo_misc:get_value('total_mem_usage',  Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
                    leo_misc:get_value('proc_mem_usage',   Statistics, 0),
                    leo_misc:get_value('ets_mem_usage',    Statistics, 0),
-                   leo_misc:get_value('num_of_procs',     Statistics, 0)
+                   leo_misc:get_value('num_of_procs',     Statistics, 0),
+                   leo_misc:get_value('process_limit',    Statistics, 0),
+                   leo_misc:get_value('kernel_poll',      Statistics, false),
+                   leo_misc:get_value('thread_pool_size', Statistics, 0)
                   ]).
 
 
