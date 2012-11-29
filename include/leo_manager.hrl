@@ -131,10 +131,10 @@
                 password = []     :: string()
                }).
 -else.
--record(state, {formatter            :: atom(),
-                auth = ?AUTH_NOT_YET :: auth(),
-                user_id = []         :: string(),
-                password = []        :: string()
+-record(state, {formatter         :: atom(),
+                auth = ?AUTH_DONE :: auth(),
+                user_id = []      :: string(),
+                password = []     :: string()
                }).
 -endif.
 
