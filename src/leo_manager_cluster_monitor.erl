@@ -59,6 +59,8 @@
 -define(APPLY_AFTER_TIME, 1000).
 -endif.
 
+-undef(DEF_TIMEOUT).
+-define(DEF_TIMEOUT, 30000).
 
 %%--------------------------------------------------------------------
 %% API
@@ -69,7 +71,7 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 stop() ->
-    gen_server:call(?MODULE, stop).
+    gen_server:call(?MODULE, stop, ?DEF_TIMEOUT).
 
 
 %% @doc Register gateway and storage pid in monitor.
@@ -77,14 +79,14 @@ stop() ->
 -spec(register(first|again, pid(), atom(), storage|gateway) ->
              ok).
 register(RequestedTimes, Pid, Node, TypeOfNode) ->
-    gen_server:call(?MODULE, {register, RequestedTimes, Pid, Node, TypeOfNode}).
+    gen_server:call(?MODULE, {register, RequestedTimes, Pid, Node, TypeOfNode}, ?DEF_TIMEOUT).
 
 
 %% @doc Demonitor pid from monitor.
 %%
 -spec(demonitor(Node::atom()) -> ok | undefined).
 demonitor(Node) ->
-    gen_server:call(?MODULE, {demonitor, Node}).
+    gen_server:call(?MODULE, {demonitor, Node}, ?DEF_TIMEOUT).
 
 
 %% @doc Retrieve pid of remote-nodes.
@@ -102,7 +104,7 @@ get_server_node_alias(Node) ->
                   true -> Node;
                   _    -> list_to_atom(Node)
               end,
-    gen_server:call(?MODULE, {get_server_node_alias, NewNode}).
+    gen_server:call(?MODULE, {get_server_node_alias, NewNode}, ?DEF_TIMEOUT).
 
 
 %%--------------------------------------------------------------------
