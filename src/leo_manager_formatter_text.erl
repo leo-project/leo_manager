@@ -251,20 +251,17 @@ node_stat(State) ->
 %%
 -spec(du(summary | detail, {integer(), integer()} | list()) ->
              string()).
-du(summary, {FileSize, Total}) ->
-    io_lib:format(lists:append(["        file size: ~w\r\n",
-                                " total of objects: ~w\r\n\r\n"]), [FileSize, Total]);
+du(summary, {_, Total}) ->
+    io_lib:format(lists:append([" total of objects: ~w\r\n\r\n"]), [Total]);
 
 du(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
                   case Stats of
                       {ok, #storage_stats{file_path   = FilePath,
-                                          total_sizes = FileSize,
                                           total_num   = ObjTotal}} ->
                           Acc ++ io_lib:format(lists:append(["              file path: ~s\r\n",
-                                                             "              file size: ~w\r\n",
                                                              " number of total object: ~w\r\n"]),
-                                               [FilePath, FileSize, ObjTotal]);
+                                               [FilePath, ObjTotal]);
                       _Error ->
                           Acc
                   end
@@ -347,7 +344,7 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    {Col1Len, Col2Len} = lists:foldl(fun({Bucket, Owner, _}, {C1, C2}) ->
+    {Col1Len, Col2Len} = lists:foldl(fun({Bucket, #user_credential{user_id= Owner}, _}, {C1, C2}) ->
                                              BucketStr = binary_to_list(Bucket),
                                              Len1 = length(BucketStr),
                                              Len2 = length(Owner),
@@ -371,7 +368,7 @@ buckets(Buckets) ->
                 lists:duplicate(Col2Len, "-"), "-+-",
                 lists:duplicate(Col3Len, "-"), "\r\n"]),
 
-    Fun = fun({Bucket, Owner, Created}, Acc) ->
+    Fun = fun({Bucket, #user_credential{user_id= Owner}, Created}, Acc) ->
                   BucketStr = binary_to_list(Bucket),
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
                                        [string:left(BucketStr, Col1Len),
