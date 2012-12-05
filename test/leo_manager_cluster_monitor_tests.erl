@@ -53,10 +53,8 @@ all_(Node) ->
                 fun() ->
                         ?STATE_STOP
                 end),
-    meck:expect(leo_manager_api, attach,
-                fun(_) ->
-                        ok
-                end),
+    meck:expect(leo_manager_api, attach, 1, ok),
+    meck:expect(leo_manager_api, distribute_members, 2, ok),
 
     meck:new(leo_storage_api),
     meck:expect(leo_storage_api, register_in_monitor, fun(again) ->
@@ -91,6 +89,10 @@ all_(Node) ->
                 fun() ->
                         {ok, #system_conf{}}
                 end),
+
+    meck:new(leo_redundant_manager_api),
+    meck:expect(leo_redundant_manager_api, update_member_by_node, 3, ok),
+
 
 
     {ok, _Pid} = leo_manager_cluster_monitor:start_link(),

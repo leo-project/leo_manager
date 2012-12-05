@@ -196,6 +196,7 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                 Htbl;
             {_, Node, TypeOfNode, _} ->
                 ?error("handle_call - DOWN", "node:~w", [Node]),
+
                 case TypeOfNode of
                     gateway ->
                         catch leo_manager_mnesia:update_gateway_node(
@@ -205,7 +206,6 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                     storage ->
                         case catch leo_manager_mnesia:get_storage_node_by_name(Node) of
                             {ok, [#node_state{state = State} = NodeInfo|_]} ->
-
                                 case update_node_state(down, State, Node) of
                                     delete ->
                                         leo_manager_mnesia:delete_storage_node(NodeInfo);
@@ -262,19 +262,30 @@ update_node_state(start, not_found,        Node) -> update_node_state1(?STATE_AT
 update_node_state(down,  ?STATE_ATTACHED, _Node) -> delete;
 update_node_state(down,  ?STATE_DETACHED, _Node) -> ok;
 update_node_state(down,  ?STATE_SUSPEND,  _Node) -> ok;
-update_node_state(down,  ?STATE_RUNNING,   Node) -> update_node_state1(?STATE_DOWNED, Node);
+update_node_state(down,  ?STATE_RUNNING,   Node) -> update_node_state1(?STATE_STOP, Node);
 update_node_state(down,  ?STATE_DOWNED,   _Node) -> ok;
 update_node_state(down,  ?STATE_STOP,     _Node) -> ok;
 update_node_state(down,  ?STATE_RESTARTED,_Node) -> delete;
 update_node_state(down,  not_found,       _Node) -> ok.
 
 update_node_state1(State, Node) ->
-    leo_manager_mnesia:update_storage_node_status(
-      update, #node_state{node          = Node,
-                          state         = State,
-                          ring_hash_new = [],
-                          ring_hash_old = [],
-                          when_is       = ?CURRENT_TIME}).
+    case leo_manager_mnesia:update_storage_node_status(
+           update, #node_state{node          = Node,
+                               state         = State,
+                               ring_hash_new = [],
+                               ring_hash_old = [],
+                               when_is       = ?CURRENT_TIME}) of
+        ok ->
+            case leo_redundant_manager_api:update_member_by_node(
+                   Node, leo_date:clock(), State) of
+                ok ->
+                    leo_manager_api:distribute_members(ok, []);
+                Error ->
+                    Error
+            end;
+        Error ->
+            Error
+    end.
 
 
 %% @doc Register pid of remote-nodes in this monitor.
