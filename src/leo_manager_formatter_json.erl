@@ -198,15 +198,13 @@ node_stat(State) ->
 %%
 -spec(du(summary | detail, {integer(), integer()} | list()) ->
              string()).
-du(summary, {FileSize, Total}) ->
-    gen_json({[{<<"file_size">>, FileSize},{<<"total_of_objects">>, Total}]});
+du(summary, {_, Total}) ->
+    gen_json({[{<<"total_of_objects">>, Total}]});
 
 du(detail, StatsList) when is_list(StatsList) ->
     JSON = lists:map(fun({ok, #storage_stats{file_path   = FilePath,
-                                             total_sizes = FileSize,
                                              total_num   = ObjTotal}}) ->
                              {[{<<"file_path">>,        list_to_binary(FilePath)},
-                               {<<"file_size">>,        FileSize},
                                {<<"total_of_objects">>, ObjTotal}
                               ]};
                         (_) ->
@@ -262,7 +260,7 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    JSON = lists:map(fun({Bucket, Owner, CreatedAt}) ->
+    JSON = lists:map(fun({Bucket, #user_credential{user_id= Owner}, CreatedAt}) ->
                              {[{<<"bucket">>,     Bucket},
                                {<<"owner">>,      list_to_binary(Owner)},
                                {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
