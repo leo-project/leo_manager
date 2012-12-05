@@ -40,6 +40,7 @@
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
 
 -export([attach/1, detach/1, suspend/1, resume/1,
+         distribute_members/1, distribute_members/2,
          start/0, rebalance/0]).
 
 -export([register/4, notify/3, notify/4, purge/1,
