@@ -818,8 +818,8 @@ s3_delete_user(CmdBody, Option) ->
             case leo_s3_user:delete(UserId) of
                 ok ->
                     ok;
-                not_found ->
-                    {error, "Not Found"};
+                not_found = Cause ->
+                    {error, Cause};
                 {error, Cause} ->
                     {error, Cause}
             end;
