@@ -270,7 +270,7 @@ handle_call(_Socket, <<?S3_DELETE_USER, ?SPACE, Option/binary>> = Command, #stat
 
 %% Command: "s3-get-keys"
 %%
-handle_call(_Socket, <<?S3_GET_KEYS>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?S3_GET_USERS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_users(Command) of
                 {ok, List} ->
                     Formatter:s3_users(List);
@@ -747,20 +747,38 @@ whereis(CmdBody, Option) ->
 s3_create_user(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [UserId, Password|_] ->
-            case leo_s3_user:add(UserId, Password, true) of
+    Ret = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+              [UserId] ->
+                  {ok, {UserId, []}};
+              [UserId, Password] ->
+                  {ok, {UserId, Password}};
+              _ ->
+                  {error, "No user-id/password specified"}
+          end,
+    case Ret of
+        {ok, {Arg0, Arg1}} ->
+            case leo_s3_user:add(Arg0, Arg1, true) of
                 {ok, Keys} ->
                     AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
                     SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),
+
+                    case Arg1 of
+                        [] ->
+                            ok = leo_s3_user:update(#user{id       = Arg0,
+                                                          role_id  = ?ROLE_GENERAL,
+                                                          password = SecretAccessKey});
+                        _ ->
+                            void
+                    end,
                     {ok, [{access_key_id,     AccessKeyId},
                           {secret_access_key, SecretAccessKey}]};
                 {error, Cause} ->
                     {error, Cause}
             end;
-        _ ->
-            {error, "No user-id/password specified"}
+        {error, Cause} ->
+            {error, Cause}
     end.
+
 
 
 %% @doc Update user's role-id
