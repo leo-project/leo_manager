@@ -71,7 +71,7 @@
 -define(S3_UPDATE_USER_PW,    "s3-update-user-password").
 -define(S3_DELETE_USER,       "s3-delete-user").
 
--define(S3_GET_KEYS,          "s3-get-keys\r\n").
+-define(S3_GET_USERS,         "s3-get-users\r\n").
 -define(S3_SET_ENDPOINT,      "s3-set-endpoint").
 -define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").
 -define(S3_GET_ENDPOINTS,     "s3-get-endpoints\r\n").
