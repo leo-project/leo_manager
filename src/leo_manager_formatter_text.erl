@@ -283,33 +283,43 @@ s3_credential(AccessKeyId, SecretAccessKey) ->
 
 %% @doc Format s3-users result
 %%
--spec(s3_users(list(#user_credential{})) ->
+-spec(s3_users(list()) ->
              string()).
 s3_users(Owners) ->
-    Col1Len = lists:foldl(fun(#user_credential{user_id = UserId}, Acc) ->
+    Col1Len = lists:foldl(fun(User, Acc) ->
+                                  UserId = leo_misc:get_value(user_id, User),
                                   Len = length(UserId),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
                                   end
                           end, 0, Owners),
-    Col2Len = 22,
-    Col3Len = 26,
+    Col2Len = 7,
+    Col3Len = 22,
+    Col4Len = 26,
 
     Header = lists:append([string:left("user_id",       Col1Len), " | ",
-                           string:left("access_key_id", Col2Len), " | ",
-                           string:left("created_at",    Col3Len), "\r\n",
+                           string:left("role_id",       Col2Len), " | ",
+                           string:left("access_key_id", Col3Len), " | ",
+                           string:left("created_at",    Col4Len), "\r\n",
                            lists:duplicate(Col1Len, "-"), "-+-",
                            lists:duplicate(Col2Len, "-"), "-+-",
-                           lists:duplicate(Col3Len, "-"), "\r\n"]),
+                           lists:duplicate(Col3Len, "-"), "-+-",
+                           lists:duplicate(Col4Len, "-"), "\r\n"]),
 
-    Fun = fun(#user_credential{access_key_id = AccessKeyId,
-                               user_id       = UserId,
-                               created_at    = CreatedAt}, Acc) ->
+    Fun = fun(User, Acc) ->
+                  UserId      = leo_misc:get_value(user_id,       User),
+                  RoleId      = leo_misc:get_value(role_id,       User),
+                  AccessKeyId = leo_misc:get_value(access_key_id, User),
+                  CreatedAt   = leo_misc:get_value(created_at,    User),
+
+                  RoleIdStr      = integer_to_list(RoleId),
                   AccessKeyIdStr = binary_to_list(AccessKeyId),
-                  Acc ++ io_lib:format("~s | ~s | ~s\r\n",
+
+                  Acc ++ io_lib:format("~s | ~s | ~s | ~s\r\n",
                                        [string:left(UserId,         Col1Len),
-                                        string:left(AccessKeyIdStr, Col2Len),
+                                        string:left(RoleIdStr,      Col2Len),
+                                        string:left(AccessKeyIdStr, Col3Len),
                                         leo_date:date_format(CreatedAt)])
           end,
     lists:append([lists:foldl(Fun, Header, Owners), "\r\n"]).

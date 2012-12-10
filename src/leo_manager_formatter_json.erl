@@ -231,11 +231,14 @@ s3_credential(AccessKeyId, SecretAccessKey) ->
 -spec(s3_users(list(#user_credential{})) ->
              string()).
 s3_users(Owners) ->
-    JSON = lists:map(fun(#user_credential{access_key_id = AccessKeyId,
-                                          user_id       = UserId,
-                                          created_at    = CreatedAt}) ->
+    JSON = lists:map(fun(User) ->
+                             UserId      = leo_misc:get_value(user_id,       User),
+                             RoleId      = leo_misc:get_value(role_id,       User),
+                             AccessKeyId = leo_misc:get_value(access_key_id, User),
+                             CreatedAt   = leo_misc:get_value(created_at,    User),
                              {[{<<"access_key_id">>, AccessKeyId},
                                {<<"user_id">>,       list_to_binary(UserId)},
+                               {<<"role_id">>,       RoleId},
                                {<<"created_at">>,    list_to_binary(leo_date:date_format(CreatedAt))}
                               ]}
                      end, Owners),
