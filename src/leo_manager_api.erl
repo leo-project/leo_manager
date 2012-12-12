@@ -980,6 +980,10 @@ set_endpoint(Endpoint) ->
                         {_, BadNodes} ->
                             {error, BadNodes}
                     end
-            end
+            end;
+        not_found ->
+            ok;
+        Error ->
+            Error
     end.
 

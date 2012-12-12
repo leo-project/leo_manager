@@ -212,7 +212,7 @@ handle_call(_Socket, <<?COMPACT, ?SPACE, Option/binary>> = Command, #state{forma
 %%----------------------------------------------------------------------
 %% Operation-3
 %%----------------------------------------------------------------------
-%% Command: "s3-create-user ${USER_ID} ${PASSWORD}"
+%% Command: "create-user ${USER_ID} ${PASSWORD}"
 %%
 handle_call(_Socket, <<?S3_CREATE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_create_user(Command, Option) of
@@ -226,7 +226,7 @@ handle_call(_Socket, <<?S3_CREATE_USER, ?SPACE, Option/binary>> = Command, #stat
     {reply, Reply, State};
 
 
-%% Command: "s3-update-user-role ${USER_ID} ${ROLE}"
+%% Command: "update-user-role ${USER_ID} ${ROLE}"
 %%
 handle_call(_Socket, <<?S3_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_update_user_role(Command, Option) of
@@ -240,7 +240,7 @@ handle_call(_Socket, <<?S3_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command, 
     {reply, Reply, State};
 
 
-%% Command: "s3-update-user-password ${USER_ID} ${PASSWORD}"
+%% Command: "update-user-password ${USER_ID} ${PASSWORD}"
 %%
 handle_call(_Socket, <<?S3_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_update_user_password(Command, Option) of
@@ -254,7 +254,7 @@ handle_call(_Socket, <<?S3_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #s
     {reply, Reply, State};
 
 
-%% Command: "s3-delete-user ${USER_ID} ${PASSWORD}"
+%% Command: "delete-user ${USER_ID} ${PASSWORD}"
 %%
 handle_call(_Socket, <<?S3_DELETE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_delete_user(Command, Option) of
@@ -268,7 +268,7 @@ handle_call(_Socket, <<?S3_DELETE_USER, ?SPACE, Option/binary>> = Command, #stat
     {reply, Reply, State};
 
 
-%% Command: "s3-get-keys"
+%% Command: "get-keys"
 %%
 handle_call(_Socket, <<?S3_GET_USERS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_users(Command) of
@@ -280,7 +280,7 @@ handle_call(_Socket, <<?S3_GET_USERS>> = Command, #state{formatter = Formatter} 
     {reply, Reply, State};
 
 
-%% Command: "s3-set-endpoint ${END_POINT}"
+%% Command: "set-endpoint ${END_POINT}"
 %%
 handle_call(_Socket, <<?S3_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_set_endpoint(Command, Option) of
@@ -292,7 +292,7 @@ handle_call(_Socket, <<?S3_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #sta
     {reply, Reply, State};
 
 
-%% Command: "s3-get-endpoints"
+%% Command: "get-endpoints"
 %%
 handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_endpoints(Command) of
@@ -304,7 +304,7 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatt
     {reply, Reply, State};
 
 
-%% Command: "s3-del-endpoint ${END_POINT}"
+%% Command: "del-endpoint ${END_POINT}"
 %%
 handle_call(_Socket, <<?S3_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_del_endpoint(Command, Option) of
@@ -316,7 +316,7 @@ handle_call(_Socket, <<?S3_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #sta
     {reply, Reply, State};
 
 
-%% Command: "s3-get-buckets"
+%% Command: "get-buckets"
 %%
 handle_call(_Socket, <<?S3_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_add_bucket(Command, Option) of
@@ -328,7 +328,7 @@ handle_call(_Socket, <<?S3_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state
     {reply, Reply, State};
 
 
-%% Command: "s3-get-buckets"
+%% Command: "get-buckets"
 %%
 handle_call(_Socket, <<?S3_GET_BUCKETS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_buckets(Command) of
@@ -846,7 +846,7 @@ s3_delete_user(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve S3-Users
+%% @doc Retrieve Users
 %% @private
 -spec(s3_get_users(binary()) ->
              {ok, list(#credential{})} | {error, any()}).
@@ -861,7 +861,7 @@ s3_get_users(CmdBody) ->
     end.
 
 
-%% @doc Insert an S3-Endpoint into the manager
+%% @doc Insert an Endpoint into the manager
 %% @private
 -spec(s3_set_endpoint(binary(), binary()) ->
              ok | {error, any()}).
@@ -887,7 +887,7 @@ s3_set_endpoint(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve an S3-Endpoint from the manager
+%% @doc Retrieve an Endpoint from the manager
 %% @private
 -spec(s3_get_endpoints(binary()) ->
              ok | {error, any()}).
@@ -904,7 +904,7 @@ s3_get_endpoints(CmdBody) ->
     end.
 
 
-%% @doc Remove an S3-Endpoint from the manager
+%% @doc Remove an Endpoint from the manager
 %% @private
 -spec(s3_del_endpoint(binary(), binary()) ->
              ok | {error, any()}).
@@ -926,7 +926,7 @@ s3_del_endpoint(CmdBody, Option) ->
     end.
 
 
-%% @doc Insert an S3-Buckets in the manager
+%% @doc Insert an Buckets in the manager
 %% @private
 -spec(s3_add_bucket(binary(), binary()) ->
              ok | {error, any()}).
@@ -941,7 +941,7 @@ s3_add_bucket(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve an S3-Buckets from the manager
+%% @doc Retrieve an Buckets from the manager
 %% @private
 -spec(s3_get_buckets(binary()) ->
              ok | {error, any()}).
