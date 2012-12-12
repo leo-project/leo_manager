@@ -66,17 +66,17 @@
 -define(REBALANCE,            "rebalance\r\n").
 -define(COMPACT,              "compact").
 
--define(S3_CREATE_USER,       "s3-create-user").
--define(S3_UPDATE_USER_ROLE,  "s3-update-user-role").
--define(S3_UPDATE_USER_PW,    "s3-update-user-password").
--define(S3_DELETE_USER,       "s3-delete-user").
+-define(S3_CREATE_USER,       "create-user").
+-define(S3_UPDATE_USER_ROLE,  "update-user-role").
+-define(S3_UPDATE_USER_PW,    "update-user-password").
+-define(S3_DELETE_USER,       "delete-user").
 
--define(S3_GET_USERS,         "s3-get-users\r\n").
--define(S3_SET_ENDPOINT,      "s3-set-endpoint").
--define(S3_DEL_ENDPOINT,      "s3-delete-endpoint").
--define(S3_GET_ENDPOINTS,     "s3-get-endpoints\r\n").
--define(S3_ADD_BUCKET,        "s3-add-bucket").
--define(S3_GET_BUCKETS,       "s3-get-buckets\r\n").
+-define(S3_GET_USERS,         "get-users\r\n").
+-define(S3_SET_ENDPOINT,      "set-endpoint").
+-define(S3_DEL_ENDPOINT,      "delete-endpoint").
+-define(S3_GET_ENDPOINTS,     "get-endpoints\r\n").
+-define(S3_ADD_BUCKET,        "add-bucket").
+-define(S3_GET_BUCKETS,       "get-buckets\r\n").
 
 -define(STORAGE_STATS,        "du").
 -define(WHEREIS,              "whereis").

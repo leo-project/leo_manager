@@ -44,7 +44,10 @@
          start/0, rebalance/0]).
 
 -export([register/4, notify/3, notify/4, purge/1,
-         whereis/2, compact/1, stats/2, synchronize/1, synchronize/2, synchronize/3]).
+         whereis/2, compact/1, stats/2,
+         synchronize/1, synchronize/2, synchronize/3,
+         set_endpoint/1
+        ]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
@@ -329,7 +332,7 @@ distribute_members(ok, Node0) ->
 
             case rpc:multicall(DestNodes, leo_redundant_manager_api, update_members,
                                [Members], ?DEF_TIMEOUT) of
-                {_, []      } ->
+                {_, []} ->
                     void;
                 {_, BadNodes} ->
                     ?warn("resume/3", "bad_nodes:~p", [BadNodes]);
@@ -669,6 +672,25 @@ notify2(error, Node, Clock, State) ->
     end.
 
 
+%% @doc purge an object.
+%%
+-spec(purge(string()) -> ok).
+purge(Path) ->
+    case leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, R1} ->
+            Nodes = lists:foldl(fun(#node_state{node  = Node,
+                                                state = ?STATE_RUNNING}, Acc) ->
+                                        [Node|Acc];
+                                   (_, Acc) ->
+                                        Acc
+                                end, [], R1),
+            _ = rpc:multicall(Nodes, leo_gateway_api, purge, [Path], ?DEF_TIMEOUT),
+            ok;
+        _Error ->
+            {error, ?ERROR_COULD_NOT_GET_GATEWAY}
+    end.
+
+
 %% @doc Retrieve assigned file information.
 %%
 -spec(whereis(list(), boolean()) ->
@@ -917,25 +939,7 @@ synchronize1(_,_) ->
     {error, badarg}.
 
 
-%% @doc purge an object.
-%%
--spec(purge(string()) -> ok).
-purge(Path) ->
-    case leo_manager_mnesia:get_gateway_nodes_all() of
-        {ok, R1} ->
-            Nodes = lists:foldl(fun(#node_state{node  = Node,
-                                                state = ?STATE_RUNNING}, Acc) ->
-                                        [Node|Acc];
-                                   (_, Acc) ->
-                                        Acc
-                                end, [], R1),
-            rpc:multicall(Nodes, leo_gateway_api, purge, [Path], ?DEF_TIMEOUT),
-            ok;
-        _Error ->
-            {error, ?ERROR_COULD_NOT_GET_GATEWAY}
-    end.
-
-%% @doc
+%% @doc Compare local-checksum with remote-checksum
 %% @private
 compare_local_chksum_with_remote_chksum(_Type,_Node, Checksum0, Checksum1) when Checksum0 =:= Checksum1 ->
     ok;
@@ -948,4 +952,34 @@ compare_local_chksum_with_remote_chksum(_Type,_Node, Checksum0, Checksum1, Remot
     ok;
 compare_local_chksum_with_remote_chksum( Type, Node,_Checksum0,_Checksum1,_RemoteChecksum) ->
     synchronize1(Type, Node).
+
+
+
+%% @doc
+%%
+-spec(set_endpoint(binary()) ->
+             ok | {error, any()}).
+set_endpoint(Endpoint) ->
+    case catch leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, Nodes0} ->
+            Nodes1 = lists:flatten(lists:map(fun(#node_state{node  = Node,
+                                                             state = ?STATE_RUNNING}) ->
+                                                     Node;
+                                                (_) ->
+                                                     []
+                                             end, Nodes0)),
+            ?debugVal(Nodes0),
+            case Nodes0 of
+                [] ->
+                    ok;
+                _ ->
+                    case rpc:multicall(Nodes1, leo_gateway_api, set_endpoint,
+                                       [Endpoint], ?DEF_TIMEOUT) of
+                        {_, []} ->
+                            ok;
+                        {_, BadNodes} ->
+                            {error, BadNodes}
+                    end
+            end
+    end.
 
