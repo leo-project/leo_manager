@@ -752,7 +752,7 @@ compact(Node) ->
             case rpc:call(Node, leo_storage_api, compact, [], infinity) of
                 Result when is_list(Result) ->
                     {ok, Result};
-                {error, _} ->
+                {_, _Cause} ->
                     {error, ?ERROR_FAILED_COMPACTION}
             end;
         false ->
