@@ -791,7 +791,7 @@ s3_update_user_role(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, RoleId|_] ->
             case leo_s3_user:update(#user{id       = UserId,
-                                          role_id  = RoleId,
+                                          role_id  = list_to_integer(RoleId),
                                           password = <<>>}) of
                 ok ->
                     ok;
