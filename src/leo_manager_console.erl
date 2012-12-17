@@ -268,7 +268,7 @@ handle_call(_Socket, <<?S3_DELETE_USER, ?SPACE, Option/binary>> = Command, #stat
     {reply, Reply, State};
 
 
-%% Command: "get-keys"
+%% Command: "get-users"
 %%
 handle_call(_Socket, <<?S3_GET_USERS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_users(Command) of
