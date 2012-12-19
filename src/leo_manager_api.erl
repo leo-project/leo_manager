@@ -968,7 +968,6 @@ set_endpoint(Endpoint) ->
                                                 (_) ->
                                                      []
                                              end, Nodes0)),
-            ?debugVal(Nodes0),
             case Nodes0 of
                 [] ->
                     ok;

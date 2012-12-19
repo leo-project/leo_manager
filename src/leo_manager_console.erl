@@ -948,12 +948,12 @@ s3_add_bucket(CmdBody, Option) ->
 s3_get_buckets(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_s3_bucket:find_all_including_owner() of
+    case catch leo_s3_bucket:find_all_including_owner() of
         {ok, Buckets} ->
             {ok, Buckets};
-        not_found ->
-            {error, "Not Found"};
-        {error, Cause} ->
+        not_found = Cause ->
+            {error, Cause};
+        {_, Cause} ->
             {error, Cause}
     end.
 

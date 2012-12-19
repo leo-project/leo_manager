@@ -293,7 +293,7 @@ s3_users(Owners) ->
                                       true  -> Len;
                                       false -> Acc
                                   end
-                          end, 0, Owners),
+                          end, 7, Owners),
     Col2Len = 7,
     Col3Len = 22,
     Col4Len = 26,
@@ -336,7 +336,7 @@ endpoints(EndPoints) ->
                                       true  -> Len;
                                       false -> Acc
                                   end
-                          end, 0, EndPoints),
+                          end, 8, EndPoints),
     Col2Len = 26,
 
     Header = lists:append([string:left("endpoint", Col1Len), " | ", string:left("created at", Col2Len), "\r\n",
@@ -367,7 +367,7 @@ buckets(Buckets) ->
                                                   true  -> Len2;
                                                   false -> C2
                                               end}
-                                     end, {0,0}, Buckets),
+                                     end, {8, 6}, Buckets),
     Col3Len = 26,
     Header = lists:append(
                [string:left("bucket",     Col1Len), " | ",
@@ -378,12 +378,17 @@ buckets(Buckets) ->
                 lists:duplicate(Col2Len, "-"), "-+-",
                 lists:duplicate(Col3Len, "-"), "\r\n"]),
 
-    Fun = fun({Bucket, #user_credential{user_id= Owner}, Created}, Acc) ->
+    Fun = fun({Bucket, #user_credential{user_id= Owner}, Created1}, Acc) ->
                   BucketStr = binary_to_list(Bucket),
+                  Created2  = case (Created1 > 0) of
+                                  true  -> leo_date:date_format(Created1);
+                                  false -> []
+                              end,
+
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
                                        [string:left(BucketStr, Col1Len),
                                         string:left(Owner,     Col2Len),
-                                        leo_date:date_format(Created)])
+                                        Created2])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
 
