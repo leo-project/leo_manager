@@ -795,6 +795,8 @@ s3_update_user_role(CmdBody, Option) ->
                                           password = <<>>}) of
                 ok ->
                     ok;
+                not_found = Cause ->
+                    {error, Cause};
                 {error, Cause} ->
                     {error, Cause}
             end;
