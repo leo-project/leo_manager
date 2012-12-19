@@ -692,15 +692,18 @@ compact(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_NO_NODE_SPECIFIED};
-        [Node|_] ->
+        [Node|Rest] ->
             NodeAtom = list_to_atom(Node),
-
+            MaxProc = case length(Rest) of
+                0 -> ?env_num_of_compact_proc();
+                _ -> list_to_integer(hd(Rest))
+            end,
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
                 {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
                     case leo_manager_api:suspend(NodeAtom) of
                         ok ->
                             try
-                                case leo_manager_api:compact(NodeAtom) of
+                                case leo_manager_api:compact(NodeAtom, MaxProc) of
                                     {ok, _} ->
                                         ok;
                                     {error, Cause} ->
