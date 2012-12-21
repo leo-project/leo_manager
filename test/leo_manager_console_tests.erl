@@ -955,7 +955,7 @@ compact_0_({Node0, _, Sock}) ->
 
     ok = meck:new(leo_manager_api),
     ok = meck:expect(leo_manager_api, compact,
-                     fun(_) ->
+                     fun(_,_) ->
                              {error, disk_error}
                      end),
     ok = meck:expect(leo_manager_api, suspend,
@@ -989,7 +989,7 @@ compact_1_({Node0, _, Sock}) ->
 
     ok = meck:new(leo_manager_api),
     ok = meck:expect(leo_manager_api, compact,
-                     fun(_) ->
+                     fun(_, _) ->
                              {ok, []}
                      end),
     ok = meck:expect(leo_manager_api, suspend,

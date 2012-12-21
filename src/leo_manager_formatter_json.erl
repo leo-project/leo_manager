@@ -68,11 +68,16 @@ error(Cause) when is_atom(Cause) ->
 
 %% @doc Format 'error'
 %%
--spec(error(atom(), string()) ->
+-spec(error(atom() | string(), string()) ->
              string()).
-error(Node, Cause) ->
+error(Node, Cause) when is_atom(Node) ->
     gen_json({[{error,
                 {[{<<"node">>,  list_to_binary(atom_to_list(Node))},
+                  {<<"cause">>, list_to_binary(Cause)}]}
+               }]});
+error(Node, Cause) ->
+    gen_json({[{error,
+                {[{<<"node">>,  list_to_binary(Node)},
                   {<<"cause">>, list_to_binary(Cause)}]}
                }]}).
 

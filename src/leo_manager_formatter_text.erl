@@ -53,15 +53,17 @@ ok() ->
 -spec(error(string()) ->
              string()).
 error(Cause) ->
-    io_lib:format("[ERROR] ~s\r\n", [Cause]).
+    io_lib:format("[ERROR] ~p\r\n", [Cause]).
 
 
 %% @doc Format 'error'
 %%
--spec(error(atom(), string()) ->
+-spec(error(atom() | string(), string()) ->
              string()).
+error(Node, Cause) when is_atom(Node) ->
+    io_lib:format("[ERROR] node:~w, ~s\r\n", [Node, Cause]);
 error(Node, Cause) ->
-    io_lib:format("[ERROR] node:~w, ~s\r\n", [Node, Cause]).
+    io_lib:format("[ERROR] node:~s, ~s\r\n", [Node, Cause]).
 
 
 %% @doc Format 'help'
@@ -79,13 +81,13 @@ help() ->
                   ?CRLF,
                   io_lib:format("[Storage]\r\n", []),
                   io_lib:format("~s\r\n",["du ${NODE}"]),
-                  io_lib:format("~s\r\n",["compact ${NODE}"]),
+                  io_lib:format("~s\r\n",["compact ${NODE} [${NUM-OF_EXEC_CONCURRENCE}]"]),
                   ?CRLF,
                   io_lib:format("[Gateway]\r\n", []),
                   io_lib:format("~s\r\n",["purge ${PATH}"]),
                   ?CRLF,
                   io_lib:format("[S3-API related]\r\n", []),
-                  io_lib:format("~s\r\n", ["create-user ${USER-ID}"]),
+                  io_lib:format("~s\r\n", ["create-user ${USER-ID} [${PASSWORD}]"]),
                   io_lib:format("~s\r\n", ["delete-user ${USER-ID}"]),
                   io_lib:format("~s\r\n", ["get-users"]),
                   io_lib:format("~s\r\n", ["set-endpoint ${ENDPOINT}"]),
@@ -96,7 +98,7 @@ help() ->
                   ?CRLF,
                   io_lib:format("[Misc]\r\n", []),
                   io_lib:format("~s\r\n",["version"]),
-                  io_lib:format("~s\r\n",["status"]),
+                  io_lib:format("~s\r\n",["status [${NODE]}"]),
                   io_lib:format("~s\r\n",["history"]),
                   io_lib:format("~s\r\n",["quit"]),
                   ?CRLF]).

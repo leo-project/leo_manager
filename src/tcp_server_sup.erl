@@ -46,7 +46,7 @@ start_link() ->
 
 stop() ->
     case whereis(?MODULE) of
-        Pid when is_pid(Pid) == true ->
+        Pid when is_pid(Pid) ->
             exit(Pid, shutdown),
             ok;
         _ ->

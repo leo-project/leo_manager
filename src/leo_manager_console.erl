@@ -299,6 +299,7 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatt
                 {ok, EndPoints} ->
                     Formatter:endpoints(EndPoints);
                 {error, Cause} ->
+                    ?debugVal(Cause),
                     Formatter:error(Cause)
             end,
     {reply, Reply, State};
@@ -694,19 +695,21 @@ compact(CmdBody, Option) ->
             {error, ?ERROR_NO_NODE_SPECIFIED};
         [Node|Rest] ->
             NodeAtom = list_to_atom(Node),
-            MaxProc = case length(Rest) of
-                0 -> ?env_num_of_compact_proc();
-                _ -> list_to_integer(hd(Rest))
-            end,
+            MaxProc = case (length(Rest) == 0) of
+                          true ->
+                              ?env_num_of_compact_proc();
+                          false ->
+                              list_to_integer(hd(Rest))
+                      end,
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
                 {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
                     case leo_manager_api:suspend(NodeAtom) of
                         ok ->
                             try
-                                case leo_manager_api:compact(NodeAtom, MaxProc) of
+                                case catch leo_manager_api:compact(NodeAtom, MaxProc) of
                                     {ok, _} ->
                                         ok;
-                                    {error, Cause} ->
+                                    {_, Cause} ->
                                         {error, Cause}
                                 end
                             after
@@ -860,8 +863,12 @@ s3_get_users(CmdBody) ->
 
     case leo_s3_user:find_all() of
         {ok, Users} ->
+            ?debugVal(Users),
             {ok, Users};
+        not_found = Cause ->
+            {error, Cause};
         Error ->
+            ?debugVal(Error),
             Error
     end.
 
@@ -902,8 +909,8 @@ s3_get_endpoints(CmdBody) ->
     case leo_s3_endpoint:get_endpoints() of
         {ok, EndPoints} ->
             {ok, EndPoints};
-        not_found ->
-            {ok, "Not Found"};
+        not_found = Cause ->
+            {error, Cause};
         {error, Cause} ->
             {error, Cause}
     end.
@@ -923,8 +930,8 @@ s3_del_endpoint(CmdBody, Option) ->
             case leo_s3_endpoint:delete_endpoint(list_to_binary(EndPoint)) of
                 ok ->
                     ok;
-                not_found ->
-                    {error, ?ERROR_ENDPOINT_NOT_FOUND};
+                not_found = Cause ->
+                    {error, Cause};
                 {error, Cause} ->
                     {error, Cause}
             end
