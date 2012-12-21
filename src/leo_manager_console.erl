@@ -402,7 +402,7 @@ handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
 -spec(version() ->
              {ok, string() | list()}).
 version() ->
-    case application:get_key(leo_manager, vsn) of
+    case application:get_env(leo_manager, system_version) of
         {ok, Version} ->
             {ok, Version};
         _ ->
@@ -455,7 +455,7 @@ status(CmdBody, Option) ->
 
 status(node_list) ->
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    Version = case application:get_key(leo_manager, vsn) of
+    Version = case application:get_env(leo_manager, system_version) of
                   {ok, Vsn} -> Vsn;
                   undefined -> []
               end,
