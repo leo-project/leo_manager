@@ -68,11 +68,16 @@ error(Cause) when is_atom(Cause) ->
 
 %% @doc Format 'error'
 %%
--spec(error(atom(), string()) ->
+-spec(error(atom() | string(), string()) ->
              string()).
-error(Node, Cause) ->
+error(Node, Cause) when is_atom(Node) ->
     gen_json({[{error,
                 {[{<<"node">>,  list_to_binary(atom_to_list(Node))},
+                  {<<"cause">>, list_to_binary(Cause)}]}
+               }]});
+error(Node, Cause) ->
+    gen_json({[{error,
+                {[{<<"node">>,  list_to_binary(Node)},
                   {<<"cause">>, list_to_binary(Cause)}]}
                }]}).
 
@@ -263,10 +268,14 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    JSON = lists:map(fun({Bucket, #user_credential{user_id= Owner}, CreatedAt}) ->
+    JSON = lists:map(fun({Bucket, #user_credential{user_id = Owner}, Created1}) ->
+                             Created2  = case (Created1 > 0) of
+                                             true  -> leo_date:date_format(Created1);
+                                             false -> []
+                                         end,
                              {[{<<"bucket">>,     Bucket},
                                {<<"owner">>,      list_to_binary(Owner)},
-                               {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
+                               {<<"created_at">>, list_to_binary(Created2)}
                               ]}
                      end, Buckets),
     gen_json({[{<<"buckets">>, JSON}]}).

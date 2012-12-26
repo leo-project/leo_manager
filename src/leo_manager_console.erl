@@ -268,7 +268,7 @@ handle_call(_Socket, <<?S3_DELETE_USER, ?SPACE, Option/binary>> = Command, #stat
     {reply, Reply, State};
 
 
-%% Command: "get-keys"
+%% Command: "get-users"
 %%
 handle_call(_Socket, <<?S3_GET_USERS>> = Command, #state{formatter = Formatter} = State) ->
     Reply = case s3_get_users(Command) of
@@ -401,7 +401,7 @@ handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
 -spec(version() ->
              {ok, string() | list()}).
 version() ->
-    case application:get_key(leo_manager, vsn) of
+    case application:get_env(leo_manager, system_version) of
         {ok, Version} ->
             {ok, Version};
         _ ->
@@ -454,7 +454,7 @@ status(CmdBody, Option) ->
 
 status(node_list) ->
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    Version = case application:get_key(leo_manager, vsn) of
+    Version = case application:get_env(leo_manager, system_version) of
                   {ok, Vsn} -> Vsn;
                   undefined -> []
               end,
@@ -692,18 +692,23 @@ compact(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_NO_NODE_SPECIFIED};
-        [Node|_] ->
+        [Node|Rest] ->
             NodeAtom = list_to_atom(Node),
-
+            MaxProc = case (length(Rest) == 0) of
+                          true ->
+                              ?env_num_of_compact_proc();
+                          false ->
+                              list_to_integer(hd(Rest))
+                      end,
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
                 {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
                     case leo_manager_api:suspend(NodeAtom) of
                         ok ->
                             try
-                                case leo_manager_api:compact(NodeAtom) of
+                                case catch leo_manager_api:compact(NodeAtom, MaxProc) of
                                     {ok, _} ->
                                         ok;
-                                    {error, Cause} ->
+                                    {_, Cause} ->
                                         {error, Cause}
                                 end
                             after
@@ -791,10 +796,12 @@ s3_update_user_role(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, RoleId|_] ->
             case leo_s3_user:update(#user{id       = UserId,
-                                          role_id  = RoleId,
+                                          role_id  = list_to_integer(RoleId),
                                           password = <<>>}) of
                 ok ->
                     ok;
+                not_found = Cause ->
+                    {error, Cause};
                 {error, Cause} ->
                     {error, Cause}
             end;
@@ -856,6 +863,8 @@ s3_get_users(CmdBody) ->
     case leo_s3_user:find_all() of
         {ok, Users} ->
             {ok, Users};
+        not_found = Cause ->
+            {error, Cause};
         Error ->
             Error
     end.
@@ -897,8 +906,8 @@ s3_get_endpoints(CmdBody) ->
     case leo_s3_endpoint:get_endpoints() of
         {ok, EndPoints} ->
             {ok, EndPoints};
-        not_found ->
-            {ok, "Not Found"};
+        not_found = Cause ->
+            {error, Cause};
         {error, Cause} ->
             {error, Cause}
     end.
@@ -918,8 +927,8 @@ s3_del_endpoint(CmdBody, Option) ->
             case leo_s3_endpoint:delete_endpoint(list_to_binary(EndPoint)) of
                 ok ->
                     ok;
-                not_found ->
-                    {error, ?ERROR_ENDPOINT_NOT_FOUND};
+                not_found = Cause ->
+                    {error, Cause};
                 {error, Cause} ->
                     {error, Cause}
             end
@@ -948,12 +957,12 @@ s3_add_bucket(CmdBody, Option) ->
 s3_get_buckets(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_s3_bucket:find_all_including_owner() of
+    case catch leo_s3_bucket:find_all_including_owner() of
         {ok, Buckets} ->
             {ok, Buckets};
-        not_found ->
-            {error, "Not Found"};
-        {error, Cause} ->
+        not_found = Cause ->
+            {error, Cause};
+        {_, Cause} ->
             {error, Cause}
     end.
 

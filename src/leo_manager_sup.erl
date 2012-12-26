@@ -208,9 +208,9 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 {ok, _} = load_system_config_with_store_data(),
 
                 %% PUT console-related values:
-                ConsoleUserId   = ?env_console_user_id(),
-                ConsolePassword = ?env_console_password(),
-                leo_s3_user:add(ConsoleUserId, ConsolePassword, true),
+                %% ConsoleUserId   = ?env_console_user_id(),
+                %% ConsolePassword = ?env_console_password(),
+                %% leo_s3_user:add(ConsoleUserId, ConsolePassword, true),
 
                 %% PUT test-credential-related values:
                 TestUserId    = "_test_leofs",
@@ -287,10 +287,6 @@ log_file_appender([], Acc) ->
     lists:reverse(Acc);
 log_file_appender([{Type, _}|T], Acc) when Type == file ->
     log_file_appender(T, [{?LOG_ID_FILE_ERROR, ?LOG_APPENDER_FILE}|[{?LOG_ID_FILE_INFO, ?LOG_APPENDER_FILE}|Acc]]).
-
-%% @TODO
-%% log_file_appender([{Type, _}|T], Acc) when Type == zmq ->
-%%     log_file_appender(T, [{?LOG_ID_ZMQ, ?LOG_APPENDER_ZMQ}|Acc]).
 
 
 %% @doc load a system config file

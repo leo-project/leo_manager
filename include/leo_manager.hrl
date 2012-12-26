@@ -203,3 +203,9 @@
             _ -> "faststorage"
         end).
 
+-define(env_num_of_compact_proc(),
+        case application:get_env(leo_manager, num_of_compact_proc) of
+            {ok, EnvConsoleNumOfCompactProc} -> EnvConsoleNumOfCompactProc;
+            _ -> 3
+        end).
+

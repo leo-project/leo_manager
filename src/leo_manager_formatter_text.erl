@@ -53,15 +53,17 @@ ok() ->
 -spec(error(string()) ->
              string()).
 error(Cause) ->
-    io_lib:format("[ERROR] ~s\r\n", [Cause]).
+    io_lib:format("[ERROR] ~p\r\n", [Cause]).
 
 
 %% @doc Format 'error'
 %%
--spec(error(atom(), string()) ->
+-spec(error(atom() | string(), string()) ->
              string()).
+error(Node, Cause) when is_atom(Node) ->
+    io_lib:format("[ERROR] node:~w, ~s\r\n", [Node, Cause]);
 error(Node, Cause) ->
-    io_lib:format("[ERROR] node:~w, ~s\r\n", [Node, Cause]).
+    io_lib:format("[ERROR] node:~s, ~s\r\n", [Node, Cause]).
 
 
 %% @doc Format 'help'
@@ -79,13 +81,13 @@ help() ->
                   ?CRLF,
                   io_lib:format("[Storage]\r\n", []),
                   io_lib:format("~s\r\n",["du ${NODE}"]),
-                  io_lib:format("~s\r\n",["compact ${NODE}"]),
+                  io_lib:format("~s\r\n",["compact ${NODE} [${NUM-OF_EXEC_CONCURRENCE}]"]),
                   ?CRLF,
                   io_lib:format("[Gateway]\r\n", []),
                   io_lib:format("~s\r\n",["purge ${PATH}"]),
                   ?CRLF,
                   io_lib:format("[S3-API related]\r\n", []),
-                  io_lib:format("~s\r\n", ["create-user ${USER-ID}"]),
+                  io_lib:format("~s\r\n", ["create-user ${USER-ID} [${PASSWORD}]"]),
                   io_lib:format("~s\r\n", ["delete-user ${USER-ID}"]),
                   io_lib:format("~s\r\n", ["get-users"]),
                   io_lib:format("~s\r\n", ["set-endpoint ${ENDPOINT}"]),
@@ -96,7 +98,7 @@ help() ->
                   ?CRLF,
                   io_lib:format("[Misc]\r\n", []),
                   io_lib:format("~s\r\n",["version"]),
-                  io_lib:format("~s\r\n",["status"]),
+                  io_lib:format("~s\r\n",["status [${NODE]}"]),
                   io_lib:format("~s\r\n",["history"]),
                   io_lib:format("~s\r\n",["quit"]),
                   ?CRLF]).
@@ -293,7 +295,7 @@ s3_users(Owners) ->
                                       true  -> Len;
                                       false -> Acc
                                   end
-                          end, 0, Owners),
+                          end, 7, Owners),
     Col2Len = 7,
     Col3Len = 22,
     Col4Len = 26,
@@ -336,7 +338,7 @@ endpoints(EndPoints) ->
                                       true  -> Len;
                                       false -> Acc
                                   end
-                          end, 0, EndPoints),
+                          end, 8, EndPoints),
     Col2Len = 26,
 
     Header = lists:append([string:left("endpoint", Col1Len), " | ", string:left("created at", Col2Len), "\r\n",
@@ -367,7 +369,7 @@ buckets(Buckets) ->
                                                   true  -> Len2;
                                                   false -> C2
                                               end}
-                                     end, {0,0}, Buckets),
+                                     end, {8, 6}, Buckets),
     Col3Len = 26,
     Header = lists:append(
                [string:left("bucket",     Col1Len), " | ",
@@ -378,12 +380,17 @@ buckets(Buckets) ->
                 lists:duplicate(Col2Len, "-"), "-+-",
                 lists:duplicate(Col3Len, "-"), "\r\n"]),
 
-    Fun = fun({Bucket, #user_credential{user_id= Owner}, Created}, Acc) ->
+    Fun = fun({Bucket, #user_credential{user_id= Owner}, Created1}, Acc) ->
                   BucketStr = binary_to_list(Bucket),
+                  Created2  = case (Created1 > 0) of
+                                  true  -> leo_date:date_format(Created1);
+                                  false -> []
+                              end,
+
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
                                        [string:left(BucketStr, Col1Len),
                                         string:left(Owner,     Col2Len),
-                                        leo_date:date_format(Created)])
+                                        Created2])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
 
