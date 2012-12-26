@@ -299,7 +299,6 @@ handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatt
                 {ok, EndPoints} ->
                     Formatter:endpoints(EndPoints);
                 {error, Cause} ->
-                    ?debugVal(Cause),
                     Formatter:error(Cause)
             end,
     {reply, Reply, State};
@@ -863,12 +862,10 @@ s3_get_users(CmdBody) ->
 
     case leo_s3_user:find_all() of
         {ok, Users} ->
-            ?debugVal(Users),
             {ok, Users};
         not_found = Cause ->
             {error, Cause};
         Error ->
-            ?debugVal(Error),
             Error
     end.
 
