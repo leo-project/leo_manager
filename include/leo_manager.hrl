@@ -94,6 +94,7 @@
 
 %% error.
 -define(ERROR_COULD_NOT_CONNECT,        "Could not connect").
+-define(ERROR_NODE_NOT_EXISTS,          "Node not exist").
 -define(ERROR_FAILED_COMPACTION,        "Failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS, "Failed to get storage stats").
 -define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").

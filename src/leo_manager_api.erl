@@ -172,7 +172,6 @@ get_nodes(Node) ->
     {ok, Res}.
 
 
-
 %%----------------------------------------------------------------------
 %% API-Function(s) - Operate for the Cluster nodes.
 %%----------------------------------------------------------------------
@@ -202,19 +201,24 @@ attach(Node) ->
 -spec(suspend(string()) ->
              ok | {error, any()}).
 suspend(Node) ->
-    case leo_misc:node_existence(Node) of
+    case leo_redundant_manager_api:has_member(Node) of
         true ->
-            case leo_manager_mnesia:update_storage_node_status(
-                   update_state, #node_state{node  = Node,
-                                             state = ?STATE_SUSPEND}) of
-                ok ->
-                    Res = leo_redundant_manager_api:suspend(Node, leo_date:clock()),
-                    distribute_members(Res, []);
-                Error ->
-                    Error
+            case leo_misc:node_existence(Node) of
+                true ->
+                    case leo_manager_mnesia:update_storage_node_status(
+                           update_state, #node_state{node  = Node,
+                                                     state = ?STATE_SUSPEND}) of
+                        ok ->
+                            Res = leo_redundant_manager_api:suspend(Node, leo_date:clock()),
+                            distribute_members(Res, []);
+                        Error ->
+                            Error
+                    end;
+                false ->
+                    {error, ?ERROR_COULD_NOT_CONNECT}
             end;
         false ->
-            {error, ?ERROR_COULD_NOT_CONNECT}
+            {error, ?ERROR_NODE_NOT_EXISTS}
     end.
 
 
@@ -243,7 +247,7 @@ detach(Node) ->
                     Error
             end;
         false ->
-            {error, not_fouund}
+            {error, ?ERROR_NODE_NOT_EXISTS}
     end.
 
 
@@ -252,8 +256,13 @@ detach(Node) ->
 -spec(resume(atom()) ->
              ok | {error, any()}).
 resume(Node) ->
-    Res = leo_misc:node_existence(Node),
-    resume(is_alive, Res, Node).
+    case leo_redundant_manager_api:has_member(Node) of
+        true ->
+            Res = leo_misc:node_existence(Node),
+            resume(is_alive, Res, Node);
+        false ->
+            {error, ?ERROR_NODE_NOT_EXISTS}
+    end.
 
 -spec(resume(is_alive | is_state | sync | distribute | last, any(), atom()) ->
              any() | {error, any()}).
@@ -384,6 +393,7 @@ start() ->
             ?error("start/0", "cause:~p", [Cause]),
             {error, Cause}
     end.
+
 
 %% @doc Do Rebalance which affect all storage-nodes in operation.
 %% [process flow]
@@ -798,6 +808,7 @@ stats1(summary, List) ->
 stats1(detail, List) ->
     {ok, List}.
 
+
 %% @doc Synchronize Members and Ring (both New and Old).
 %%
 synchronize(Type) when Type == ?CHECKSUM_RING;
@@ -954,8 +965,7 @@ compare_local_chksum_with_remote_chksum( Type, Node,_Checksum0,_Checksum1,_Remot
     synchronize1(Type, Node).
 
 
-
-%% @doc
+%% @doc Insert an endpoint
 %%
 -spec(set_endpoint(binary()) ->
              ok | {error, any()}).

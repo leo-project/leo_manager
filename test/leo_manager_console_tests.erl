@@ -341,10 +341,6 @@ detach_2_({Node0,_, Sock}) ->
     timer:sleep(100),
     ?assertNotEqual([], meck:history(leo_manager_mnesia)),
 
-    %% @TODO
-    %% {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
-    %% ?assertEqual(true, string:str(binary_to_list(Res), "[ERROR]") > 0),
-
     catch gen_tcp:close(Sock),
     ok.
 
@@ -369,6 +365,10 @@ suspend_0_({Node0, _, Sock}) ->
                      end),
 
     ok = meck:new(leo_redundant_manager_api),
+    ok = meck:expect(leo_redundant_manager_api, has_member,
+                     fun(_Node) ->
+                             true
+                     end),
     ok = meck:expect(leo_redundant_manager_api, suspend,
                      fun(_Node, _Clock) ->
                              ok
@@ -412,6 +412,10 @@ suspend_1_({Node0, _, Sock}) ->
                      end),
 
     ok = meck:new(leo_redundant_manager_api),
+    ok = meck:expect(leo_redundant_manager_api, has_member,
+                     fun(_Node) ->
+                             true
+                     end),
     ok = meck:expect(leo_redundant_manager_api, suspend,
                      fun(_Node, _Clock) ->
                              ok
@@ -422,7 +426,6 @@ suspend_1_({Node0, _, Sock}) ->
     timer:sleep(100),
 
     ?assertNotEqual([], meck:history(leo_manager_mnesia)),
-    ?assertEqual([], meck:history(leo_redundant_manager_api)),
 
     {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
     ?assertEqual(true, string:str(binary_to_list(Res), "[ERROR]") > 0),
@@ -450,6 +453,10 @@ suspend_2_({Node0, _, Sock}) ->
                      end),
 
     ok = meck:new(leo_redundant_manager_api),
+    ok = meck:expect(leo_redundant_manager_api, has_member,
+                     fun(_Node) ->
+                             true
+                     end),
     ok = meck:expect(leo_redundant_manager_api, suspend,
                      fun(_Node, _Clock) ->
                              {error, []} %% error!
@@ -498,6 +505,10 @@ resume_0_({Node0, _, Sock}) ->
                      end),
 
     ok = meck:new(leo_redundant_manager_api),
+    ok = meck:expect(leo_redundant_manager_api, has_member,
+                     fun(_Node) ->
+                             true
+                     end),
     ok = meck:expect(leo_redundant_manager_api, update_member_by_node,
                      fun(_Node, _Clock, _State) ->
                              ok
@@ -554,6 +565,10 @@ resume_1_({Node0,_, Sock}) ->
                      end),
 
     ok = meck:new(leo_redundant_manager_api),
+    ok = meck:expect(leo_redundant_manager_api, has_member,
+                     fun(_Node) ->
+                             true
+                     end),
     ok = meck:expect(leo_redundant_manager_api, update_member_by_node,
                      fun(_Node, _Clock, _State) ->
                              ok
@@ -577,7 +592,6 @@ resume_1_({Node0,_, Sock}) ->
     timer:sleep(100),
 
     ?assertNotEqual([], meck:history(leo_manager_mnesia)),
-    ?assertEqual([], meck:history(leo_redundant_manager_api)),
 
     {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
     ?assertEqual(true, string:str(binary_to_list(Res), "[ERROR]") > 0),
