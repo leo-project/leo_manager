@@ -40,6 +40,7 @@
          authorized/0, user_id/0, password/0
         ]).
 
+-define(NULL_DATETIME, "----/--/-- --:--:--").
 
 %% @doc Format 'ok'
 %%
@@ -251,19 +252,59 @@ node_stat(State) ->
 
 %% @doc Format storge stats-list
 %%
--spec(du(summary | detail, {integer(), integer()} | list()) ->
+-spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
              string()).
-du(summary, {_, Total}) ->
-    io_lib:format(lists:append([" total of objects: ~w\r\n\r\n"]), [Total]);
+du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
+    StartStr = case LastStart of
+        0 -> ?NULL_DATETIME;
+        _ -> leo_date:date_format(LastStart)
+    end,
+    EndStr = case LastEnd of
+        0 -> ?NULL_DATETIME;
+        _ -> leo_date:date_format(LastEnd)
+    end,
+    io_lib:format(lists:append([" active number of objects: ~w\r\n", 
+                                "  total number of objects: ~w\r\n",
+                                "   active size of objects: ~w\r\n",
+                                "    total size of objects: ~w\r\n",
+                                "    last compaction start: ~s\r\n",
+                                "      last compaction end: ~s\r\n\r\n"]),
+                  [ActiveNum, 
+                   TotalNum,
+                   ActiveSize,
+                   TotalSize,
+                   StartStr,
+                   EndStr]);
 
 du(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
                   case Stats of
                       {ok, #storage_stats{file_path   = FilePath,
-                                          total_num   = ObjTotal}} ->
+                                          compaction_histories = Histories,
+                                          total_sizes = TotalSize,
+                                          active_sizes = ActiveSize,
+                                          total_num  = Total,
+                                          active_num = Active}} ->
+                          {LatestStart1, LatestEnd1} = case length(Histories) of
+                                   0 -> {?NULL_DATETIME, ?NULL_DATETIME};
+                                   _ -> 
+                                       {StartComp, FinishComp} = hd(Histories),
+                                       {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
+                               end,
                           Acc ++ io_lib:format(lists:append(["              file path: ~s\r\n",
-                                                             " number of total object: ~w\r\n"]),
-                                               [FilePath, ObjTotal]);
+                                                             " active number of objects: ~w\r\n",
+                                                             "  total number of objects: ~w\r\n",
+                                                             "   active size of objects: ~w\r\n"
+                                                             "    total size of objects: ~w\r\n",
+                                                             "    last compaction start: ~s\r\n"
+                                                             "      last compaction end: ~s\r\n\r\n"]),
+                                        [FilePath, 
+                                         Active,
+                                         Total,
+                                         ActiveSize,
+                                         TotalSize,
+                                         LatestStart1,
+                                         LatestEnd1]);
                       _Error ->
                           Acc
                   end
