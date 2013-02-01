@@ -4,7 +4,7 @@
     {vsn, "0.12.9"},
     {id,  "leo_manager"},
     {registered,   []},
-    {applications, [kernel, stdlib]},
+    {applications, [kernel, stdlib, crypto]},
     {mod, {leo_manager_app, []}},
     {env, [{system, [{n, 2},
                      {w, 1},
