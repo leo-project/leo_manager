@@ -102,6 +102,7 @@
 -define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach a node").
 -define(ERROR_COMMAND_NOT_FOUND,        "Command not exist").
 -define(ERROR_NO_NODE_SPECIFIED,        "No node specified").
+-define(ERROR_NO_CMODE_SPECIFIED,       "No compaction mode specified").
 -define(ERROR_NO_PATH_SPECIFIED,        "No path specified").
 -define(ERROR_INVALID_ARGS,             "Invalid arguments").
 

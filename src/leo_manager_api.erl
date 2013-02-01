@@ -44,7 +44,7 @@
          start/0, rebalance/0]).
 
 -export([register/4, notify/3, notify/4, purge/1,
-         whereis/2, compact/2, stats/2,
+         whereis/2, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1
         ]).
@@ -748,27 +748,38 @@ whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
 
 %% @doc Do compact.
 %%
--spec(compact(string() | atom(), integer()) ->
-             {ok, list()} | {error, any}).
-compact([], _MaxProc) ->
+-spec(compact(atom(), string() | atom(), list(), integer()) ->
+             ok | {error, any}).
+compact(_, [], _TargetPids, _MaxProc) ->
     {error, not_found};
-
-compact(Node, MaxProc) when is_list(Node) ->
-    compact(list_to_atom(Node), MaxProc);
-
-compact(Node, MaxProc) ->
+compact(Mode, Node, TargetPids, MaxProc) when is_list(Node) ->
+    compact(Mode, list_to_atom(Node), TargetPids, MaxProc);
+compact(start, Node, TargetPids, MaxProc) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_storage_api, compact, [MaxProc], infinity) of
-                Result when is_list(Result) ->
-                    {ok, Result};
-                {_, _Cause} ->
-                    {error, ?ERROR_FAILED_COMPACTION}
+            case rpc:call(Node, leo_storage_api, compact, [start, TargetPids, MaxProc], ?DEF_TIMEOUT) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    {error, Cause}
             end;
         false ->
             {error, ?ERR_TYPE_NODE_DOWN}
     end.
 
+-spec(compact(suspend | resume | status, string() | atom()) ->
+             ok | {error, any}).
+compact(Mode, Node) when is_list(Node) ->
+    compact(Mode, list_to_atom(Node));
+compact(Mode, Node) ->
+    case rpc:call(Node, leo_storage_api, compact, [Mode], ?DEF_TIMEOUT) of
+        ok ->
+            ok;
+        {ok, Status} ->
+            {ok, Status};
+        {_, Cause} ->
+            {error, Cause}
+    end.
 
 %% @doc get storage stats.
 %%
@@ -785,7 +796,7 @@ stats(Mode, Node) ->
         {ok, _} ->
             case leo_misc:node_existence(Node) of
                 true ->
-                    case rpc:call(Node, leo_object_storage_api, stats, [], infinity) of
+                    case rpc:call(Node, leo_object_storage_api, stats, [], ?DEF_TIMEOUT) of
                         not_found = Cause ->
                             {error, Cause};
                         {ok, []} ->

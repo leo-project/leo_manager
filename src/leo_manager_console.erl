@@ -203,6 +203,8 @@ handle_call(_Socket, <<?COMPACT, ?SPACE, Option/binary>> = Command, #state{forma
     Reply = case compact(Command, Option) of
                 ok ->
                     Formatter:ok();
+                {ok, Status} ->
+                    Formatter:compact_status(Status);
                 {error, Cause} ->
                     Formatter:error(Cause)
             end,
@@ -691,36 +693,44 @@ compact(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
-        [Node|Rest] ->
+            {error, ?ERROR_NO_CMODE_SPECIFIED};
+        [Mode, Node|Rest] ->
+            ModeAtom = list_to_atom(Mode),
             NodeAtom = list_to_atom(Node),
-            MaxProc = case (length(Rest) == 0) of
-                          true ->
-                              ?env_num_of_compact_proc();
-                          false ->
-                              list_to_integer(hd(Rest))
-                      end,
-            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
-                    case leo_manager_api:suspend(NodeAtom) of
-                        ok ->
-                            try
-                                case catch leo_manager_api:compact(NodeAtom, MaxProc) of
-                                    {ok, _} ->
-                                        ok;
-                                    {_, Cause} ->
-                                        {error, Cause}
-                                end
-                            after
-                                leo_manager_api:resume(NodeAtom)
-                            end;
-                        {error, Cause} ->
-                            {error, Cause}
-                    end;
-                _ ->
-                    {error, not_running}
-            end
+            case catch compact(ModeAtom, NodeAtom, Rest) of
+                ok ->
+                    ok;
+                {ok, Status} ->
+                    {ok, Status};
+                {_, Cause} ->
+                    {error, Cause}
+            end;
+        [_Mode|_Rest] ->
+            {error, ?ERROR_NO_NODE_SPECIFIED}
     end.
+
+compact(resume, Node, _) ->
+    leo_manager_api:compact(resume, Node);
+compact(suspend, Node, _) ->
+    leo_manager_api:compact(suspend, Node);
+compact(status, Node, _) ->
+    leo_manager_api:compact(status, Node);
+compact(start, Node, ["all"|Rest]) ->
+    case rpc:call(Node, leo_object_storage_api, get_object_storage_pid, [all], ?DEF_TIMEOUT) of
+        TargetPids when is_list(TargetPids) ->
+            compact(start, Node, TargetPids, Rest);
+        {_, Cause} ->
+            {error, Cause}
+    end;
+compact(start, Node, [StrTargetPids|Rest]) ->
+    StrList = string:tokens(StrTargetPids, ","),
+    AtomList = lists:map(fun erlang:list_to_atom/1, StrList),
+    compact(start, Node, AtomList, Rest).
+
+compact(start, Node, TargetPids, [MaxProc|_Rest]) ->
+    leo_manager_api:compact(start, Node, TargetPids, list_to_integer(MaxProc));
+compact(start, Node, TargetPids, []) ->
+    leo_manager_api:compact(start, Node, TargetPids, ?env_num_of_compact_proc()).
 
 
 %% @doc Retrieve information of an Assigned object

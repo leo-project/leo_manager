@@ -35,7 +35,7 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
-         du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
@@ -314,6 +314,28 @@ du(detail, StatsList) when is_list(StatsList) ->
 du(_, _) ->
     [].
 
+atomlist_to_string(AtomList, Sep) ->
+    lists:foldl(fun(Atom, Acc) ->
+                    List = atom_to_list(Atom),
+                    case Acc of
+                        [] ->
+                            List;
+                        _ ->
+                            Acc ++ Sep ++ List
+                    end
+                end, [], AtomList).
+
+compact_status({RestPids, InProgPids, LastStart}) ->
+    StrRest = atomlist_to_string(RestPids, ", "),
+    StrProg = atomlist_to_string(InProgPids, ", "),
+    StrLast = case LastStart of
+        0 -> ?NULL_DATETIME;
+        _ -> leo_date:date_format(LastStart)
+    end,
+    io_lib:format(lists:append([" last compaction start: ~s\r\n",
+                                "     rest of jobs(pid): ~s\r\n",
+                                "  ongoing of jobs(pid): ~s\r\n\r\n"]),
+                  [StrLast, StrRest, StrProg]).
 
 %% @doc Format s3-gen-key result
 %%
