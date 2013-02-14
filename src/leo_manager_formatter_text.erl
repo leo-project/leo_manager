@@ -73,36 +73,45 @@ error(Node, Cause) ->
              string()).
 help() ->
     lists:append([io_lib:format("[Cluster]\r\n", []),
-                  io_lib:format("~s\r\n",["detach ${NODE}"]),
-                  io_lib:format("~s\r\n",["suspend ${NODE}"]),
-                  io_lib:format("~s\r\n",["resume ${NODE}"]),
-                  io_lib:format("~s\r\n",["start"]),
-                  io_lib:format("~s\r\n",["rebalance"]),
-                  io_lib:format("~s\r\n",["whereis ${PATH}"]),
+                  help(?CMD_DETACH),
+                  help(?CMD_SUSPEND),
+                  help(?CMD_RESUME),
+                  help(?CMD_START),
+                  help(?CMD_REBALANCE),
+                  help(?CMD_WHEREIS),
                   ?CRLF,
                   io_lib:format("[Storage]\r\n", []),
-                  io_lib:format("~s\r\n",["du ${NODE}"]),
-                  io_lib:format("~s\r\n",["compact ${NODE} [${NUM-OF_EXEC_CONCURRENCE}]"]),
+                  help(?CMD_DU),
+                  help(?CMD_COMPACT),
                   ?CRLF,
                   io_lib:format("[Gateway]\r\n", []),
-                  io_lib:format("~s\r\n",["purge ${PATH}"]),
+                  help(?CMD_PURGE),
                   ?CRLF,
                   io_lib:format("[S3-API related]\r\n", []),
-                  io_lib:format("~s\r\n", ["create-user ${USER-ID} [${PASSWORD}]"]),
-                  io_lib:format("~s\r\n", ["delete-user ${USER-ID}"]),
-                  io_lib:format("~s\r\n", ["get-users"]),
-                  io_lib:format("~s\r\n", ["set-endpoint ${ENDPOINT}"]),
-                  io_lib:format("~s\r\n", ["get-endpoints"]),
-                  io_lib:format("~s\r\n", ["delete-endpoint ${ENDPOINT}"]),
-                  io_lib:format("~s\r\n", ["add-bucket ${BUCKET} ${ACCESS_KEY_ID}"]),
-                  io_lib:format("~s\r\n", ["get-buckets"]),
+                  help(?CMD_CREATE_USER),
+                  help(?CMD_DELETE_USER),
+                  help(?CMD_GET_USERS),
+                  help(?CMD_SET_ENDPOINT),
+                  help(?CMD_GET_ENDPOINTS),
+                  help(?CMD_DEL_ENDPOINT),
+                  help(?CMD_ADD_BUCKET),
+                  help(?CMD_GET_BUCKETS),
                   ?CRLF,
                   io_lib:format("[Misc]\r\n", []),
-                  io_lib:format("~s\r\n",["version"]),
-                  io_lib:format("~s\r\n",["status [${NODE]}"]),
-                  io_lib:format("~s\r\n",["history"]),
-                  io_lib:format("~s\r\n",["quit"]),
+                  help(?CMD_VERSION),
+                  help(?CMD_STATUS),
+                  help(?CMD_HISTORY),
+                  help(?CMD_QUIT),
                   ?CRLF]).
+
+%% @private
+help(Command) ->
+    case leo_manager_mnesia:get_available_command_by_name(Command) of
+        {ok, [#cmd_state{help = Help}|_]} ->
+            io_lib:format("~s\r\n",[Help]);
+        _ ->
+            []
+    end.
 
 
 %% Format 'version'
@@ -256,20 +265,20 @@ node_stat(State) ->
              string()).
 du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
     StartStr = case LastStart of
-        0 -> ?NULL_DATETIME;
-        _ -> leo_date:date_format(LastStart)
-    end,
+                   0 -> ?NULL_DATETIME;
+                   _ -> leo_date:date_format(LastStart)
+               end,
     EndStr = case LastEnd of
-        0 -> ?NULL_DATETIME;
-        _ -> leo_date:date_format(LastEnd)
-    end,
-    io_lib:format(lists:append([" active number of objects: ~w\r\n", 
+                 0 -> ?NULL_DATETIME;
+                 _ -> leo_date:date_format(LastEnd)
+             end,
+    io_lib:format(lists:append([" active number of objects: ~w\r\n",
                                 "  total number of objects: ~w\r\n",
                                 "   active size of objects: ~w\r\n",
                                 "    total size of objects: ~w\r\n",
                                 "    last compaction start: ~s\r\n",
                                 "      last compaction end: ~s\r\n\r\n"]),
-                  [ActiveNum, 
+                  [ActiveNum,
                    TotalNum,
                    ActiveSize,
                    TotalSize,
@@ -286,11 +295,11 @@ du(detail, StatsList) when is_list(StatsList) ->
                                           total_num  = Total,
                                           active_num = Active}} ->
                           {LatestStart1, LatestEnd1} = case length(Histories) of
-                                   0 -> {?NULL_DATETIME, ?NULL_DATETIME};
-                                   _ -> 
-                                       {StartComp, FinishComp} = hd(Histories),
-                                       {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
-                               end,
+                                                           0 -> {?NULL_DATETIME, ?NULL_DATETIME};
+                                                           _ ->
+                                                               {StartComp, FinishComp} = hd(Histories),
+                                                               {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
+                                                       end,
                           Acc ++ io_lib:format(lists:append(["              file path: ~s\r\n",
                                                              " active number of objects: ~w\r\n",
                                                              "  total number of objects: ~w\r\n",
@@ -298,13 +307,13 @@ du(detail, StatsList) when is_list(StatsList) ->
                                                              "    total size of objects: ~w\r\n",
                                                              "    last compaction start: ~s\r\n"
                                                              "      last compaction end: ~s\r\n\r\n"]),
-                                        [FilePath, 
-                                         Active,
-                                         Total,
-                                         ActiveSize,
-                                         TotalSize,
-                                         LatestStart1,
-                                         LatestEnd1]);
+                                               [FilePath,
+                                                Active,
+                                                Total,
+                                                ActiveSize,
+                                                TotalSize,
+                                                LatestStart1,
+                                                LatestEnd1]);
                       _Error ->
                           Acc
                   end
@@ -316,22 +325,22 @@ du(_, _) ->
 
 atomlist_to_string(AtomList, Sep) ->
     lists:foldl(fun(Atom, Acc) ->
-                    List = atom_to_list(Atom),
-                    case Acc of
-                        [] ->
-                            List;
-                        _ ->
-                            Acc ++ Sep ++ List
-                    end
+                        List = atom_to_list(Atom),
+                        case Acc of
+                            [] ->
+                                List;
+                            _ ->
+                                Acc ++ Sep ++ List
+                        end
                 end, [], AtomList).
 
 compact_status({RestPids, InProgPids, LastStart}) ->
     StrRest = atomlist_to_string(RestPids, ", "),
     StrProg = atomlist_to_string(InProgPids, ", "),
     StrLast = case LastStart of
-        0 -> ?NULL_DATETIME;
-        _ -> leo_date:date_format(LastStart)
-    end,
+                  0 -> ?NULL_DATETIME;
+                  _ -> leo_date:date_format(LastStart)
+              end,
     io_lib:format(lists:append([" last compaction start: ~s\r\n",
                                 "     rest of jobs(pid): ~s\r\n",
                                 "  ongoing of jobs(pid): ~s\r\n\r\n"]),

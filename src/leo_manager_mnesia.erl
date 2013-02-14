@@ -33,19 +33,13 @@
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
--define(TBL_STORAGE_NODES,  'leo_storage_nodes').
--define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
--define(TBL_SYSTEM_CONF,    'leo_system_conf').
--define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
--define(TBL_HISTORIES,      'leo_histories').
-
-
 %% API
 -export([create_storage_nodes/2,
          create_gateway_nodes/2,
          create_system_config/2,
          create_rebalance_info/2,
          create_histories/2,
+         create_available_commands/2,
 
          get_storage_nodes_all/0,
          get_storage_node_by_name/1,
@@ -56,6 +50,8 @@
          get_rebalance_info_all/0,
          get_rebalance_info_by_node/1,
          get_histories_all/0,
+         get_available_commands_all/0,
+         get_available_command_by_name/1,
 
          update_storage_node_status/1,
          update_storage_node_status/2,
@@ -63,6 +59,7 @@
          update_system_config/1,
          update_rebalance_info/1,
          insert_history/1,
+         insert_available_command/2,
 
          delete_storage_node/1
         ]).
@@ -127,12 +124,12 @@ create_system_config(Mode, Nodes) ->
        {record_name, system_conf},
        {attributes, record_info(fields, system_conf)},
        {user_properties,
-        [{version,          {integer,   undefined},  false, primary,   undefined, identity,  integer},
-         {n,                {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {r,                {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {w,                {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {d,                {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {bit_of_ring,      {integer,   undefined},  false, undefined, undefined, undefined, integer}
+        [{version,     {integer,   undefined},  false, primary,   undefined, identity,  integer},
+         {n,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {r,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {w,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {d,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {bit_of_ring, {integer,   undefined},  false, undefined, undefined, undefined, integer}
         ]}
       ]).
 
@@ -166,11 +163,27 @@ create_histories(Mode, Nodes) ->
        {record_name, history},
        {attributes, record_info(fields, history)},
        {user_properties,
-        [{id,               {integer,   undefined},  false, primary,   undefined, undefined, integer},
-         {command,          {varchar,   undefined},  false, undefined, undefined, identity,  string },
-         {created,          {integer,   undefined},  false, undifined, undefined, undefined, integer}
+        [{id,      {integer,   undefined},  false, primary,   undefined, undefined, integer},
+         {command, {varchar,   undefined},  false, undefined, undefined, identity,  string },
+         {created, {integer,   undefined},  false, undifined, undefined, undefined, integer}
         ]}
       ]).
+
+
+create_available_commands(Mode, Nodes) ->
+    mnesia:create_table(
+      ?TBL_AVAILABLE_CMDS,
+      [{Mode, Nodes},
+       {type, set},
+       {record_name, cmd_state},
+       {attributes, record_info(fields, cmd_state)},
+       {user_properties,
+        [{name,  {varchar,   undefined},  false, primary,   undefined, identity,  string },
+         {help,  {varchar,   undefined},  false, undefined, undefined, identity,  string },
+         {state, {boolean,   undefined},  false, undifined, undefined, undefined, boolean}
+        ]}
+      ]).
+
 
 %%-----------------------------------------------------------------------
 %% GET
@@ -257,6 +270,7 @@ get_system_config({ok, [H|_]}) ->
 get_system_config(Other) ->
     Other.
 
+
 %% @doc Retrieve rebalance info
 %%
 -spec(get_rebalance_info_all() ->
@@ -284,7 +298,7 @@ get_rebalance_info_by_node(Node) ->
     leo_mnesia:read(F).
 
 
-%% @doc get all histories
+%% @doc Retrieve all histories
 %%
 -spec(get_histories_all() ->
              {ok, list()} | not_found | {error, any()}).
@@ -295,6 +309,32 @@ get_histories_all() ->
                 qlc:e(Q2)
         end,
     leo_mnesia:read(F).
+
+
+%% @doc Retrieve all available commands
+%%
+get_available_commands_all() ->
+    F = fun() ->
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_AVAILABLE_CMDS)]),
+                Q2 = qlc:sort(Q1, [{order, ascending}]),
+                qlc:e(Q2)
+        end,
+    leo_mnesia:read(F).
+
+
+%% @doc Retrieve available command by name
+%%
+-spec(get_available_command_by_name(atom()) ->
+             {ok, list()} | not_found | {error, any()}).
+get_available_command_by_name(Name) ->
+    F = fun() ->
+                Q1 = qlc:q([X || X <- mnesia:table(?TBL_AVAILABLE_CMDS),
+                                 X#cmd_state.name =:= Name]),
+                Q2 = qlc:sort(Q1, [{order, ascending}]),
+                qlc:e(Q2)
+        end,
+    leo_mnesia:read(F).
+
 
 %%-----------------------------------------------------------------------
 %% UPDATE
@@ -420,6 +460,14 @@ insert_history(Command) ->
                                                                created = leo_date:now()}, write) end,
             leo_mnesia:write(F)
     end.
+
+
+insert_available_command(Command, Help) ->
+    F = fun() -> mnesia:write(?TBL_AVAILABLE_CMDS,
+                              #cmd_state{name = Command,
+                                         help = Help,
+                                         available = true}, write) end,
+    leo_mnesia:write(F).
 
 
 %%-----------------------------------------------------------------------

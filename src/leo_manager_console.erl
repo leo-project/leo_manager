@@ -38,6 +38,7 @@
 -export([start_link/2, stop/0]).
 -export([init/1, handle_call/3]).
 
+
 %%----------------------------------------------------------------------
 %% API
 %%----------------------------------------------------------------------
@@ -59,14 +60,16 @@ init([Formatter]) ->
 %%----------------------------------------------------------------------
 %% Operation-1
 %%----------------------------------------------------------------------
-handle_call(_Socket, <<?HELP>>, #state{formatter = Formatter} = State) ->
-    Reply = Formatter:help(),
+handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter = Formatter} = State) ->
+    Fun = fun() -> Formatter:help()
+          end,
+    Reply = invoke(?CMD_HELP, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "version"
 %%
-handle_call(_Socket, <<?VERSION>>, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_VERSION, ?CRLF>>, #state{formatter = Formatter} = State) ->
     {ok, Version} = version(),
     Reply = Formatter:version(Version),
     {reply, Reply, State};
@@ -106,79 +109,97 @@ handle_call(_Socket, <<?LOGIN, ?SPACE, Option/binary>> = Command, #state{formatt
 %% Command: "status"
 %% Command: "status ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?STATUS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case status(Command, Option) of
-                {ok, {node_list, Props}} ->
-                    Formatter:system_info_and_nodes_stat(Props);
-                {ok, NodeStatus} ->
-                    Formatter:node_stat(NodeStatus);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case status(Command, Option) of
+                      {ok, {node_list, Props}} ->
+                          Formatter:system_info_and_nodes_stat(Props);
+                      {ok, NodeStatus} ->
+                          Formatter:node_stat(NodeStatus);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_STATUS, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command : "detach ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?DETACH_SERVER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case detach(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {error, {Node, Cause}} ->
-                    Formatter:error(Node, Cause);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case detach(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, {Node, Cause}} ->
+                          Formatter:error(Node, Cause);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DETACH, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "suspend ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?SUSPEND, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case suspend(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_SUSPEND, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case suspend(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_SUSPEND, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "resume ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?RESUME, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case resume(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case resume(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_RESUME, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?START>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case start(Command) of
-                ok ->
-                    Formatter:ok();
-                {error, {bad_nodes, BadNodes}} ->
-                    Formatter:bad_nodes(BadNodes);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_START, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case start(Command) of
+                      ok ->
+                          Formatter:ok();
+                      {error, {bad_nodes, BadNodes}} ->
+                          Formatter:bad_nodes(BadNodes);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_START, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?REBALANCE>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case rebalance(Command) of
-                ok ->
-                    Formatter:ok();
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_REBALANCE, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case rebalance(Command) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_REBALANCE, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -187,27 +208,33 @@ handle_call(_Socket, <<?REBALANCE>> = Command, #state{formatter = Formatter} = S
 %%----------------------------------------------------------------------
 %% Command: "du ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?STORAGE_STATS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case du(Command, Option) of
-                {ok, {Option1, StorageStats}} ->
-                    Formatter:du(Option1, StorageStats);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_DU, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case du(Command, Option) of
+                      {ok, {Option1, StorageStats}} ->
+                          Formatter:du(Option1, StorageStats);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DU, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "compact ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?COMPACT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case compact(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {ok, Status} ->
-                    Formatter:compact_status(Status);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case compact(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {ok, Status} ->
+                          Formatter:compact_status(Status);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_COMPACT, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -216,173 +243,212 @@ handle_call(_Socket, <<?COMPACT, ?SPACE, Option/binary>> = Command, #state{forma
 %%----------------------------------------------------------------------
 %% Command: "create-user ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?S3_CREATE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_create_user(Command, Option) of
-                {ok, PropList} ->
-                    AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
-                    SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
-                    Formatter:s3_credential(AccessKeyId, SecretAccessKey);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_create_user(Command, Option) of
+                      {ok, PropList} ->
+                          AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
+                          SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
+                          Formatter:s3_credential(AccessKeyId, SecretAccessKey);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_CREATE_USER, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "update-user-role ${USER_ID} ${ROLE}"
 %%
-handle_call(_Socket, <<?S3_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_update_user_role(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                not_found = Cause ->
-                    Formatter:error(Cause);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_update_user_role(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      not_found = Cause ->
+                          Formatter:error(Cause);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_USER_ROLE, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "update-user-password ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?S3_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_update_user_password(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                not_found = Cause ->
-                    Formatter:error(Cause);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_update_user_password(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      not_found = Cause ->
+                          Formatter:error(Cause);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_USER_PW, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "delete-user ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?S3_DELETE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_delete_user(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                not_found = Cause ->
-                    Formatter:error(Cause);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_delete_user(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      not_found = Cause ->
+                          Formatter:error(Cause);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DELETE_USER, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "get-users"
 %%
-handle_call(_Socket, <<?S3_GET_USERS>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_get_users(Command) of
-                {ok, List} ->
-                    Formatter:s3_users(List);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_get_users(Command) of
+                      {ok, List} ->
+                          Formatter:s3_users(List);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_GET_USERS, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "set-endpoint ${END_POINT}"
 %%
-handle_call(_Socket, <<?S3_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_set_endpoint(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_set_endpoint(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_SET_ENDPOINT, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "get-endpoints"
 %%
-handle_call(_Socket, <<?S3_GET_ENDPOINTS>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_get_endpoints(Command) of
-                {ok, EndPoints} ->
-                    Formatter:endpoints(EndPoints);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_get_endpoints(Command) of
+                      {ok, EndPoints} ->
+                          Formatter:endpoints(EndPoints);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_GET_ENDPOINTS, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "del-endpoint ${END_POINT}"
 %%
-handle_call(_Socket, <<?S3_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_del_endpoint(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_del_endpoint(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DEL_ENDPOINT, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "get-buckets"
 %%
-handle_call(_Socket, <<?S3_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_add_bucket(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_add_bucket(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_ADD_BUCKET, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "get-buckets"
 %%
-handle_call(_Socket, <<?S3_GET_BUCKETS>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case s3_get_buckets(Command) of
-                {ok, Buckets} ->
-                    Formatter:buckets(Buckets);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case s3_get_buckets(Command) of
+                      {ok, Buckets} ->
+                          Formatter:buckets(Buckets);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_GET_BUCKETS, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "whereis ${PATH}"
 %%
-handle_call(_Socket, <<?WHEREIS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case whereis(Command, Option) of
-                {ok, AssignedInfo} ->
-                    Formatter:whereis(AssignedInfo);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case whereis(Command, Option) of
+                      {ok, AssignedInfo} ->
+                          Formatter:whereis(AssignedInfo);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_WHEREIS, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "purge ${PATH}"
 %%
-handle_call(_Socket, <<?PURGE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
-    Reply = case purge(Command, Option) of
-                ok ->
-                    Formatter:ok();
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case purge(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_PURGE, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "history"
 %%
-handle_call(_Socket, <<?HISTORY>>, #state{formatter = Formatter} = State) ->
-    Reply = case leo_manager_mnesia:get_histories_all() of
-                {ok, Histories} ->
-                    Formatter:histories(Histories);
-                not_found ->
-                    Formatter:histories([]);
-                {error, Cause} ->
-                    Formatter:error(Cause)
-            end,
+handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case leo_manager_mnesia:get_histories_all() of
+                      {ok, Histories} ->
+                          Formatter:histories(Histories);
+                      not_found ->
+                          Formatter:histories([]);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_HISTORY, Formatter, Fun),
     {reply, Reply, State};
 
 
 %% Command: "quit"
 %%
-handle_call(_Socket, <<?QUIT>>, State) ->
+handle_call(_Socket, <<?CMD_QUIT, ?CRLF>>, State) ->
     {close, <<?BYE>>, State};
 
 
@@ -398,6 +464,19 @@ handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
 %%----------------------------------------------------------------------
 %% Inner function(s)
 %%----------------------------------------------------------------------
+%% Invoke a command
+%% @private
+-spec(invoke(string(), atom(), function()) ->
+             string()).
+invoke(Command, Formatter, Fun) ->
+    case leo_manager_mnesia:get_available_command_by_name(Command) of
+        not_found ->
+            Formatter:error(?ERROR_COMMAND_NOT_FOUND);
+        _ ->
+            Fun()
+    end.
+
+
 %% @doc Retrieve version of the system
 %% @private
 -spec(version() ->

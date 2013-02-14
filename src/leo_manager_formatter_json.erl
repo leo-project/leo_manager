@@ -40,7 +40,7 @@
          whereis/1, histories/1
         ]).
 
--define(NULL_DATETIME, "----/--/-- --:--:--").
+-define(NULL_DATETIME, "____-_-__- __:__:__").
 
 -define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
 -define(output_error_1(Cause), gen_json({[{error, list_to_binary(Cause)}]})).
@@ -207,21 +207,21 @@ node_stat(State) ->
              string()).
 du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
     StartStr = case LastStart of
-        0 -> ?NULL_DATETIME;
-        _ -> leo_date:date_format(LastStart)
-    end,
+                   0 -> ?NULL_DATETIME;
+                   _ -> leo_date:date_format(LastStart)
+               end,
     EndStr = case LastEnd of
-        0 -> ?NULL_DATETIME;
-        _ -> leo_date:date_format(LastEnd)
-    end,
+                 0 -> ?NULL_DATETIME;
+                 _ -> leo_date:date_format(LastEnd)
+             end,
     gen_json({[
-        {<<"active_num_of_objects">>,  ActiveNum},
-        {<<"total_num_of_objects">>,   TotalNum},
-        {<<"active_size_of_objects">>, ActiveSize},
-        {<<"total_size_of_objects">>,  TotalSize},
-        {<<"last_compaction_start">>,  list_to_binary(StartStr)},
-        {<<"last_compaction_end">>,    list_to_binary(EndStr)}
-    ]});
+               {<<"active_num_of_objects">>,  ActiveNum},
+               {<<"total_num_of_objects">>,   TotalNum},
+               {<<"active_size_of_objects">>, ActiveSize},
+               {<<"total_size_of_objects">>,  TotalSize},
+               {<<"last_compaction_start">>,  list_to_binary(StartStr)},
+               {<<"last_compaction_end">>,    list_to_binary(EndStr)}
+              ]});
 
 du(detail, StatsList) when is_list(StatsList) ->
     JSON = lists:map(fun({ok, #storage_stats{file_path   = FilePath,
@@ -230,19 +230,20 @@ du(detail, StatsList) when is_list(StatsList) ->
                                              active_sizes = ActiveSize,
                                              total_num  = Total,
                                              active_num = Active}}) ->
-                          {LatestStart1, LatestEnd1} = case length(Histories) of
-                                   0 -> {?NULL_DATETIME, ?NULL_DATETIME};
-                                   _ -> 
-                                       {StartComp, FinishComp} = hd(Histories),
-                                       {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
-                               end,
-                             {[{<<"file_path">>,        list_to_binary(FilePath)},
-                               {<<"active_num_of_objects">>, Active},
-                               {<<"total_num_of_objects">>, Total},
+                             {LatestStart1, LatestEnd1} =
+                                 case length(Histories) of
+                                     0 -> {?NULL_DATETIME, ?NULL_DATETIME};
+                                     _ ->
+                                         {StartComp, FinishComp} = hd(Histories),
+                                         {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
+                                 end,
+                             {[{<<"file_path">>,              list_to_binary(FilePath)},
+                               {<<"active_num_of_objects">>,  Active},
+                               {<<"total_num_of_objects">>,   Total},
                                {<<"active_size_of_objects">>, ActiveSize},
-                               {<<"total_size_of_objects">>, TotalSize},
-                               {<<"last_compaction_start">>, list_to_binary(LatestStart1)},
-                               {<<"last_compaction_end">>, list_to_binary(LatestEnd1)}
+                               {<<"total_size_of_objects">>,  TotalSize},
+                               {<<"last_compaction_start">>,  list_to_binary(LatestStart1)},
+                               {<<"last_compaction_end">>,    list_to_binary(LatestEnd1)}
                               ]};
                         (_) ->
                              []
@@ -251,16 +252,18 @@ du(detail, StatsList) when is_list(StatsList) ->
 du(_, _) ->
     gen_json([]).
 
+
 compact_status({RestPids, InProgPids, LastStart}) ->
     StrLast = case LastStart of
-        0 -> ?NULL_DATETIME;
-        _ -> leo_date:date_format(LastStart)
-    end,
+                  0 -> ?NULL_DATETIME;
+                  _ -> leo_date:date_format(LastStart)
+              end,
     gen_json({[
                {last_compaction_start, list_to_binary(StrLast)},
                {rest_ob_jobs, RestPids},
                {ongoing_of_jobs, InProgPids}
               ]}).
+
 
 %% @doc Format s3-gen-key result
 %%
