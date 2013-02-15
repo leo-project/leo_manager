@@ -34,9 +34,8 @@
                      {d, 1},
                      {bit_of_ring, 128}
                      ]},
-           {avaiable_commands, all},
-           {log_level,         0},
-           {log_appender,      [file]}
+           {log_level,    0},
+           {log_appender, [file]}
           ]}
   ]
 }.

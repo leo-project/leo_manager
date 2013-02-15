@@ -252,7 +252,7 @@
         end).
 
 -define(env_available_commands(),
-        case application:get_env(leo_manager, avaiable_commands) of
+        case application:get_env(leo_manager, available_commands) of
             {ok, EnvAvailableCommands} -> EnvAvailableCommands;
             _ -> all
         end).

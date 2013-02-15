@@ -212,22 +212,24 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 {atomic,ok} = mnesia:clear_table(?TBL_AVAILABLE_CMDS),
 
                 case ?env_available_commands() of
-                    all  -> lists:foreach(
-                              fun({C, H}) ->
-                                      leo_manager_mnesia:insert_available_command(C,H)
-                              end, ?COMMANDS);
-                    CmdL -> lists:foreach(
-                              fun({C1, H}) ->
-                                      case lists:foldl(
-                                             fun(C2, false) when C1 == C2 -> true;
-                                                (_,  Ret) -> Ret
-                                             end, false, CmdL) of
-                                          true ->
-                                              leo_manager_mnesia:insert_available_command(C1,H);
-                                          false ->
-                                              void
-                                      end
-                              end, ?COMMANDS)
+                    all ->
+                        lists:foreach(
+                          fun({C, H}) ->
+                                  leo_manager_mnesia:insert_available_command(C,H)
+                          end, ?COMMANDS);
+                    CmdL ->
+                        lists:foreach(
+                          fun({C1, H}) ->
+                                  case lists:foldl(
+                                         fun(C2, false) when C1 == C2 -> true;
+                                            (_,  Ret) -> Ret
+                                         end, false, CmdL) of
+                                      true ->
+                                          leo_manager_mnesia:insert_available_command(C1,H);
+                                      false ->
+                                          void
+                                  end
+                          end, ?COMMANDS)
                 end,
 
                 %% Insert test-credential-related values:
