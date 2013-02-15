@@ -103,10 +103,16 @@
                    {?CMD_WHEREIS,       "whereis ${PATH}"},
                    {?CMD_DETACH,        "detach ${NODE}"},
                    {?CMD_SUSPEND,       "suspend ${NODE}"},
+                   {?CMD_RESUME,        "resume ${NODE}"},
                    {?CMD_DETACH,        "detach ${NODE}"},
                    {?CMD_START,         "start"},
                    {?CMD_REBALANCE,     "rebalance"},
-                   {?CMD_COMPACT,       "compact ${NODE} [${NUM-OF_EXEC_CONCURRENCE}]"},
+                   {?CMD_COMPACT,       lists:append(
+                                          ["compact start ${storage-node} all|${storage_pids} [${num_of_compact_proc}]", ?CRLF,
+                                           "compact suspend ${storage-node}", ?CRLF,
+                                           "compact resume  ${storage-node}", ?CRLF,
+                                           "compact status  ${storage-node} "
+                                          ])},
                    {?CMD_DU,            "du ${NODE}"},
                    {?CMD_PURGE,         "purge ${PATH}"},
                    {?CMD_CREATE_USER,   "create-user ${USER-ID} [${PASSWORD}]"},
