@@ -40,7 +40,7 @@
          authorized/0, user_id/0, password/0
         ]).
 
--define(NULL_DATETIME, "----/--/-- --:--:--").
+-define(NULL_DATETIME, "____-__-__ --:--:--").
 
 %% @doc Format 'ok'
 %%
