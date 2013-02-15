@@ -40,8 +40,20 @@
 
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
 
+
+%% manager-related tables:
+-define(TBL_STORAGE_NODES,  'leo_storage_nodes').
+-define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
+-define(TBL_SYSTEM_CONF,    'leo_system_conf').
+-define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
+-define(TBL_HISTORIES,      'leo_histories').
+-define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
+
+
 %% command-related.
 -define(COMMAND_ERROR,        "Command Error").
+-define(COMMAND_DELIMITER,    " \r\n").
+
 -define(OK,                   "OK\r\n").
 -define(ERROR,                "ERROR\r\n").
 -define(CRLF,                 "\r\n").
@@ -51,49 +63,78 @@
 -define(DELETED,              "DELETED\r\n").
 -define(NOT_FOUND,            "NOT FOUND\r\n").
 -define(SERVER_ERROR,         "SERVER_ERROR").
-
--define(HELP,                 "help\r\n").
--define(QUIT,                 "quit\r\n").
 -define(BYE,                  "BYE\r\n").
--define(COMMAND_DELIMITER,    " \r\n").
--define(VERSION,              "version\r\n").
--define(STATUS,               "status").
--define(ATTACH_SERVER,        "attach").
--define(DETACH_SERVER,        "detach").
--define(SUSPEND,              "suspend").
--define(RESUME,               "resume").
--define(START,                "start\r\n").
--define(REBALANCE,            "rebalance\r\n").
--define(COMPACT,              "compact").
 
--define(S3_CREATE_USER,       "create-user").
--define(S3_UPDATE_USER_ROLE,  "update-user-role").
--define(S3_UPDATE_USER_PW,    "update-user-password").
--define(S3_DELETE_USER,       "delete-user").
-
--define(S3_GET_USERS,         "get-users\r\n").
--define(S3_SET_ENDPOINT,      "set-endpoint").
--define(S3_DEL_ENDPOINT,      "delete-endpoint").
--define(S3_GET_ENDPOINTS,     "get-endpoints\r\n").
--define(S3_ADD_BUCKET,        "add-bucket").
--define(S3_GET_BUCKETS,       "get-buckets\r\n").
-
--define(STORAGE_STATS,        "du").
--define(WHEREIS,              "whereis").
--define(HISTORY,              "history\r\n").
--define(PURGE,                "purge").
-
+-define(CMD_HELP,             "help").
+-define(CMD_QUIT,             "quit").
+-define(CMD_VERSION,          "version").
+-define(CMD_STATUS,           "status").
+-define(CMD_ATTACH,           "attach").
+-define(CMD_DETACH,           "detach").
+-define(CMD_SUSPEND,          "suspend").
+-define(CMD_RESUME,           "resume").
+-define(CMD_START,            "start").
+-define(CMD_REBALANCE,        "rebalance").
+-define(CMD_COMPACT,          "compact").
+-define(CMD_CREATE_USER,      "create-user").
+-define(CMD_UPDATE_USER_ROLE, "update-user-role").
+-define(CMD_UPDATE_USER_PW,   "update-user-password").
+-define(CMD_DELETE_USER,      "delete-user").
+-define(CMD_GET_USERS,        "get-users").
+-define(CMD_SET_ENDPOINT,     "set-endpoint").
+-define(CMD_DEL_ENDPOINT,     "delete-endpoint").
+-define(CMD_GET_ENDPOINTS,    "get-endpoints").
+-define(CMD_ADD_BUCKET,       "add-bucket").
+-define(CMD_GET_BUCKETS,      "get-buckets").
+-define(CMD_DU,               "du").
+-define(CMD_WHEREIS,          "whereis").
+-define(CMD_HISTORY,          "history").
+-define(CMD_PURGE,            "purge").
 -define(LOGIN,                "login").
 -define(AUTHORIZED,           <<"_authorized_\r\n">>).
 -define(USER_ID,              <<"_user_id_\r\n">>).
 -define(PASSWORD,             <<"_password_\r\n">>).
 
+-define(COMMANDS, [{?CMD_HELP,          "help"},
+                   {?CMD_QUIT,          "quit"},
+                   {?CMD_VERSION,       "version"},
+                   {?CMD_STATUS,        "status [${NODE]}"},
+                   {?CMD_HISTORY,       "history"},
+                   {?CMD_WHEREIS,       "whereis ${PATH}"},
+                   {?CMD_DETACH,        "detach ${NODE}"},
+                   {?CMD_SUSPEND,       "suspend ${NODE}"},
+                   {?CMD_RESUME,        "resume ${NODE}"},
+                   {?CMD_DETACH,        "detach ${NODE}"},
+                   {?CMD_START,         "start"},
+                   {?CMD_REBALANCE,     "rebalance"},
+                   {?CMD_COMPACT,       lists:append(
+                                          ["compact start ${storage-node} all|${storage_pids} [${num_of_compact_proc}]", ?CRLF,
+                                           "compact suspend ${storage-node}", ?CRLF,
+                                           "compact resume  ${storage-node}", ?CRLF,
+                                           "compact status  ${storage-node} "
+                                          ])},
+                   {?CMD_DU,            "du ${NODE}"},
+                   {?CMD_PURGE,         "purge ${PATH}"},
+                   {?CMD_CREATE_USER,   "create-user ${USER-ID} [${PASSWORD}]"},
+                   {?CMD_DELETE_USER,   "delete-user ${USER-ID}"},
+                   {?CMD_GET_USERS,     "get-users"},
+                   {?CMD_SET_ENDPOINT,  "set-endpoint ${ENDPOINT}"},
+                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${ENDPOINT}"},
+                   {?CMD_GET_ENDPOINTS, "get-endpoints"},
+                   {?CMD_ADD_BUCKET,    "add-bucket ${BUCKET} ${ACCESS_KEY_ID}"},
+                   {?CMD_GET_BUCKETS,   "get-buckets"}
+                  ]).
+-record(cmd_state, {name :: string(),
+                    help :: string(),
+                    available = true :: boolean()
+                   }).
 
 %% membership.
 -define(DEF_NUM_OF_ERROR_COUNT, 3).
 
 %% error.
 -define(ERROR_COULD_NOT_CONNECT,        "Could not connect").
+-define(ERROR_NODE_NOT_EXISTS,          "Node not exist").
 -define(ERROR_FAILED_COMPACTION,        "Failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS, "Failed to get storage stats").
 -define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").
@@ -101,6 +142,7 @@
 -define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach a node").
 -define(ERROR_COMMAND_NOT_FOUND,        "Command not exist").
 -define(ERROR_NO_NODE_SPECIFIED,        "No node specified").
+-define(ERROR_NO_CMODE_SPECIFIED,       "No compaction mode specified").
 -define(ERROR_NO_PATH_SPECIFIED,        "No path specified").
 -define(ERROR_INVALID_ARGS,             "Invalid arguments").
 
@@ -207,5 +249,11 @@
         case application:get_env(leo_manager, num_of_compact_proc) of
             {ok, EnvConsoleNumOfCompactProc} -> EnvConsoleNumOfCompactProc;
             _ -> 3
+        end).
+
+-define(env_available_commands(),
+        case application:get_env(leo_manager, available_commands) of
+            {ok, EnvAvailableCommands} -> EnvAvailableCommands;
+            _ -> all
         end).
 

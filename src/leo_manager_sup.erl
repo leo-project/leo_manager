@@ -194,6 +194,7 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes1),
                 leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes1),
                 leo_manager_mnesia:create_histories(disc_copies, Nodes1),
+                leo_manager_mnesia:create_available_commands(disc_copies, Nodes1),
 
                 leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes1),
                 leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes1),
@@ -207,12 +208,31 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
 
                 {ok, _} = load_system_config_with_store_data(),
 
-                %% PUT console-related values:
-                %% ConsoleUserId   = ?env_console_user_id(),
-                %% ConsolePassword = ?env_console_password(),
-                %% leo_s3_user:add(ConsoleUserId, ConsolePassword, true),
+                %% Clear and Insert available-commands:
+                {atomic,ok} = mnesia:clear_table(?TBL_AVAILABLE_CMDS),
 
-                %% PUT test-credential-related values:
+                case ?env_available_commands() of
+                    all ->
+                        lists:foreach(
+                          fun({C, H}) ->
+                                  leo_manager_mnesia:insert_available_command(C,H)
+                          end, ?COMMANDS);
+                    CmdL ->
+                        lists:foreach(
+                          fun({C1, H}) ->
+                                  case lists:foldl(
+                                         fun(C2, false) when C1 == C2 -> true;
+                                            (_,  Ret) -> Ret
+                                         end, false, CmdL) of
+                                      true ->
+                                          leo_manager_mnesia:insert_available_command(C1,H);
+                                      false ->
+                                          void
+                                  end
+                          end, ?COMMANDS)
+                end,
+
+                %% Insert test-credential-related values:
                 TestUserId    = "_test_leofs",
                 TestAccessKey = <<"05236">>,
                 TestSecretKey = <<"802562235">>,
@@ -231,7 +251,7 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                                                                  secret_access_key = TestSecretKey,
                                                                  created_at        = CreatedAt}}),
 
-                %% PUT default s3-endpoint values:
+                %% Insert default s3-endpoint values:
                 leo_s3_endpoint:set_endpoint(<<"localhost">>),
                 leo_s3_endpoint:set_endpoint(<<"s3.amazonaws.com">>),
                 ok

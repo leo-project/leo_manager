@@ -44,7 +44,7 @@
          start/0, rebalance/0]).
 
 -export([register/4, notify/3, notify/4, purge/1,
-         whereis/2, compact/2, stats/2,
+         whereis/2, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1
         ]).
@@ -172,7 +172,6 @@ get_nodes(Node) ->
     {ok, Res}.
 
 
-
 %%----------------------------------------------------------------------
 %% API-Function(s) - Operate for the Cluster nodes.
 %%----------------------------------------------------------------------
@@ -202,19 +201,24 @@ attach(Node) ->
 -spec(suspend(string()) ->
              ok | {error, any()}).
 suspend(Node) ->
-    case leo_misc:node_existence(Node) of
+    case leo_redundant_manager_api:has_member(Node) of
         true ->
-            case leo_manager_mnesia:update_storage_node_status(
-                   update_state, #node_state{node  = Node,
-                                             state = ?STATE_SUSPEND}) of
-                ok ->
-                    Res = leo_redundant_manager_api:suspend(Node, leo_date:clock()),
-                    distribute_members(Res, []);
-                Error ->
-                    Error
+            case leo_misc:node_existence(Node) of
+                true ->
+                    case leo_manager_mnesia:update_storage_node_status(
+                           update_state, #node_state{node  = Node,
+                                                     state = ?STATE_SUSPEND}) of
+                        ok ->
+                            Res = leo_redundant_manager_api:suspend(Node, leo_date:clock()),
+                            distribute_members(Res, []);
+                        Error ->
+                            Error
+                    end;
+                false ->
+                    {error, ?ERROR_COULD_NOT_CONNECT}
             end;
         false ->
-            {error, ?ERROR_COULD_NOT_CONNECT}
+            {error, ?ERROR_NODE_NOT_EXISTS}
     end.
 
 
@@ -243,7 +247,7 @@ detach(Node) ->
                     Error
             end;
         false ->
-            {error, not_fouund}
+            {error, ?ERROR_NODE_NOT_EXISTS}
     end.
 
 
@@ -252,8 +256,13 @@ detach(Node) ->
 -spec(resume(atom()) ->
              ok | {error, any()}).
 resume(Node) ->
-    Res = leo_misc:node_existence(Node),
-    resume(is_alive, Res, Node).
+    case leo_redundant_manager_api:has_member(Node) of
+        true ->
+            Res = leo_misc:node_existence(Node),
+            resume(is_alive, Res, Node);
+        false ->
+            {error, ?ERROR_NODE_NOT_EXISTS}
+    end.
 
 -spec(resume(is_alive | is_state | sync | distribute | last, any(), atom()) ->
              any() | {error, any()}).
@@ -384,6 +393,7 @@ start() ->
             ?error("start/0", "cause:~p", [Cause]),
             {error, Cause}
     end.
+
 
 %% @doc Do Rebalance which affect all storage-nodes in operation.
 %% [process flow]
@@ -738,27 +748,38 @@ whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
 
 %% @doc Do compact.
 %%
--spec(compact(string() | atom(), integer()) ->
-             {ok, list()} | {error, any}).
-compact([], _MaxProc) ->
+-spec(compact(atom(), string() | atom(), list(), integer()) ->
+             ok | {error, any}).
+compact(_, [], _TargetPids, _MaxProc) ->
     {error, not_found};
-
-compact(Node, MaxProc) when is_list(Node) ->
-    compact(list_to_atom(Node), MaxProc);
-
-compact(Node, MaxProc) ->
+compact(Mode, Node, TargetPids, MaxProc) when is_list(Node) ->
+    compact(Mode, list_to_atom(Node), TargetPids, MaxProc);
+compact(start, Node, TargetPids, MaxProc) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_storage_api, compact, [MaxProc], infinity) of
-                Result when is_list(Result) ->
-                    {ok, Result};
-                {_, _Cause} ->
-                    {error, ?ERROR_FAILED_COMPACTION}
+            case rpc:call(Node, leo_storage_api, compact, [start, TargetPids, MaxProc], ?DEF_TIMEOUT) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    {error, Cause}
             end;
         false ->
             {error, ?ERR_TYPE_NODE_DOWN}
     end.
 
+-spec(compact(suspend | resume | status, string() | atom()) ->
+             ok | {error, any}).
+compact(Mode, Node) when is_list(Node) ->
+    compact(Mode, list_to_atom(Node));
+compact(Mode, Node) ->
+    case rpc:call(Node, leo_storage_api, compact, [Mode], ?DEF_TIMEOUT) of
+        ok ->
+            ok;
+        {ok, Status} ->
+            {ok, Status};
+        {_, Cause} ->
+            {error, Cause}
+    end.
 
 %% @doc get storage stats.
 %%
@@ -775,7 +796,7 @@ stats(Mode, Node) ->
         {ok, _} ->
             case leo_misc:node_existence(Node) of
                 true ->
-                    case rpc:call(Node, leo_object_storage_api, stats, [], infinity) of
+                    case rpc:call(Node, leo_object_storage_api, stats, [], ?DEF_TIMEOUT) of
                         not_found = Cause ->
                             {error, Cause};
                         {ok, []} ->
@@ -791,12 +812,28 @@ stats(Mode, Node) ->
     end.
 
 stats1(summary, List) ->
-    {ok, lists:foldl(fun({ok, #storage_stats{total_sizes = FileSize,
-                                             total_num   = ObjTotal}}, {CurSize, CurTotal}) ->
-                             {CurSize + FileSize, CurTotal + ObjTotal}
-                     end, {0,0}, List)};
+    {ok, lists:foldl(fun({ok, #storage_stats{file_path  = _ObjPath,
+                                             compaction_histories = Histories,
+                                             total_sizes = TotalSize,
+                                             active_sizes = ActiveSize,
+                                             total_num  = Total,
+                                             active_num = Active}}, {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
+                               {LatestStart1, LatestEnd1} = case length(Histories) of
+                                   0 -> {LatestStart, LatestEnd};
+                                   _ -> 
+                                       {StartComp, FinishComp} = hd(Histories),
+                                       {max(LatestStart, StartComp), max(LatestEnd, FinishComp)}
+                               end,
+                               {SumTotal + Total, 
+                                SumActive + Active,
+                                SumTotalSize + TotalSize,
+                                SumActiveSize + ActiveSize,
+                                LatestStart1,
+                                LatestEnd1}
+                       end, {0, 0, 0, 0, 0, 0}, List)};
 stats1(detail, List) ->
     {ok, List}.
+
 
 %% @doc Synchronize Members and Ring (both New and Old).
 %%
@@ -954,8 +991,7 @@ compare_local_chksum_with_remote_chksum( Type, Node,_Checksum0,_Checksum1,_Remot
     synchronize1(Type, Node).
 
 
-
-%% @doc
+%% @doc Insert an endpoint
 %%
 -spec(set_endpoint(binary()) ->
              ok | {error, any()}).

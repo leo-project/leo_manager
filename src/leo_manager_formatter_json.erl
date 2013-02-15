@@ -36,9 +36,11 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
-         du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
         ]).
+
+-define(NULL_DATETIME, "____-_-__- __:__:__").
 
 -define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
 -define(output_error_1(Cause), gen_json({[{error, list_to_binary(Cause)}]})).
@@ -201,16 +203,47 @@ node_stat(State) ->
 
 %% @doc Format storage stats
 %%
--spec(du(summary | detail, {integer(), integer()} | list()) ->
+-spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
              string()).
-du(summary, {_, Total}) ->
-    gen_json({[{<<"total_of_objects">>, Total}]});
+du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
+    StartStr = case LastStart of
+                   0 -> ?NULL_DATETIME;
+                   _ -> leo_date:date_format(LastStart)
+               end,
+    EndStr = case LastEnd of
+                 0 -> ?NULL_DATETIME;
+                 _ -> leo_date:date_format(LastEnd)
+             end,
+    gen_json({[
+               {<<"active_num_of_objects">>,  ActiveNum},
+               {<<"total_num_of_objects">>,   TotalNum},
+               {<<"active_size_of_objects">>, ActiveSize},
+               {<<"total_size_of_objects">>,  TotalSize},
+               {<<"last_compaction_start">>,  list_to_binary(StartStr)},
+               {<<"last_compaction_end">>,    list_to_binary(EndStr)}
+              ]});
 
 du(detail, StatsList) when is_list(StatsList) ->
     JSON = lists:map(fun({ok, #storage_stats{file_path   = FilePath,
-                                             total_num   = ObjTotal}}) ->
-                             {[{<<"file_path">>,        list_to_binary(FilePath)},
-                               {<<"total_of_objects">>, ObjTotal}
+                                             compaction_histories = Histories,
+                                             total_sizes = TotalSize,
+                                             active_sizes = ActiveSize,
+                                             total_num  = Total,
+                                             active_num = Active}}) ->
+                             {LatestStart1, LatestEnd1} =
+                                 case length(Histories) of
+                                     0 -> {?NULL_DATETIME, ?NULL_DATETIME};
+                                     _ ->
+                                         {StartComp, FinishComp} = hd(Histories),
+                                         {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
+                                 end,
+                             {[{<<"file_path">>,              list_to_binary(FilePath)},
+                               {<<"active_num_of_objects">>,  Active},
+                               {<<"total_num_of_objects">>,   Total},
+                               {<<"active_size_of_objects">>, ActiveSize},
+                               {<<"total_size_of_objects">>,  TotalSize},
+                               {<<"last_compaction_start">>,  list_to_binary(LatestStart1)},
+                               {<<"last_compaction_end">>,    list_to_binary(LatestEnd1)}
                               ]};
                         (_) ->
                              []
@@ -218,6 +251,18 @@ du(detail, StatsList) when is_list(StatsList) ->
     gen_json(JSON);
 du(_, _) ->
     gen_json([]).
+
+
+compact_status({RestPids, InProgPids, LastStart}) ->
+    StrLast = case LastStart of
+                  0 -> ?NULL_DATETIME;
+                  _ -> leo_date:date_format(LastStart)
+              end,
+    gen_json({[
+               {last_compaction_start, list_to_binary(StrLast)},
+               {rest_ob_jobs, RestPids},
+               {ongoing_of_jobs, InProgPids}
+              ]}).
 
 
 %% @doc Format s3-gen-key result
