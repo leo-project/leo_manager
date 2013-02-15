@@ -72,37 +72,32 @@ error(Node, Cause) ->
 -spec(help() ->
              string()).
 help() ->
-    lists:append([io_lib:format("[Cluster]\r\n", []),
-                  help(?CMD_DETACH),
-                  help(?CMD_SUSPEND),
-                  help(?CMD_RESUME),
-                  help(?CMD_START),
-                  help(?CMD_REBALANCE),
-                  help(?CMD_WHEREIS),
-                  ?CRLF,
-                  io_lib:format("[Storage]\r\n", []),
-                  help(?CMD_DU),
-                  help(?CMD_COMPACT),
-                  ?CRLF,
-                  io_lib:format("[Gateway]\r\n", []),
-                  help(?CMD_PURGE),
-                  ?CRLF,
-                  io_lib:format("[S3-API related]\r\n", []),
-                  help(?CMD_CREATE_USER),
-                  help(?CMD_DELETE_USER),
-                  help(?CMD_GET_USERS),
-                  help(?CMD_SET_ENDPOINT),
-                  help(?CMD_GET_ENDPOINTS),
-                  help(?CMD_DEL_ENDPOINT),
-                  help(?CMD_ADD_BUCKET),
-                  help(?CMD_GET_BUCKETS),
-                  ?CRLF,
-                  io_lib:format("[Misc]\r\n", []),
-                  help(?CMD_VERSION),
-                  help(?CMD_STATUS),
-                  help(?CMD_HISTORY),
-                  help(?CMD_QUIT),
-                  ?CRLF]).
+    lists:append([help("[Cluster]\r\n",
+                       [?CMD_DETACH,
+                        ?CMD_SUSPEND,
+                        ?CMD_RESUME,
+                        ?CMD_START,
+                        ?CMD_REBALANCE,
+                        ?CMD_WHEREIS], []),
+                  help("[Storage]\r\n",
+                       [?CMD_DU,
+                        ?CMD_COMPACT], []),
+                  help("[Gateway]\r\n",
+                       [?CMD_PURGE], []),
+                  help("[S3-API related]\r\n",
+                       [?CMD_CREATE_USER,
+                        ?CMD_DELETE_USER,
+                        ?CMD_GET_USERS,
+                        ?CMD_SET_ENDPOINT,
+                        ?CMD_GET_ENDPOINTS,
+                        ?CMD_DEL_ENDPOINT,
+                        ?CMD_ADD_BUCKET,
+                        ?CMD_GET_BUCKETS], []),
+                  help("[Misc]\r\n",
+                       [?CMD_VERSION,
+                        ?CMD_STATUS,
+                        ?CMD_HISTORY,
+                        ?CMD_QUIT], [])]).
 
 %% @private
 help(Command) ->
@@ -111,6 +106,18 @@ help(Command) ->
             io_lib:format("~s\r\n",[Help]);
         _ ->
             []
+    end.
+help(_, [], []) ->
+    [];
+help(Header, [], Acc) ->
+    lists:append([[Header], Acc, [?CRLF]]);
+help(Header, [Command|Rest], Acc) ->
+    case help(Command) of
+        [] ->
+            help(Header, Rest, Acc);
+        Res ->
+            Acc1 = lists:append([Acc, [Res]]),
+            help(Header, Rest, Acc1)
     end.
 
 
