@@ -117,6 +117,8 @@
                    {?CMD_PURGE,         "purge ${PATH}"},
                    {?CMD_CREATE_USER,   "create-user ${USER-ID} [${PASSWORD}]"},
                    {?CMD_DELETE_USER,   "delete-user ${USER-ID}"},
+                   {?CMD_UPDATE_USER_ROLE, "update-user-role ${USER-ID} ${ROLE-ID}"},
+                   {?CMD_UPDATE_USER_PW,   "update-user-password ${USER-ID} ${PASSWORD}"},
                    {?CMD_GET_USERS,     "get-users"},
                    {?CMD_SET_ENDPOINT,  "set-endpoint ${ENDPOINT}"},
                    {?CMD_DEL_ENDPOINT,  "delete-endpoint ${ENDPOINT}"},
