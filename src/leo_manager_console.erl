@@ -774,9 +774,13 @@ compact(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NO_CMODE_SPECIFIED};
         [Mode, Node|Rest] ->
-            ModeAtom = list_to_atom(Mode),
-            NodeAtom = list_to_atom(Node),
-            case catch compact(ModeAtom, NodeAtom, Rest) of
+            %% command patterns:
+            %%   compact start ${storage-node} all | ${storage_pids} [${num_of_compact_proc}]
+            %%   compact suspend ${storage-node}
+            %%   compact resume ${storage-node}
+            %%   compact status ${storage-node}
+
+            case catch compact(Mode, list_to_atom(Node), Rest) of
                 ok ->
                     ok;
                 {ok, Status} ->
@@ -788,28 +792,38 @@ compact(CmdBody, Option) ->
             {error, ?ERROR_NO_NODE_SPECIFIED}
     end.
 
-compact(resume, Node, _) ->
-    leo_manager_api:compact(resume, Node);
-compact(suspend, Node, _) ->
-    leo_manager_api:compact(suspend, Node);
-compact(status, Node, _) ->
-    leo_manager_api:compact(status, Node);
-compact(start, Node, ["all"|Rest]) ->
+
+-spec(compact(string(), atom(), list()) ->
+             ok | {error, any()}).
+compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL]) ->
+    compact(Mode, Node, [?COMPACT_TARGET_ALL, []]);
+
+compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL, Rest]) ->
     case rpc:call(Node, leo_object_storage_api, get_object_storage_pid, [all], ?DEF_TIMEOUT) of
         TargetPids when is_list(TargetPids) ->
-            compact(start, Node, TargetPids, Rest);
+            compact(Mode, Node, TargetPids, Rest);
         {_, Cause} ->
             {error, Cause}
     end;
-compact(start, Node, [StrTargetPids|Rest]) ->
-    StrList = string:tokens(StrTargetPids, ","),
-    AtomList = lists:map(fun erlang:list_to_atom/1, StrList),
-    compact(start, Node, AtomList, Rest).
 
-compact(start, Node, TargetPids, [MaxProc|_Rest]) ->
-    leo_manager_api:compact(start, Node, TargetPids, list_to_integer(MaxProc));
-compact(start, Node, TargetPids, []) ->
-    leo_manager_api:compact(start, Node, TargetPids, ?env_num_of_compact_proc()).
+compact(?COMPACT_START = Mode, Node, [TargetPids | Rest]) ->
+    List = string:tokens(TargetPids, ","),
+    compact(Mode, Node, List, Rest);
+
+compact(Mode, Node, _) ->
+    leo_manager_api:compact(Mode, Node).
+
+
+-spec(compact(string(), atom(), list(), list()) ->
+             ok | {error, any()}).
+compact(?COMPACT_START = Mode, Node, TargetPids, []) ->
+    leo_manager_api:compact(Mode, Node, TargetPids, ?env_num_of_compact_proc());
+
+compact(?COMPACT_START = Mode, Node, TargetPids, [MaxProc]) ->
+    leo_manager_api:compact(Mode, Node, TargetPids, list_to_integer(MaxProc));
+
+compact(_,_,_, _) ->
+    {error, badarg}.
 
 
 %% @doc Retrieve information of an Assigned object

@@ -748,16 +748,44 @@ whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
 
 %% @doc Do compact.
 %%
+-spec(compact(string(), string() | atom()) ->
+             ok).
+compact(Mode, Node) when is_list(Node) ->
+    compact(Mode, list_to_atom(Node));
+compact(Mode, Node) ->
+    ModeAtom = case Mode of
+                   ?COMPACT_SUSPEND -> suspend;
+                   ?COMPACT_RESUME  -> resume;
+                   ?COMPACT_STATUS  -> status;
+                   _ -> {error, badarg}
+               end,
+
+    case ModeAtom of
+        {error, Cause} ->
+            {error, Cause};
+        _ ->
+            case rpc:call(Node, leo_storage_api, compact, [ModeAtom], ?DEF_TIMEOUT) of
+                ok ->
+                    ok;
+                {ok, Status} ->
+                    {ok, Status};
+                {_, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
 -spec(compact(atom(), string() | atom(), list(), integer()) ->
              ok | {error, any}).
 compact(_, [], _TargetPids, _MaxProc) ->
     {error, not_found};
-compact(Mode, Node, TargetPids, MaxProc) when is_list(Node) ->
-    compact(Mode, list_to_atom(Node), TargetPids, MaxProc);
-compact(start, Node, TargetPids, MaxProc) ->
+compact(?COMPACT_START, Node, TargetPids, MaxProc) when is_list(Node) ->
+    compact(?COMPACT_START, list_to_atom(Node), TargetPids, MaxProc);
+compact(?COMPACT_START, Node, TargetPids, MaxProc) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_storage_api, compact, [start, TargetPids, MaxProc], ?DEF_TIMEOUT) of
+            case rpc:call(Node, leo_storage_api, compact,
+                          [start, TargetPids, MaxProc], ?DEF_TIMEOUT) of
                 ok ->
                     ok;
                 {_, Cause} ->
@@ -765,21 +793,10 @@ compact(start, Node, TargetPids, MaxProc) ->
             end;
         false ->
             {error, ?ERR_TYPE_NODE_DOWN}
-    end.
+    end;
+compact(_,_,_,_) ->
+    {error, badarg}.
 
--spec(compact(suspend | resume | status, string() | atom()) ->
-             ok | {error, any}).
-compact(Mode, Node) when is_list(Node) ->
-    compact(Mode, list_to_atom(Node));
-compact(Mode, Node) ->
-    case rpc:call(Node, leo_storage_api, compact, [Mode], ?DEF_TIMEOUT) of
-        ok ->
-            ok;
-        {ok, Status} ->
-            {ok, Status};
-        {_, Cause} ->
-            {error, Cause}
-    end.
 
 %% @doc get storage stats.
 %%
@@ -820,11 +837,11 @@ stats1(summary, List) ->
                                              active_num = Active}}, {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
                                {LatestStart1, LatestEnd1} = case length(Histories) of
                                    0 -> {LatestStart, LatestEnd};
-                                   _ -> 
+                                   _ ->
                                        {StartComp, FinishComp} = hd(Histories),
                                        {max(LatestStart, StartComp), max(LatestEnd, FinishComp)}
                                end,
-                               {SumTotal + Total, 
+                               {SumTotal + Total,
                                 SumActive + Active,
                                 SumTotalSize + TotalSize,
                                 SumActiveSize + ActiveSize,

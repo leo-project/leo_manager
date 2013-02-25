@@ -25,7 +25,7 @@
 -author('yosuke hara').
 -include_lib("eunit/include/eunit.hrl").
 
-%% constants.
+%% constants
 -define(SHUTDOWN_WAITING_TIME, 2000).
 -define(MAX_RESTART,              5).
 -define(MAX_TIME,                60).
@@ -41,7 +41,7 @@
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
 
 
-%% manager-related tables:
+%% manager-related tables
 -define(TBL_STORAGE_NODES,  'leo_storage_nodes').
 -define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
 -define(TBL_SYSTEM_CONF,    'leo_system_conf').
@@ -50,7 +50,7 @@
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
 
 
-%% command-related.
+%% command-related
 -define(COMMAND_ERROR,        "Command Error").
 -define(COMMAND_DELIMITER,    " \r\n").
 
@@ -131,10 +131,19 @@
                     available = true :: boolean()
                    }).
 
-%% membership.
+
+%% compaction-related
+-define(COMPACT_START,      "start").
+-define(COMPACT_SUSPEND,    "suspend").
+-define(COMPACT_RESUME,     "resume").
+-define(COMPACT_STATUS,     "status").
+-define(COMPACT_TARGET_ALL, "all").
+
+
+%% membership
 -define(DEF_NUM_OF_ERROR_COUNT, 3).
 
-%% error.
+%% error
 -define(ERROR_COULD_NOT_CONNECT,        "Could not connect").
 -define(ERROR_NODE_NOT_EXISTS,          "Node not exist").
 -define(ERROR_FAILED_COMPACTION,        "Failed compaction").
@@ -149,13 +158,13 @@
 -define(ERROR_INVALID_ARGS,             "Invalid arguments").
 
 
-%% type of console.
+%% type of console
 -define(CONSOLE_CUI,  'cui').
 -define(CONSOLE_JSON, 'json').
 -define(MOD_TEXT_FORMATTER, 'leo_manager_formatter_text').
 -define(MOD_JSON_FORMATTER, 'leo_manager_formatter_json').
 
-%% records.
+%% records
 %%
 -define(AUTH_NOT_YET, 0).
 -define(AUTH_USERID_1, 1).
@@ -197,7 +206,7 @@
          }).
 
 
-%% macros.
+%% macros
 %%
 -define(env_mode_of_manager(),
         case application:get_env(leo_manager, manager_mode) of
