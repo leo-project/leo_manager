@@ -619,7 +619,7 @@ notify(synchronized, VNodeId, Node) ->
     Res;
 
 notify(_,_,_) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 notify(rebalance, VNodeId, Node, TotalOfObjects) ->
     leo_manager_mnesia:update_rebalance_info(#rebalance_info{vnode_id = VNodeId,
@@ -641,7 +641,7 @@ notify(launched, gateway, Node, Checksums0) ->
             Error
     end;
 notify(_,_,_,_) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 
 notify1(error, Node, NumOfErrors, Thresholds) when NumOfErrors >= Thresholds ->
@@ -719,7 +719,7 @@ whereis(_Key, false) ->
     {error, ?ERROR_COULD_NOT_GET_RING};
 
 whereis(_Key, _HasRoutingTable) ->
-    {error, badarith}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 whereis1(_, _, [],Acc) ->
     {ok, lists:reverse(Acc)};
@@ -757,7 +757,7 @@ compact(Mode, Node) ->
                    ?COMPACT_SUSPEND -> suspend;
                    ?COMPACT_RESUME  -> resume;
                    ?COMPACT_STATUS  -> status;
-                   _ -> {error, badarg}
+                   _ -> {error, ?ERROR_INVALID_ARGS}
                end,
 
     case ModeAtom of
@@ -770,7 +770,8 @@ compact(Mode, Node) ->
                 {ok, Status} ->
                     {ok, Status};
                 {_, Cause} ->
-                    {error, Cause}
+                    ?warn("compact/2", "cause:~p", [Cause]),
+                    {error, ?ERROR_FAILED_COMPACTION}
             end
     end.
 
@@ -789,13 +790,14 @@ compact(?COMPACT_START, Node, TargetPids, MaxProc) ->
                 ok ->
                     ok;
                 {_, Cause} ->
-                    {error, Cause}
+                    ?warn("compact/4", "cause:~p", [Cause]),
+                    {error, ?ERROR_FAILED_COMPACTION}
             end;
         false ->
             {error, ?ERR_TYPE_NODE_DOWN}
     end;
 compact(_,_,_,_) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 
 %% @doc get storage stats.
@@ -990,7 +992,7 @@ synchronize1(Type, Node) when Type == ?SYNC_MODE_CUR_RING;
             Error
     end;
 synchronize1(_,_) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 
 %% @doc Compare local-checksum with remote-checksum

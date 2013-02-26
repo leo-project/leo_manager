@@ -29,6 +29,7 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
@@ -457,7 +458,7 @@ handle_call(_Socket, <<?CRLF>>, State) ->
 
 
 handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
-    Reply = Formatter:error(?ERROR_COMMAND_NOT_FOUND),
+    Reply = Formatter:error(?ERROR_NOT_SPECIFIED_COMMAND),
     {reply, Reply, State}.
 
 
@@ -471,7 +472,7 @@ handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
 invoke(Command, Formatter, Fun) ->
     case leo_manager_mnesia:get_available_command_by_name(Command) of
         not_found ->
-            Formatter:error(?ERROR_COMMAND_NOT_FOUND);
+            Formatter:error(?ERROR_NOT_SPECIFIED_COMMAND);
         _ ->
             Fun()
     end.
@@ -607,6 +608,9 @@ start(CmdBody) ->
                     end;
                 {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
                     {error, "Attached nodes less than # of replicas"};
+                not_found ->
+                    %% status of all-nodes is 'suspend' or 'restarted'
+                    {error, "System already started"};
                 Error ->
                     Error
             end;
@@ -625,7 +629,7 @@ detach(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             NodeAtom = list_to_atom(Node),
 
@@ -661,7 +665,7 @@ suspend(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             case leo_manager_api:suspend(list_to_atom(Node)) of
                 ok ->
@@ -681,7 +685,7 @@ resume(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             case leo_manager_api:resume(list_to_atom(Node)) of
                 ok ->
@@ -721,7 +725,7 @@ purge(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_PATH_SPECIFIED};
+            {error, ?ERROR_INVALID_PATH};
         [Key|_] ->
             case leo_manager_api:purge(Key) of
                 ok ->
@@ -741,12 +745,12 @@ du(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         Tokens ->
             Mode = case length(Tokens) of
                        1 -> {summary, lists:nth(1, Tokens)};
                        2 -> {list_to_atom(lists:nth(1, Tokens)),  lists:nth(2, Tokens)};
-                       _ -> {error, badarg}
+                       _ -> {error, ?ERROR_INVALID_ARGS}
                    end,
 
             case Mode of
@@ -789,7 +793,7 @@ compact(CmdBody, Option) ->
                     {error, Cause}
             end;
         [_Mode|_Rest] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED}
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
 
 
@@ -803,7 +807,8 @@ compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL, Rest]) ->
         TargetPids when is_list(TargetPids) ->
             compact(Mode, Node, TargetPids, Rest);
         {_, Cause} ->
-            {error, Cause}
+            ?warn("compact/3", "cause:~p", [Cause]),
+            {error, ?ERROR_FAILED_COMPACTION}
     end;
 
 compact(?COMPACT_START = Mode, Node, [TargetPids | Rest]) ->
@@ -823,7 +828,7 @@ compact(?COMPACT_START = Mode, Node, TargetPids, [MaxProc]) ->
     leo_manager_api:compact(Mode, Node, TargetPids, list_to_integer(MaxProc));
 
 compact(_,_,_, _) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 
 %% @doc Retrieve information of an Assigned object
@@ -835,7 +840,7 @@ whereis(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_PATH_SPECIFIED};
+            {error, ?ERROR_INVALID_PATH};
         Key ->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
 

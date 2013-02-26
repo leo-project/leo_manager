@@ -151,10 +151,10 @@
 -define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").
 -define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach a node").
 -define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach a node").
--define(ERROR_COMMAND_NOT_FOUND,        "Command not exist").
--define(ERROR_NO_NODE_SPECIFIED,        "No node specified").
--define(ERROR_NO_CMODE_SPECIFIED,       "No compaction mode specified").
--define(ERROR_NO_PATH_SPECIFIED,        "No path specified").
+-define(ERROR_NOT_SPECIFIED_COMMAND,    "Command not exist").
+-define(ERROR_NOT_SPECIFIED_NODE,       "Not specified node").
+-define(ERROR_NO_CMODE_SPECIFIED,       "Not specified compaction mode").
+-define(ERROR_INVALID_PATH,             "Invalid path").
 -define(ERROR_INVALID_ARGS,             "Invalid arguments").
 
 
