@@ -131,6 +131,8 @@
                     available = true :: boolean()
                    }).
 
+%% du-command-related
+-define(NULL_DATETIME, "____-__-__ __:__:__").
 
 %% compaction-related
 -define(COMPACT_START,      "start").
@@ -156,6 +158,8 @@
 -define(ERROR_NO_CMODE_SPECIFIED,       "Not specified compaction mode").
 -define(ERROR_INVALID_PATH,             "Invalid path").
 -define(ERROR_INVALID_ARGS,             "Invalid arguments").
+-define(ERROR_COULD_NOT_STORE,          "Could not store value").
+-define(ERROR_INVALID_BUCKET_FORMAT,    "Invalid bucket format").
 
 
 %% type of console
