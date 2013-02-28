@@ -34,7 +34,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1,
-         bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
+         bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1,
          authorized/0, user_id/0, password/0
@@ -224,9 +224,9 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 
 %% @doc Format a cluster node state
 %%
--spec(node_stat(#cluster_node_status{}) ->
+-spec(node_stat(string(), #cluster_node_status{}) ->
              string()).
-node_stat(State) ->
+node_stat(?SERVER_TYPE_GATEWAY, State) ->
     ObjContainer = State#cluster_node_status.avs,
     Directories  = State#cluster_node_status.dirs,
     RingHashes   = State#cluster_node_status.ring_checksum,
@@ -236,9 +236,10 @@ node_stat(State) ->
                                 "            version : ~s\r\n",
                                 "      obj-container : ~p\r\n",
                                 "            log-dir : ~s\r\n",
+                                "\r\n[status-1: ring]\r\n",
                                 "  ring state (cur)  : ~s\r\n",
                                 "  ring state (prev) : ~s\r\n",
-                                "\r\n[erlang-vm status]\r\n",
+                                "\r\n[status-2: erlang-vm]\r\n",
                                 "         vm version : ~s\r\n",
                                 "    total mem usage : ~w\r\n",
                                 "   system mem usage : ~w\r\n",
@@ -261,6 +262,53 @@ node_stat(State) ->
                    leo_misc:get_value('process_limit',    Statistics, 0),
                    leo_misc:get_value('kernel_poll',      Statistics, false),
                    leo_misc:get_value('thread_pool_size', Statistics, 0)
+                  ]);
+
+node_stat(?SERVER_TYPE_STORAGE, State) ->
+    ObjContainer = State#cluster_node_status.avs,
+    Directories  = State#cluster_node_status.dirs,
+    RingHashes   = State#cluster_node_status.ring_checksum,
+    Statistics   = State#cluster_node_status.statistics,
+    CustomItems  = leo_misc:get_value('storage', Statistics, []),
+
+    io_lib:format(lists:append(["[config]\r\n",
+                                "            version : ~s\r\n",
+                                "      obj-container : ~p\r\n",
+                                "            log-dir : ~s\r\n",
+                                "\r\n[status-1: ring]\r\n",
+                                "  ring state (cur)  : ~s\r\n",
+                                "  ring state (prev) : ~s\r\n",
+                                "\r\n[status-2: erlang-vm]\r\n",
+                                "         vm version : ~s\r\n",
+                                "    total mem usage : ~w\r\n",
+                                "   system mem usage : ~w\r\n",
+                                "    procs mem usage : ~w\r\n",
+                                "      ets mem usage : ~w\r\n",
+                                "              procs : ~w/~w\r\n",
+                                "        kernel_poll : ~w\r\n",
+                                "   thread_pool_size : ~w\r\n",
+                                "\r\n[status-3: # of msgs]\r\n",
+                                "   replication msgs : ~w\r\n",
+                                "    vnode-sync msgs : ~w\r\n",
+                                "     rebalance msgs : ~w\r\n",
+                                "\r\n"]),
+                  [State#cluster_node_status.version,
+                   ObjContainer,
+                   leo_misc:get_value('log', Directories, []),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)),
+                   leo_misc:get_value('vm_version',       Statistics, []),
+                   leo_misc:get_value('total_mem_usage',  Statistics, 0),
+                   leo_misc:get_value('system_mem_usage', Statistics, 0),
+                   leo_misc:get_value('proc_mem_usage',   Statistics, 0),
+                   leo_misc:get_value('ets_mem_usage',    Statistics, 0),
+                   leo_misc:get_value('num_of_procs',     Statistics, 0),
+                   leo_misc:get_value('process_limit',    Statistics, 0),
+                   leo_misc:get_value('kernel_poll',      Statistics, false),
+                   leo_misc:get_value('thread_pool_size', Statistics, 0),
+                   leo_misc:get_value('num_of_replication_msg', CustomItems, 0),
+                   leo_misc:get_value('num_of_sync_vnode_msg',  CustomItems, 0),
+                   leo_misc:get_value('num_of_rebalance_msg',   CustomItems, 0)
                   ]).
 
 

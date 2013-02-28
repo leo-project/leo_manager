@@ -49,6 +49,10 @@
 -define(TBL_HISTORIES,      'leo_histories').
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
 
+%% server-type
+-define(SERVER_TYPE_STORAGE, "S").
+-define(SERVER_TYPE_GATEWAY, "G").
+
 
 %% command-related
 -define(COMMAND_ERROR,        "Command Error").

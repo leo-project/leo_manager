@@ -115,8 +115,10 @@ handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command, #state{formatter 
                   case status(Command, Option) of
                       {ok, {node_list, Props}} ->
                           Formatter:system_info_and_nodes_stat(Props);
-                      {ok, NodeStatus} ->
-                          Formatter:node_stat(NodeStatus);
+                      {ok, {?SERVER_TYPE_GATEWAY = Type, NodeStatus}} ->
+                          Formatter:node_stat(Type, NodeStatus);
+                      {ok, {?SERVER_TYPE_STORAGE = Type, NodeStatus}} ->
+                          Formatter:node_stat(Type, NodeStatus);
                       {error, Cause} ->
                           Formatter:error(Cause)
                   end
@@ -545,7 +547,7 @@ status(node_list) ->
     S1 = case leo_manager_mnesia:get_storage_nodes_all() of
              {ok, R1} ->
                  lists:map(fun(N) ->
-                                   {"S",
+                                   {?SERVER_TYPE_STORAGE,
                                     atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
@@ -558,7 +560,7 @@ status(node_list) ->
     S2 = case leo_manager_mnesia:get_gateway_nodes_all() of
              {ok, R2} ->
                  lists:map(fun(N) ->
-                                   {"G",
+                                   {?SERVER_TYPE_GATEWAY,
                                     atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
@@ -576,8 +578,8 @@ status(node_list) ->
 
 status({node_state, Node}) ->
     case leo_manager_api:get_node_status(Node) of
-        {ok, State} ->
-            {ok, State};
+        {ok, {Type, State}} ->
+            {ok, {Type, State}};
         {error, Cause} ->
             {error, Cause}
     end.

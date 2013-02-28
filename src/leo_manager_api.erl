@@ -34,6 +34,8 @@
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
+-define(API_STORAGE, leo_storage_api).
+-define(API_GATEWAY, leo_gateway_api).
 
 %% API
 -export([get_system_config/0, get_system_status/0, get_members/0,
@@ -97,14 +99,14 @@ get_members() ->
              ok | {error, any()}).
 get_node_status(Node0) ->
     Node1 = list_to_atom(Node0),
-    Mod   = case leo_manager_mnesia:get_gateway_node_by_name(Node1) of
-                {ok, _} -> leo_gateway_api;
-                _ ->
-                    case leo_manager_mnesia:get_storage_node_by_name(Node1) of
-                        {ok, _} -> leo_storage_api;
-                        _       -> undefined
-                    end
-            end,
+    {Type, Mod} = case leo_manager_mnesia:get_gateway_node_by_name(Node1) of
+                      {ok, _} -> {?SERVER_TYPE_GATEWAY, ?API_GATEWAY};
+                      _ ->
+                          case leo_manager_mnesia:get_storage_node_by_name(Node1) of
+                              {ok, _} -> {?SERVER_TYPE_STORAGE, ?API_STORAGE};
+                              _       -> {[], undefined}
+                          end
+                  end,
 
     case Mod of
         undefined ->
@@ -112,7 +114,7 @@ get_node_status(Node0) ->
         _ ->
             case rpc:call(Node1, Mod, get_node_status, [], ?DEF_TIMEOUT) of
                 {ok, Status} ->
-                    {ok, Status};
+                    {ok, {Type, Status}};
                 {_, Cause} ->
                     {error, Cause};
                 timeout = Cause ->
@@ -369,7 +371,7 @@ start() ->
                               end, Members),
             {ok, SystemConf}   = leo_manager_mnesia:get_system_config(),
             {ResL0, BadNodes0} = rpc:multicall(
-                                   Nodes, leo_storage_api, start, [Members, SystemConf], infinity),
+                                   Nodes, ?API_STORAGE, start, [Members, SystemConf], infinity),
 
             %% Update an object of node-status.
             case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
@@ -479,7 +481,7 @@ rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
     %% New Attached-node change Ring.cur, Ring.prev and Members
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
 
-    case rpc:call(Node, leo_storage_api, start, [Members, SystemConf], ?DEF_TIMEOUT) of
+    case rpc:call(Node, ?API_STORAGE, start, [Members, SystemConf], ?DEF_TIMEOUT) of
         {ok, {_Node, {RingHash0, RingHash1}}} ->
             case leo_manager_mnesia:update_storage_node_status(
                    update, #node_state{node          = Node,
@@ -562,7 +564,7 @@ rebalance5([], []) ->
 rebalance5([], Errors0) ->
     {error, Errors0};
 rebalance5([{Node, Info}|T], Errors0) ->
-    case rpc:call(Node, leo_storage_api, rebalance, [Info], ?DEF_TIMEOUT) of
+    case rpc:call(Node, ?API_STORAGE, rebalance, [Info], ?DEF_TIMEOUT) of
         ok ->
             rebalance5(T, Errors0);
         {_, Cause}->
@@ -694,7 +696,7 @@ purge(Path) ->
                                    (_, Acc) ->
                                         Acc
                                 end, [], R1),
-            _ = rpc:multicall(Nodes, leo_gateway_api, purge, [Path], ?DEF_TIMEOUT),
+            _ = rpc:multicall(Nodes, ?API_GATEWAY, purge, [Path], ?DEF_TIMEOUT),
             ok;
         _Error ->
             {error, ?ERROR_COULD_NOT_GET_GATEWAY}
@@ -764,7 +766,7 @@ compact(Mode, Node) ->
         {error, Cause} ->
             {error, Cause};
         _ ->
-            case rpc:call(Node, leo_storage_api, compact, [ModeAtom], ?DEF_TIMEOUT) of
+            case rpc:call(Node, ?API_STORAGE, compact, [ModeAtom], ?DEF_TIMEOUT) of
                 ok ->
                     ok;
                 {ok, Status} ->
@@ -785,7 +787,7 @@ compact(?COMPACT_START, Node, TargetPids, MaxProc) when is_list(Node) ->
 compact(?COMPACT_START, Node, TargetPids, MaxProc) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, leo_storage_api, compact,
+            case rpc:call(Node, ?API_STORAGE, compact,
                           [start, TargetPids, MaxProc], ?DEF_TIMEOUT) of
                 ok ->
                     ok;
@@ -831,25 +833,30 @@ stats(Mode, Node) ->
     end.
 
 stats1(summary, List) ->
-    {ok, lists:foldl(fun({ok, #storage_stats{file_path  = _ObjPath,
-                                             compaction_histories = Histories,
-                                             total_sizes = TotalSize,
-                                             active_sizes = ActiveSize,
-                                             total_num  = Total,
-                                             active_num = Active}}, {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
-                               {LatestStart1, LatestEnd1} = case length(Histories) of
-                                   0 -> {LatestStart, LatestEnd};
-                                   _ ->
-                                       {StartComp, FinishComp} = hd(Histories),
-                                       {max(LatestStart, StartComp), max(LatestEnd, FinishComp)}
-                               end,
-                               {SumTotal + Total,
-                                SumActive + Active,
-                                SumTotalSize + TotalSize,
-                                SumActiveSize + ActiveSize,
-                                LatestStart1,
-                                LatestEnd1}
-                       end, {0, 0, 0, 0, 0, 0}, List)};
+    {ok, lists:foldl(
+           fun({ok, #storage_stats{file_path  = _ObjPath,
+                                   compaction_histories = Histories,
+                                   total_sizes = TotalSize,
+                                   active_sizes = ActiveSize,
+                                   total_num  = Total,
+                                   active_num = Active}},
+               {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
+                   {LatestStart1, LatestEnd1} =
+                       case length(Histories) of
+                           0 -> {LatestStart, LatestEnd};
+                           _ ->
+                               {StartComp, FinishComp} = hd(Histories),
+                               {max(LatestStart, StartComp), max(LatestEnd, FinishComp)}
+                       end,
+                   {SumTotal + Total,
+                    SumActive + Active,
+                    SumTotalSize + TotalSize,
+                    SumActiveSize + ActiveSize,
+                    LatestStart1,
+                    LatestEnd1};
+              (_, Acc) ->
+                   Acc
+           end, {0, 0, 0, 0, 0, 0}, List)};
 stats1(detail, List) ->
     {ok, List}.
 
@@ -1027,7 +1034,7 @@ set_endpoint(Endpoint) ->
                 [] ->
                     ok;
                 _ ->
-                    case rpc:multicall(Nodes1, leo_gateway_api, set_endpoint,
+                    case rpc:multicall(Nodes1, ?API_GATEWAY, set_endpoint,
                                        [Endpoint], ?DEF_TIMEOUT) of
                         {_, []} ->
                             ok;
