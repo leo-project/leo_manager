@@ -317,26 +317,29 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
 -spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
              string()).
 du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
-    StartStr = case LastStart of
-                   0 -> ?NULL_DATETIME;
-                   _ -> leo_date:date_format(LastStart)
-               end,
-    EndStr = case LastEnd of
-                 0 -> ?NULL_DATETIME;
-                 _ -> leo_date:date_format(LastEnd)
-             end,
+    Fun = fun(0) -> ?NULL_DATETIME;
+             (D) -> leo_date:date_format(D)
+          end,
+    Ratio = case (TotalSize < 1) of
+                true  -> 0;
+                false ->
+                    erlang:round((ActiveSize / TotalSize) * 10000)/100
+            end,
+
     io_lib:format(lists:append([" active number of objects: ~w\r\n",
                                 "  total number of objects: ~w\r\n",
                                 "   active size of objects: ~w\r\n",
                                 "    total size of objects: ~w\r\n",
+                                "     ratio of active size: ~w%\r\n",
                                 "    last compaction start: ~s\r\n",
                                 "      last compaction end: ~s\r\n\r\n"]),
                   [ActiveNum,
                    TotalNum,
                    ActiveSize,
                    TotalSize,
-                   StartStr,
-                   EndStr]);
+                   Ratio,
+                   Fun(LastStart),
+                   Fun(LastEnd)]);
 
 du(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
