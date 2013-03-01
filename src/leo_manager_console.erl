@@ -592,32 +592,37 @@ status({node_state, Node}) ->
 start(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_manager_api:get_system_status() of
-        ?STATE_STOP ->
-            {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    case leo_manager_mnesia:get_storage_nodes_all() of
+        {ok, _} ->
+            case leo_manager_api:get_system_status() of
+                ?STATE_STOP ->
+                    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
 
-            case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
-                {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
-                    case leo_manager_api:start() of
-                        {error, Cause} ->
-                            {error, Cause};
-                        {_ResL, []} ->
-                            ok;
-                        {_ResL, BadNodes} ->
-                            {error, {bad_nodes, lists:foldl(fun(Node, Acc) ->
-                                                                    Acc ++ [Node]
-                                                            end, [], BadNodes)}}
+                    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
+                        {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
+                            case leo_manager_api:start() of
+                                {error, Cause} ->
+                                    {error, Cause};
+                                {_ResL, []} ->
+                                    ok;
+                                {_ResL, BadNodes} ->
+                                    {error, {bad_nodes, lists:foldl(fun(Node, Acc) ->
+                                                                            Acc ++ [Node]
+                                                                    end, [], BadNodes)}}
+                            end;
+                        {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
+                            {error, "Attached nodes less than # of replicas"};
+                        not_found ->
+                            %% status of all-nodes is 'suspend' or 'restarted'
+                            {error, ?ERROR_ALREADY_STARTED};
+                        Error ->
+                            Error
                     end;
-                {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
-                    {error, "Attached nodes less than # of replicas"};
-                not_found ->
-                    %% status of all-nodes is 'suspend' or 'restarted'
-                    {error, "System already started"};
-                Error ->
-                    Error
+                ?STATE_RUNNING ->
+                    {error, ?ERROR_ALREADY_STARTED}
             end;
-        ?STATE_RUNNING ->
-            {error, "System already started"}
+        _ ->
+            {error, ?ERROR_NOT_STARTED}
     end.
 
 

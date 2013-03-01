@@ -164,6 +164,8 @@
 -define(ERROR_INVALID_ARGS,             "Invalid arguments").
 -define(ERROR_COULD_NOT_STORE,          "Could not store value").
 -define(ERROR_INVALID_BUCKET_FORMAT,    "Invalid bucket format").
+-define(ERROR_NOT_STARTED,              "Storage-cluster does not started, yet").
+-define(ERROR_ALREADY_STARTED,          "Storage-cluster already started").
 
 
 %% type of console
