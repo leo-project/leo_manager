@@ -379,20 +379,27 @@ du(detail, StatsList) when is_list(StatsList) ->
 du(_, _) ->
     [].
 
-atomlist_to_string(AtomList, Sep) ->
-    lists:foldl(fun(Atom, Acc) ->
-                        List = atom_to_list(Atom),
-                        case Acc of
-                            [] ->
-                                List;
-                            _ ->
-                                Acc ++ Sep ++ List
-                        end
-                end, [], AtomList).
 
+%% @doc Status of compaction
+%%
+-spec(compact_status({list(atom()), list(atom()), integer()}) ->
+             string()).
 compact_status({RestPids, InProgPids, LastStart}) ->
-    StrRest = atomlist_to_string(RestPids, ", "),
-    StrProg = atomlist_to_string(InProgPids, ", "),
+    Fun = fun(L, Indent) ->
+                  lists:foldl(
+                    fun(Item0, Acc) ->
+                            Item1 = atom_to_list(Item0),
+                            case Acc of
+                                [] -> Item1;
+                                _  -> lists:append([Acc, ",\r\n",
+                                                    lists:duplicate(Indent, $ ), Item1])
+                            end
+                    end, [], L)
+          end,
+
+    ColLen  = 24,
+    StrRest = Fun(RestPids, ColLen),
+    StrProg = Fun(InProgPids, ColLen),
     StrLast = case LastStart of
                   0 -> ?NULL_DATETIME;
                   _ -> leo_date:date_format(LastStart)
@@ -401,6 +408,7 @@ compact_status({RestPids, InProgPids, LastStart}) ->
                                 "     rest of jobs(pid): ~s\r\n",
                                 "  ongoing of jobs(pid): ~s\r\n\r\n"]),
                   [StrLast, StrRest, StrProg]).
+
 
 %% @doc Format s3-gen-key result
 %%
