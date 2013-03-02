@@ -112,7 +112,7 @@
                    {?CMD_START,         "start"},
                    {?CMD_REBALANCE,     "rebalance"},
                    {?CMD_COMPACT,       lists:append(
-                                          ["compact start ${storage-node} all|${storage_pids} [${num_of_compact_proc}]", ?CRLF,
+                                          ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
                                            "compact suspend ${storage-node}", ?CRLF,
                                            "compact resume  ${storage-node}", ?CRLF,
                                            "compact status  ${storage-node} "
