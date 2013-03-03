@@ -333,13 +333,9 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
                                 "     ratio of active size: ~w%\r\n",
                                 "    last compaction start: ~s\r\n",
                                 "      last compaction end: ~s\r\n\r\n"]),
-                  [ActiveNum,
-                   TotalNum,
-                   ActiveSize,
-                   TotalSize,
-                   Ratio,
-                   Fun(LastStart),
-                   Fun(LastEnd)]);
+                  [ActiveNum, TotalNum,
+                   ActiveSize, TotalSize, Ratio,
+                   Fun(LastStart), Fun(LastEnd)]);
 
 du(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
@@ -356,20 +352,23 @@ du(detail, StatsList) when is_list(StatsList) ->
                                                                {StartComp, FinishComp} = hd(Histories),
                                                                {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
                                                        end,
-                          Acc ++ io_lib:format(lists:append(["              file path: ~s\r\n",
-                                                             " active number of objects: ~w\r\n",
-                                                             "  total number of objects: ~w\r\n",
-                                                             "   active size of objects: ~w\r\n"
-                                                             "    total size of objects: ~w\r\n",
-                                                             "    last compaction start: ~s\r\n"
-                                                             "      last compaction end: ~s\r\n\r\n"]),
-                                               [FilePath,
-                                                Active,
-                                                Total,
-                                                ActiveSize,
-                                                TotalSize,
-                                                LatestStart1,
-                                                LatestEnd1]);
+                          Ratio = case (TotalSize < 1) of
+                                      true  -> 0;
+                                      false ->
+                                          erlang:round((ActiveSize / TotalSize) * 10000)/100
+                                  end,
+
+                          lists:append([Acc, io_lib:format(lists:append(["              file path: ~s\r\n",
+                                                                         " active number of objects: ~w\r\n",
+                                                                         "  total number of objects: ~w\r\n",
+                                                                         "   active size of objects: ~w\r\n"
+                                                                         "    total size of objects: ~w\r\n",
+                                                                         "     ratio of active size: ~w%\r\n",
+                                                                         "    last compaction start: ~s\r\n"
+                                                                         "      last compaction end: ~s\r\n\r\n"]),
+                                                           [FilePath, Active, Total,
+                                                            ActiveSize, TotalSize, Ratio,
+                                                            LatestStart1, LatestEnd1])]);
                       _Error ->
                           Acc
                   end
@@ -384,30 +383,17 @@ du(_, _) ->
 %%
 -spec(compact_status({list(atom()), list(atom()), integer()}) ->
              string()).
-compact_status({RestPids, InProgPids, LastStart}) ->
-    Fun = fun(L, Indent) ->
-                  lists:foldl(
-                    fun(Item0, Acc) ->
-                            Item1 = atom_to_list(Item0),
-                            case Acc of
-                                [] -> Item1;
-                                _  -> lists:append([Acc, ",\r\n",
-                                                    lists:duplicate(Indent, $ ), Item1])
-                            end
-                    end, [], L)
-          end,
-
-    ColLen  = 24,
-    StrRest = Fun(RestPids, ColLen),
-    StrProg = Fun(InProgPids, ColLen),
+compact_status({AllPids, RestPids, InProgPids, LastStart}) ->
     StrLast = case LastStart of
                   0 -> ?NULL_DATETIME;
                   _ -> leo_date:date_format(LastStart)
               end,
-    io_lib:format(lists:append([" last compaction start: ~s\r\n",
-                                "     rest of jobs(pid): ~s\r\n",
-                                "  ongoing of jobs(pid): ~s\r\n\r\n"]),
-                  [StrLast, StrRest, StrProg]).
+
+    io_lib:format(lists:append(["    last compaction start: ~s\r\n",
+                                " total of vector-storages: ~w\r\n",
+                                "          rest of targets: ~w\r\n",
+                                "       ongoing of targets: ~w\r\n\r\n"]),
+                  [StrLast, AllPids, length(RestPids), length(InProgPids)]).
 
 
 %% @doc Format s3-gen-key result

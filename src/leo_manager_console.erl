@@ -228,6 +228,7 @@ handle_call(_Socket, <<?CMD_DU, ?SPACE, Option/binary>> = Command, #state{format
 %%
 handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
+                  %% @TODO
                   case compact(Command, Option) of
                       ok ->
                           Formatter:ok();
