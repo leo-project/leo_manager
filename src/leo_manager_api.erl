@@ -780,15 +780,15 @@ compact(Mode, Node) ->
 
 -spec(compact(atom(), string() | atom(), list(), integer()) ->
              ok | {error, any}).
-compact(_, [], _TargetPids, _MaxProc) ->
+compact(_, [], _NumOfTargets, _MaxProc) ->
     {error, not_found};
-compact(?COMPACT_START, Node, TargetPids, MaxProc) when is_list(Node) ->
-    compact(?COMPACT_START, list_to_atom(Node), TargetPids, MaxProc);
-compact(?COMPACT_START, Node, TargetPids, MaxProc) ->
+compact(?COMPACT_START, Node, NumOfTargets, MaxProc) when is_list(Node) ->
+    compact(?COMPACT_START, list_to_atom(Node), NumOfTargets, MaxProc);
+compact(?COMPACT_START, Node, NumOfTargets, MaxProc) ->
     case leo_misc:node_existence(Node) of
         true ->
             case rpc:call(Node, ?API_STORAGE, compact,
-                          [start, TargetPids, MaxProc], ?DEF_TIMEOUT) of
+                          [start, NumOfTargets, MaxProc], ?DEF_TIMEOUT) of
                 ok ->
                     ok;
                 {_, Cause} ->

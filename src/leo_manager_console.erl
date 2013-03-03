@@ -786,7 +786,7 @@ compact(CmdBody, Option) ->
             {error, ?ERROR_NO_CMODE_SPECIFIED};
         [Mode, Node|Rest] ->
             %% command patterns:
-            %%   compact start ${storage-node} all | ${storage_pids} [${num_of_compact_proc}]
+            %%   compact start ${storage-node} all | ${num_of_targets} [${num_of_compact_procs}]
             %%   compact suspend ${storage-node}
             %%   compact resume ${storage-node}
             %%   compact status ${storage-node}
@@ -810,17 +810,15 @@ compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL]) ->
     compact(Mode, Node, [?COMPACT_TARGET_ALL, []]);
 
 compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL, Rest]) ->
-    case rpc:call(Node, leo_object_storage_api, get_object_storage_pid, [all], ?DEF_TIMEOUT) of
-        TargetPids when is_list(TargetPids) ->
-            compact(Mode, Node, TargetPids, Rest);
-        {_, Cause} ->
-            ?warn("compact/3", "cause:~p", [Cause]),
-            {error, ?ERROR_FAILED_COMPACTION}
-    end;
+    compact(Mode, Node, 'all', Rest);
 
-compact(?COMPACT_START = Mode, Node, [TargetPids | Rest]) ->
-    List = string:tokens(TargetPids, ","),
-    compact(Mode, Node, List, Rest);
+compact(?COMPACT_START = Mode, Node, [NumOfTargets0 | Rest]) ->
+    case catch list_to_integer(NumOfTargets0) of
+        {'EXIT', _} ->
+            {error, ?ERROR_INVALID_ARGS};
+        NumOfTargets1 ->
+            compact(Mode, Node, NumOfTargets1, Rest)
+    end;
 
 compact(Mode, Node, _) ->
     leo_manager_api:compact(Mode, Node).
@@ -828,11 +826,11 @@ compact(Mode, Node, _) ->
 
 -spec(compact(string(), atom(), list(), list()) ->
              ok | {error, any()}).
-compact(?COMPACT_START = Mode, Node, TargetPids, []) ->
-    leo_manager_api:compact(Mode, Node, TargetPids, ?env_num_of_compact_proc());
+compact(?COMPACT_START = Mode, Node, NumOfTargets, []) ->
+    leo_manager_api:compact(Mode, Node, NumOfTargets, ?env_num_of_compact_proc());
 
-compact(?COMPACT_START = Mode, Node, TargetPids, [MaxProc]) ->
-    leo_manager_api:compact(Mode, Node, TargetPids, list_to_integer(MaxProc));
+compact(?COMPACT_START = Mode, Node, NumOfTargets, [MaxProc]) ->
+    leo_manager_api:compact(Mode, Node, NumOfTargets, list_to_integer(MaxProc));
 
 compact(_,_,_, _) ->
     {error, ?ERROR_INVALID_ARGS}.
