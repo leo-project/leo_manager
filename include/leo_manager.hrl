@@ -147,7 +147,7 @@
 
 
 %% membership
--define(DEF_NUM_OF_ERROR_COUNT, 3).
+-define(DEF_NUM_OF_ERROR_COUNT, 2).
 
 %% error
 -define(ERROR_COULD_NOT_CONNECT,        "Could not connect").
