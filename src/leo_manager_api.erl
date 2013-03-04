@@ -164,14 +164,14 @@ get_nodes() ->
     {ok, Nodes0 ++ Nodes1}.
 
 
-get_nodes(Node) ->
-    {ok, Nodes0} = get_nodes(),
-    Res = lists:foldl(fun({_, N, _}, Acc) when Node == N ->
-                              Acc;
-                         ({_, N, _}, Acc) ->
-                              [N|Acc]
-                      end, [], Nodes0),
-    {ok, Res}.
+%% get_nodes(Node) ->
+%%     {ok, Nodes0} = get_nodes(),
+%%     Res = lists:foldl(fun({_, N, _}, Acc) when Node == N ->
+%%                               Acc;
+%%                          ({_, N, _}, Acc) ->
+%%                               [N|Acc]
+%%                       end, [], Nodes0),
+%%     {ok, Res}.
 
 
 %%----------------------------------------------------------------------
@@ -596,17 +596,20 @@ notify(error, Node, ?ERR_TYPE_NODE_DOWN) ->
         {ok, [#node_state{state = State,
                           error = NumOfErrors}|_]} ->
             case (State == ?STATE_SUSPEND  orelse
-                  State == ?STATE_DETACHED) of
+                  State == ?STATE_ATTACHED orelse
+                  State == ?STATE_DETACHED orelse
+                  State == ?STATE_RESTARTED) of
                 true ->
                     ok;
                 false ->
-                    case leo_redundant_manager_api:get_members_count() of
-                        {error, Cause} ->
-                            {error, Cause};
-                        Size when Size >= ?DEF_NUM_OF_ERROR_COUNT ->
-                            notify1(error, Node, NumOfErrors, ?DEF_NUM_OF_ERROR_COUNT);
-                        Size ->
-                            notify1(error, Node, NumOfErrors, Size)
+                    %% STATE_RUNNING | STATE_STOP
+                    case leo_misc:node_existence(Node, (10 * 1000)) of
+                        true when State == ?STATE_RUNNING ->
+                            ok;
+                        true when State /= ?STATE_RUNNING ->
+                            notify1(?STATE_RUNNING, Node);
+                        false ->
+                            notify1(?STATE_STOP, Node, NumOfErrors)
                     end;
                 _ ->
                     {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
@@ -646,18 +649,21 @@ notify(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
-notify1(error, Node, NumOfErrors, Thresholds) when NumOfErrors >= Thresholds ->
-    State = ?STATE_STOP,
+notify1(?STATE_RUNNING = State, Node) ->
+    Clock = leo_date:clock(),
+    notify2(Node, Clock, State).
+
+notify1(?STATE_STOP = State, Node, NumOfErrors) when NumOfErrors >= ?DEF_NUM_OF_ERROR_COUNT ->
     Cause = ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE,
 
-    case leo_manager_mnesia:update_storage_node_status(
-           update_state, #node_state{node  = Node,
-                                     state = State}) of
+    case leo_manager_mnesia:update_storage_node_status(update_state,
+                                                       #node_state{node  = Node,
+                                                                   state = State}) of
         ok ->
             Clock = leo_date:clock(),
             case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
                 ok ->
-                    notify2(error, Node, Clock, State);
+                    notify2(Node, Clock, State);
                 _ ->
                     {error, Cause}
             end;
@@ -665,16 +671,18 @@ notify1(error, Node, NumOfErrors, Thresholds) when NumOfErrors >= Thresholds ->
             {error, Cause}
     end;
 
-notify1(error, Node,_NumOfErrors,_Thresholds) ->
-    case leo_manager_mnesia:update_storage_node_status(increment_error, #node_state{node = Node}) of
+notify1(?STATE_STOP, Node,_NumOfErrors) ->
+    case leo_manager_mnesia:update_storage_node_status(increment_error,
+                                                       #node_state{node = Node}) of
         ok ->
             ok;
         _Error ->
             {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
     end.
 
-notify2(error, Node, Clock, State) ->
-    case get_nodes(Node) of
+
+notify2(Node, Clock, State) ->
+    case get_nodes() of
         {ok, []} ->
             ok;
         {ok, Nodes} ->
