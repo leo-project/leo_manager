@@ -381,19 +381,24 @@ du(_, _) ->
 
 %% @doc Status of compaction
 %%
--spec(compact_status({list(atom()), list(atom()), integer()}) ->
+-spec(compact_status(#compaction_stats{}) ->
              string()).
-compact_status({AllPids, RestPids, InProgPids, LastStart}) ->
-    StrLast = case LastStart of
-                  0 -> ?NULL_DATETIME;
-                  _ -> leo_date:date_format(LastStart)
-              end,
-
-    io_lib:format(lists:append(["    last compaction start: ~s\r\n",
-                                " total of vector-storages: ~w\r\n",
-                                "          rest of targets: ~w\r\n",
-                                "       ongoing of targets: ~w\r\n\r\n"]),
-                  [StrLast, AllPids, length(RestPids), length(InProgPids)]).
+compact_status(#compaction_stats{status = Status,
+                                 total_num_of_targets    = TotalNumOfTargets,
+                                 num_of_pending_targets  = Targets1,
+                                 num_of_ongoing_targets  = Targets2,
+                                 latest_exec_datetime    = LatestExecDate}) ->
+    Date = case LatestExecDate of
+               0 -> ?NULL_DATETIME;
+               _ -> leo_date:date_format(LatestExecDate)
+           end,
+    io_lib:format(lists:append(["        current status: ~w\r\n",
+                                " last compaction start: ~s\r\n",
+                                "         total targets: ~w\r\n",
+                                "       pending targets: ~w\r\n",
+                                "       ongoing targets: ~w\r\n",
+                                "\r\n"]),
+                  [Status, Date, TotalNumOfTargets, Targets1, Targets2]).
 
 
 %% @doc Format s3-gen-key result
