@@ -164,16 +164,6 @@ get_nodes() ->
     {ok, Nodes0 ++ Nodes1}.
 
 
-%% get_nodes(Node) ->
-%%     {ok, Nodes0} = get_nodes(),
-%%     Res = lists:foldl(fun({_, N, _}, Acc) when Node == N ->
-%%                               Acc;
-%%                          ({_, N, _}, Acc) ->
-%%                               [N|Acc]
-%%                       end, [], Nodes0),
-%%     {ok, Res}.
-
-
 %%----------------------------------------------------------------------
 %% API-Function(s) - Operate for the Cluster nodes.
 %%----------------------------------------------------------------------
@@ -587,12 +577,53 @@ register(RequestedTimes, Pid, Node, Type) ->
     leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type).
 
 
-%% @doc Notified "Server Error", "Server Launch" and "Rebalance Progress" from cluster-nods.
+%% @doc Notified "Synchronized" from cluster-nods.
 %%
--spec(notify(error | launched | rebalance | synchronized, atom(), ?ERR_TYPE_NODE_DOWN) ->
-             ok | {error, any()}).
-notify(error, Node, ?ERR_TYPE_NODE_DOWN) ->
-    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+notify(synchronized, VNodeId, Node) ->
+    ok = leo_redundant_manager_api:adjust(VNodeId),
+    synchronize1(?SYNC_MODE_PREV_RING, Node);
+notify(_,_,_) ->
+    {error, ?ERROR_INVALID_ARGS}.
+
+%% @doc Notified "Server Error" from cluster-nods.
+%%
+notify(error, DownedNode, NotifyNode, ?ERR_TYPE_NODE_DOWN) ->
+    Ret1 = notify1(DownedNode),
+    Ret2 = notify1(NotifyNode),
+    {ok, {Ret1, Ret2}};
+
+%% @doc Notified "Rebalance Progress" from cluster-nods.
+%%
+notify(rebalance, VNodeId, Node, TotalOfObjects) ->
+    leo_manager_mnesia:update_rebalance_info(
+      #rebalance_info{vnode_id = VNodeId,
+                      node     = Node,
+                      total_of_objects = TotalOfObjects,
+                      when_is  = leo_date:now()});
+
+%% @doc Notified "Server Launch" from cluster-nods.
+%%
+notify(launched, gateway, Node, Checksums0) ->
+    case get_routing_table_chksum() of
+        {ok, Checksums1} when Checksums0 == Checksums1 ->
+            {RingHash0, RingHash1} = Checksums1,
+            leo_manager_mnesia:update_gateway_node(
+              #node_state{node          = Node,
+                          state         = ?STATE_RUNNING,
+                          ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                          ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                          when_is       = leo_date:now()});
+        {ok, _} ->
+            {error, ?ERR_TYPE_INCONSISTENT_HASH};
+        Error ->
+            Error
+    end;
+notify(_,_,_,_) ->
+    {error, ?ERROR_INVALID_ARGS}.
+
+
+notify1(TargetNode) ->
+    case leo_manager_mnesia:get_storage_node_by_name(TargetNode) of
         {ok, [#node_state{state = State,
                           error = NumOfErrors}|_]} ->
             case (State == ?STATE_SUSPEND  orelse
@@ -603,77 +634,28 @@ notify(error, Node, ?ERR_TYPE_NODE_DOWN) ->
                     ok;
                 false ->
                     %% STATE_RUNNING | STATE_STOP
-                    case leo_misc:node_existence(Node, (10 * 1000)) of
+                    case leo_misc:node_existence(TargetNode, (10 * 1000)) of
                         true when State == ?STATE_RUNNING ->
                             ok;
                         true when State /= ?STATE_RUNNING ->
-                            notify1(?STATE_RUNNING, Node);
+                            notify2(?STATE_RUNNING, TargetNode);
                         false ->
-                            notify1(?STATE_STOP, Node, NumOfErrors)
+                            notify1(?STATE_STOP, TargetNode, NumOfErrors)
                     end;
                 _ ->
                     {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
             end;
         _Error ->
             {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
-    end;
+    end.
 
-notify(synchronized, VNodeId, Node) ->
-    ok = leo_redundant_manager_api:adjust(VNodeId),
-    Res = synchronize1(?SYNC_MODE_PREV_RING, Node),
-    Res;
-
-notify(_,_,_) ->
-    {error, ?ERROR_INVALID_ARGS}.
-
-notify(rebalance, VNodeId, Node, TotalOfObjects) ->
-    leo_manager_mnesia:update_rebalance_info(#rebalance_info{vnode_id = VNodeId,
-                                                             node     = Node,
-                                                             total_of_objects = TotalOfObjects,
-                                                             when_is  = leo_date:now()});
-notify(launched, gateway, Node, Checksums0) ->
-    case get_routing_table_chksum() of
-        {ok, Checksums1} when Checksums0 == Checksums1 ->
-            {RingHash0, RingHash1} = Checksums1,
-            leo_manager_mnesia:update_gateway_node(#node_state{node          = Node,
-                                                               state         = ?STATE_RUNNING,
-                                                               ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                               ring_hash_old = leo_hex:integer_to_hex(RingHash1),
-                                                               when_is       = leo_date:now()});
-        {ok, _} ->
-            {error, ?ERR_TYPE_INCONSISTENT_HASH};
-        Error ->
-            Error
-    end;
-notify(_,_,_,_) ->
-    {error, ?ERROR_INVALID_ARGS}.
-
-
-notify1(?STATE_RUNNING = State, Node) ->
-    Clock = leo_date:clock(),
-    notify2(Node, Clock, State).
 
 notify1(?STATE_STOP = State, Node, NumOfErrors) when NumOfErrors >= ?DEF_NUM_OF_ERROR_COUNT ->
-    Cause = ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE,
-
-    case leo_manager_mnesia:update_storage_node_status(update_state,
-                                                       #node_state{node  = Node,
-                                                                   state = State}) of
-        ok ->
-            Clock = leo_date:clock(),
-            case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
-                ok ->
-                    notify2(Node, Clock, State);
-                _ ->
-                    {error, Cause}
-            end;
-        _ ->
-            {error, Cause}
-    end;
+    notify2(State, Node);
 
 notify1(?STATE_STOP, Node,_NumOfErrors) ->
-    case leo_manager_mnesia:update_storage_node_status(increment_error,
-                                                       #node_state{node = Node}) of
+    case leo_manager_mnesia:update_storage_node_status(
+           increment_error, #node_state{node = Node}) of
         ok ->
             ok;
         _Error ->
@@ -681,15 +663,53 @@ notify1(?STATE_STOP, Node,_NumOfErrors) ->
     end.
 
 
-notify2(Node, Clock, State) ->
-    case get_nodes() of
-        {ok, []} ->
-            ok;
-        {ok, Nodes} ->
-            _Res = rpc:multicall(Nodes, leo_redundant_manager_api,
-                                 update_member_by_node, [Node, Clock, State], ?DEF_TIMEOUT),
-            ok
-    end.
+notify2(?STATE_RUNNING = State, Node) ->
+    Ret = case rpc:call(Node, ?API_STORAGE, get_routing_table_chksum, [], ?DEF_TIMEOUT) of
+              {ok, {RingHash0, RingHash1}} ->
+                  case rpc:call(Node, ?API_STORAGE, register_in_monitor, [again], ?DEF_TIMEOUT) of
+                      ok ->
+                          leo_manager_mnesia:update_storage_node_status(
+                            update, #node_state{node          = Node,
+                                                state         = State,
+                                                ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                                                ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                                                when_is       = leo_date:now()});
+                      {_, Cause} ->
+                          {error, Cause}
+                  end;
+              {_, Cause} ->
+                  {error, Cause}
+          end,
+    notify3(Ret, ?STATE_RUNNING, Node);
+
+notify2(State, Node) ->
+    Ret = leo_manager_mnesia:update_storage_node_status(
+                    update_state, #node_state{node  = Node,
+                                              state = State}),
+    notify3(Ret, State, Node).
+
+
+notify3(ok, State, Node) ->
+    Clock = leo_date:clock(),
+
+    case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
+        ok ->
+            case get_nodes() of
+                {ok, []} ->
+                    ok;
+                {ok, Nodes} ->
+                    _ = rpc:multicall(Nodes, leo_redundant_manager_api,
+                                      update_member_by_node,
+                                      [Node, Clock, State], ?DEF_TIMEOUT),
+                    ok
+            end;
+        _Error ->
+            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
+    end;
+
+notify3({error,_Cause},_State,_Node) ->
+    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}.
+
 
 
 %% @doc purge an object.
@@ -990,9 +1010,10 @@ synchronize1(Type, Node) when Type == ?SYNC_MODE_CUR_RING;
                             case leo_manager_mnesia:get_storage_node_by_name(Node) of
                                 {ok, _} ->
                                     _ = leo_manager_mnesia:update_storage_node_status(
-                                          update_chksum, #node_state{node  = Node,
-                                                                     ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                                     ring_hash_old = leo_hex:integer_to_hex(RingHash1)});
+                                          update_chksum,
+                                          #node_state{node  = Node,
+                                                      ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                                                      ring_hash_old = leo_hex:integer_to_hex(RingHash1)});
                                 _ ->
                                     void
                             end
