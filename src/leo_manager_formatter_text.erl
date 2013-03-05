@@ -387,18 +387,21 @@ compact_status(#compaction_stats{status = Status,
                                  total_num_of_targets    = TotalNumOfTargets,
                                  num_of_pending_targets  = Targets1,
                                  num_of_ongoing_targets  = Targets2,
+                                 num_of_reserved_targets = Targets3,
                                  latest_exec_datetime    = LatestExecDate}) ->
     Date = case LatestExecDate of
                0 -> ?NULL_DATETIME;
                _ -> leo_date:date_format(LatestExecDate)
            end,
+
     io_lib:format(lists:append(["        current status: ~w\r\n",
                                 " last compaction start: ~s\r\n",
                                 "         total targets: ~w\r\n",
-                                "       pending targets: ~w\r\n",
-                                "       ongoing targets: ~w\r\n",
+                                "  # of pending targets: ~w\r\n",
+                                "  # of ongoing targets: ~w\r\n",
+                                "  # of out of targets : ~w\r\n",
                                 "\r\n"]),
-                  [Status, Date, TotalNumOfTargets, Targets1, Targets2]).
+                  [Status, Date, TotalNumOfTargets, Targets1, Targets2, Targets3]).
 
 
 %% @doc Format s3-gen-key result
