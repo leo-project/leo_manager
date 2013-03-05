@@ -34,6 +34,8 @@
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
+-define(API_STORAGE, leo_storage_api).
+-define(API_GATEWAY, leo_gateway_api).
 
 %% API
 -export([get_system_config/0, get_system_status/0, get_members/0,
@@ -97,14 +99,14 @@ get_members() ->
              ok | {error, any()}).
 get_node_status(Node0) ->
     Node1 = list_to_atom(Node0),
-    Mod   = case leo_manager_mnesia:get_gateway_node_by_name(Node1) of
-                {ok, _} -> leo_gateway_api;
-                _ ->
-                    case leo_manager_mnesia:get_storage_node_by_name(Node1) of
-                        {ok, _} -> leo_storage_api;
-                        _       -> undefined
-                    end
-            end,
+    {Type, Mod} = case leo_manager_mnesia:get_gateway_node_by_name(Node1) of
+                      {ok, _} -> {?SERVER_TYPE_GATEWAY, ?API_GATEWAY};
+                      _ ->
+                          case leo_manager_mnesia:get_storage_node_by_name(Node1) of
+                              {ok, _} -> {?SERVER_TYPE_STORAGE, ?API_STORAGE};
+                              _       -> {[], undefined}
+                          end
+                  end,
 
     case Mod of
         undefined ->
@@ -112,7 +114,7 @@ get_node_status(Node0) ->
         _ ->
             case rpc:call(Node1, Mod, get_node_status, [], ?DEF_TIMEOUT) of
                 {ok, Status} ->
-                    {ok, Status};
+                    {ok, {Type, Status}};
                 {_, Cause} ->
                     {error, Cause};
                 timeout = Cause ->
@@ -160,16 +162,6 @@ get_nodes() ->
                      []
              end,
     {ok, Nodes0 ++ Nodes1}.
-
-
-get_nodes(Node) ->
-    {ok, Nodes0} = get_nodes(),
-    Res = lists:foldl(fun({_, N, _}, Acc) when Node == N ->
-                              Acc;
-                         ({_, N, _}, Acc) ->
-                              [N|Acc]
-                      end, [], Nodes0),
-    {ok, Res}.
 
 
 %%----------------------------------------------------------------------
@@ -369,7 +361,7 @@ start() ->
                               end, Members),
             {ok, SystemConf}   = leo_manager_mnesia:get_system_config(),
             {ResL0, BadNodes0} = rpc:multicall(
-                                   Nodes, leo_storage_api, start, [Members, SystemConf], infinity),
+                                   Nodes, ?API_STORAGE, start, [Members, SystemConf], infinity),
 
             %% Update an object of node-status.
             case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
@@ -479,7 +471,7 @@ rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
     %% New Attached-node change Ring.cur, Ring.prev and Members
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
 
-    case rpc:call(Node, leo_storage_api, start, [Members, SystemConf], ?DEF_TIMEOUT) of
+    case rpc:call(Node, ?API_STORAGE, start, [Members, SystemConf], ?DEF_TIMEOUT) of
         {ok, {_Node, {RingHash0, RingHash1}}} ->
             case leo_manager_mnesia:update_storage_node_status(
                    update, #node_state{node          = Node,
@@ -562,7 +554,7 @@ rebalance5([], []) ->
 rebalance5([], Errors0) ->
     {error, Errors0};
 rebalance5([{Node, Info}|T], Errors0) ->
-    case rpc:call(Node, leo_storage_api, rebalance, [Info], ?DEF_TIMEOUT) of
+    case rpc:call(Node, ?API_STORAGE, rebalance, [Info], ?DEF_TIMEOUT) of
         ok ->
             rebalance5(T, Errors0);
         {_, Cause}->
@@ -585,101 +577,139 @@ register(RequestedTimes, Pid, Node, Type) ->
     leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type).
 
 
-%% @doc Notified "Server Error", "Server Launch" and "Rebalance Progress" from cluster-nods.
+%% @doc Notified "Synchronized" from cluster-nods.
 %%
--spec(notify(error | launched | rebalance | synchronized, atom(), ?ERR_TYPE_NODE_DOWN) ->
-             ok | {error, any()}).
-notify(error, Node, ?ERR_TYPE_NODE_DOWN) ->
-    case leo_manager_mnesia:get_storage_node_by_name(Node) of
-        {ok, [#node_state{state = State,
-                          error = NumOfErrors}|_]} ->
-            case (State == ?STATE_SUSPEND  orelse
-                  State == ?STATE_DETACHED) of
-                true ->
-                    ok;
-                false ->
-                    case leo_redundant_manager_api:get_members_count() of
-                        {error, Cause} ->
-                            {error, Cause};
-                        Size when Size >= ?DEF_NUM_OF_ERROR_COUNT ->
-                            notify1(error, Node, NumOfErrors, ?DEF_NUM_OF_ERROR_COUNT);
-                        Size ->
-                            notify1(error, Node, NumOfErrors, Size)
-                    end;
-                _ ->
-                    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
-            end;
-        _Error ->
-            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
-    end;
-
 notify(synchronized, VNodeId, Node) ->
     ok = leo_redundant_manager_api:adjust(VNodeId),
-    Res = synchronize1(?SYNC_MODE_PREV_RING, Node),
-    Res;
-
+    synchronize1(?SYNC_MODE_PREV_RING, Node);
 notify(_,_,_) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
+%% @doc Notified "Server Error" from cluster-nods.
+%%
+notify(error, DownedNode, NotifyNode, ?ERR_TYPE_NODE_DOWN) ->
+    Ret1 = notify1(DownedNode),
+    Ret2 = notify1(NotifyNode),
+    {ok, {Ret1, Ret2}};
+
+%% @doc Notified "Rebalance Progress" from cluster-nods.
+%%
 notify(rebalance, VNodeId, Node, TotalOfObjects) ->
-    leo_manager_mnesia:update_rebalance_info(#rebalance_info{vnode_id = VNodeId,
-                                                             node     = Node,
-                                                             total_of_objects = TotalOfObjects,
-                                                             when_is  = leo_date:now()});
+    leo_manager_mnesia:update_rebalance_info(
+      #rebalance_info{vnode_id = VNodeId,
+                      node     = Node,
+                      total_of_objects = TotalOfObjects,
+                      when_is  = leo_date:now()});
+
+%% @doc Notified "Server Launch" from cluster-nods.
+%%
 notify(launched, gateway, Node, Checksums0) ->
     case get_routing_table_chksum() of
         {ok, Checksums1} when Checksums0 == Checksums1 ->
             {RingHash0, RingHash1} = Checksums1,
-            leo_manager_mnesia:update_gateway_node(#node_state{node          = Node,
-                                                               state         = ?STATE_RUNNING,
-                                                               ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                               ring_hash_old = leo_hex:integer_to_hex(RingHash1),
-                                                               when_is       = leo_date:now()});
+            leo_manager_mnesia:update_gateway_node(
+              #node_state{node          = Node,
+                          state         = ?STATE_RUNNING,
+                          ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                          ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                          when_is       = leo_date:now()});
         {ok, _} ->
             {error, ?ERR_TYPE_INCONSISTENT_HASH};
         Error ->
             Error
     end;
 notify(_,_,_,_) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 
-notify1(error, Node, NumOfErrors, Thresholds) when NumOfErrors >= Thresholds ->
-    State = ?STATE_STOP,
-    Cause = ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE,
-
-    case leo_manager_mnesia:update_storage_node_status(
-           update_state, #node_state{node  = Node,
-                                     state = State}) of
-        ok ->
-            Clock = leo_date:clock(),
-            case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
-                ok ->
-                    notify2(error, Node, Clock, State);
+notify1(TargetNode) ->
+    case leo_manager_mnesia:get_storage_node_by_name(TargetNode) of
+        {ok, [#node_state{state = State,
+                          error = NumOfErrors}|_]} ->
+            case (State == ?STATE_SUSPEND  orelse
+                  State == ?STATE_ATTACHED orelse
+                  State == ?STATE_DETACHED orelse
+                  State == ?STATE_RESTARTED) of
+                true ->
+                    ok;
+                false ->
+                    %% STATE_RUNNING | STATE_STOP
+                    case leo_misc:node_existence(TargetNode, (10 * 1000)) of
+                        true when State == ?STATE_RUNNING ->
+                            ok;
+                        true when State /= ?STATE_RUNNING ->
+                            notify2(?STATE_RUNNING, TargetNode);
+                        false ->
+                            notify1(?STATE_STOP, TargetNode, NumOfErrors)
+                    end;
                 _ ->
-                    {error, Cause}
+                    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
             end;
-        _ ->
-            {error, Cause}
-    end;
+        _Error ->
+            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
+    end.
 
-notify1(error, Node,_NumOfErrors,_Thresholds) ->
-    case leo_manager_mnesia:update_storage_node_status(increment_error, #node_state{node = Node}) of
+
+notify1(?STATE_STOP = State, Node, NumOfErrors) when NumOfErrors >= ?DEF_NUM_OF_ERROR_COUNT ->
+    notify2(State, Node);
+
+notify1(?STATE_STOP, Node,_NumOfErrors) ->
+    case leo_manager_mnesia:update_storage_node_status(
+           increment_error, #node_state{node = Node}) of
         ok ->
             ok;
         _Error ->
             {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
     end.
 
-notify2(error, Node, Clock, State) ->
-    case get_nodes(Node) of
-        {ok, []} ->
-            ok;
-        {ok, Nodes} ->
-            _Res = rpc:multicall(Nodes, leo_redundant_manager_api,
-                                 update_member_by_node, [Node, Clock, State], ?DEF_TIMEOUT),
-            ok
-    end.
+
+notify2(?STATE_RUNNING = State, Node) ->
+    Ret = case rpc:call(Node, ?API_STORAGE, get_routing_table_chksum, [], ?DEF_TIMEOUT) of
+              {ok, {RingHash0, RingHash1}} ->
+                  case rpc:call(Node, ?API_STORAGE, register_in_monitor, [again], ?DEF_TIMEOUT) of
+                      ok ->
+                          leo_manager_mnesia:update_storage_node_status(
+                            update, #node_state{node          = Node,
+                                                state         = State,
+                                                ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                                                ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                                                when_is       = leo_date:now()});
+                      {_, Cause} ->
+                          {error, Cause}
+                  end;
+              {_, Cause} ->
+                  {error, Cause}
+          end,
+    notify3(Ret, ?STATE_RUNNING, Node);
+
+notify2(State, Node) ->
+    Ret = leo_manager_mnesia:update_storage_node_status(
+                    update_state, #node_state{node  = Node,
+                                              state = State}),
+    notify3(Ret, State, Node).
+
+
+notify3(ok, State, Node) ->
+    Clock = leo_date:clock(),
+
+    case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
+        ok ->
+            case get_nodes() of
+                {ok, []} ->
+                    ok;
+                {ok, Nodes} ->
+                    _ = rpc:multicall(Nodes, leo_redundant_manager_api,
+                                      update_member_by_node,
+                                      [Node, Clock, State], ?DEF_TIMEOUT),
+                    ok
+            end;
+        _Error ->
+            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
+    end;
+
+notify3({error,_Cause},_State,_Node) ->
+    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}.
+
 
 
 %% @doc purge an object.
@@ -694,7 +724,7 @@ purge(Path) ->
                                    (_, Acc) ->
                                         Acc
                                 end, [], R1),
-            _ = rpc:multicall(Nodes, leo_gateway_api, purge, [Path], ?DEF_TIMEOUT),
+            _ = rpc:multicall(Nodes, ?API_GATEWAY, purge, [Path], ?DEF_TIMEOUT),
             ok;
         _Error ->
             {error, ?ERROR_COULD_NOT_GET_GATEWAY}
@@ -719,7 +749,7 @@ whereis(_Key, false) ->
     {error, ?ERROR_COULD_NOT_GET_RING};
 
 whereis(_Key, _HasRoutingTable) ->
-    {error, badarith}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 whereis1(_, _, [],Acc) ->
     {ok, lists:reverse(Acc)};
@@ -748,38 +778,57 @@ whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
 
 %% @doc Do compact.
 %%
--spec(compact(atom(), string() | atom(), list(), integer()) ->
-             ok | {error, any}).
-compact(_, [], _TargetPids, _MaxProc) ->
-    {error, not_found};
-compact(Mode, Node, TargetPids, MaxProc) when is_list(Node) ->
-    compact(Mode, list_to_atom(Node), TargetPids, MaxProc);
-compact(start, Node, TargetPids, MaxProc) ->
-    case leo_misc:node_existence(Node) of
-        true ->
-            case rpc:call(Node, leo_storage_api, compact, [start, TargetPids, MaxProc], ?DEF_TIMEOUT) of
-                ok ->
-                    ok;
-                {_, Cause} ->
-                    {error, Cause}
-            end;
-        false ->
-            {error, ?ERR_TYPE_NODE_DOWN}
-    end.
-
--spec(compact(suspend | resume | status, string() | atom()) ->
-             ok | {error, any}).
+-spec(compact(string(), string() | atom()) ->
+             ok).
 compact(Mode, Node) when is_list(Node) ->
     compact(Mode, list_to_atom(Node));
 compact(Mode, Node) ->
-    case rpc:call(Node, leo_storage_api, compact, [Mode], ?DEF_TIMEOUT) of
-        ok ->
-            ok;
-        {ok, Status} ->
-            {ok, Status};
-        {_, Cause} ->
-            {error, Cause}
+    ModeAtom = case Mode of
+                   ?COMPACT_SUSPEND -> suspend;
+                   ?COMPACT_RESUME  -> resume;
+                   ?COMPACT_STATUS  -> status;
+                   _ -> {error, ?ERROR_INVALID_ARGS}
+               end,
+
+    case ModeAtom of
+        {error, Cause} ->
+            {error, Cause};
+        _ ->
+            case rpc:call(Node, ?API_STORAGE, compact, [ModeAtom], ?DEF_TIMEOUT) of
+                ok ->
+                    ok;
+                {ok, Status} ->
+                    {ok, Status};
+                {_, Cause} ->
+                    ?warn("compact/2", "cause:~p", [Cause]),
+                    {error, ?ERROR_FAILED_COMPACTION}
+            end
     end.
+
+
+-spec(compact(atom(), string() | atom(), list(), integer()) ->
+             ok | {error, any}).
+compact(_, [], _NumOfTargets, _MaxProc) ->
+    {error, not_found};
+compact(?COMPACT_START, Node, NumOfTargets, MaxProc) when is_list(Node) ->
+    compact(?COMPACT_START, list_to_atom(Node), NumOfTargets, MaxProc);
+compact(?COMPACT_START, Node, NumOfTargets, MaxProc) ->
+    case leo_misc:node_existence(Node) of
+        true ->
+            case rpc:call(Node, ?API_STORAGE, compact,
+                          [start, NumOfTargets, MaxProc], ?DEF_TIMEOUT) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    ?warn("compact/4", "cause:~p", [Cause]),
+                    {error, ?ERROR_FAILED_COMPACTION}
+            end;
+        false ->
+            {error, ?ERR_TYPE_NODE_DOWN}
+    end;
+compact(_,_,_,_) ->
+    {error, ?ERROR_INVALID_ARGS}.
+
 
 %% @doc get storage stats.
 %%
@@ -812,25 +861,30 @@ stats(Mode, Node) ->
     end.
 
 stats1(summary, List) ->
-    {ok, lists:foldl(fun({ok, #storage_stats{file_path  = _ObjPath,
-                                             compaction_histories = Histories,
-                                             total_sizes = TotalSize,
-                                             active_sizes = ActiveSize,
-                                             total_num  = Total,
-                                             active_num = Active}}, {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
-                               {LatestStart1, LatestEnd1} = case length(Histories) of
-                                   0 -> {LatestStart, LatestEnd};
-                                   _ -> 
-                                       {StartComp, FinishComp} = hd(Histories),
-                                       {max(LatestStart, StartComp), max(LatestEnd, FinishComp)}
-                               end,
-                               {SumTotal + Total, 
-                                SumActive + Active,
-                                SumTotalSize + TotalSize,
-                                SumActiveSize + ActiveSize,
-                                LatestStart1,
-                                LatestEnd1}
-                       end, {0, 0, 0, 0, 0, 0}, List)};
+    {ok, lists:foldl(
+           fun({ok, #storage_stats{file_path  = _ObjPath,
+                                   compaction_histories = Histories,
+                                   total_sizes = TotalSize,
+                                   active_sizes = ActiveSize,
+                                   total_num  = Total,
+                                   active_num = Active}},
+               {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
+                   {LatestStart1, LatestEnd1} =
+                       case length(Histories) of
+                           0 -> {LatestStart, LatestEnd};
+                           _ ->
+                               {StartComp, FinishComp} = hd(Histories),
+                               {max(LatestStart, StartComp), max(LatestEnd, FinishComp)}
+                       end,
+                   {SumTotal + Total,
+                    SumActive + Active,
+                    SumTotalSize + TotalSize,
+                    SumActiveSize + ActiveSize,
+                    LatestStart1,
+                    LatestEnd1};
+              (_, Acc) ->
+                   Acc
+           end, {0, 0, 0, 0, 0, 0}, List)};
 stats1(detail, List) ->
     {ok, List}.
 
@@ -956,9 +1010,10 @@ synchronize1(Type, Node) when Type == ?SYNC_MODE_CUR_RING;
                             case leo_manager_mnesia:get_storage_node_by_name(Node) of
                                 {ok, _} ->
                                     _ = leo_manager_mnesia:update_storage_node_status(
-                                          update_chksum, #node_state{node  = Node,
-                                                                     ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                                     ring_hash_old = leo_hex:integer_to_hex(RingHash1)});
+                                          update_chksum,
+                                          #node_state{node  = Node,
+                                                      ring_hash_new = leo_hex:integer_to_hex(RingHash0),
+                                                      ring_hash_old = leo_hex:integer_to_hex(RingHash1)});
                                 _ ->
                                     void
                             end
@@ -973,7 +1028,7 @@ synchronize1(Type, Node) when Type == ?SYNC_MODE_CUR_RING;
             Error
     end;
 synchronize1(_,_) ->
-    {error, badarg}.
+    {error, ?ERROR_INVALID_ARGS}.
 
 
 %% @doc Compare local-checksum with remote-checksum
@@ -1008,7 +1063,7 @@ set_endpoint(Endpoint) ->
                 [] ->
                     ok;
                 _ ->
-                    case rpc:multicall(Nodes1, leo_gateway_api, set_endpoint,
+                    case rpc:multicall(Nodes1, ?API_GATEWAY, set_endpoint,
                                        [Endpoint], ?DEF_TIMEOUT) of
                         {_, []} ->
                             ok;

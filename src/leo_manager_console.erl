@@ -29,6 +29,7 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
@@ -114,8 +115,10 @@ handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command, #state{formatter 
                   case status(Command, Option) of
                       {ok, {node_list, Props}} ->
                           Formatter:system_info_and_nodes_stat(Props);
-                      {ok, NodeStatus} ->
-                          Formatter:node_stat(NodeStatus);
+                      {ok, {?SERVER_TYPE_GATEWAY = Type, NodeStatus}} ->
+                          Formatter:node_stat(Type, NodeStatus);
+                      {ok, {?SERVER_TYPE_STORAGE = Type, NodeStatus}} ->
+                          Formatter:node_stat(Type, NodeStatus);
                       {error, Cause} ->
                           Formatter:error(Cause)
                   end
@@ -457,7 +460,7 @@ handle_call(_Socket, <<?CRLF>>, State) ->
 
 
 handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
-    Reply = Formatter:error(?ERROR_COMMAND_NOT_FOUND),
+    Reply = Formatter:error(?ERROR_NOT_SPECIFIED_COMMAND),
     {reply, Reply, State}.
 
 
@@ -471,7 +474,7 @@ handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
 invoke(Command, Formatter, Fun) ->
     case leo_manager_mnesia:get_available_command_by_name(Command) of
         not_found ->
-            Formatter:error(?ERROR_COMMAND_NOT_FOUND);
+            Formatter:error(?ERROR_NOT_SPECIFIED_COMMAND);
         _ ->
             Fun()
     end.
@@ -544,7 +547,7 @@ status(node_list) ->
     S1 = case leo_manager_mnesia:get_storage_nodes_all() of
              {ok, R1} ->
                  lists:map(fun(N) ->
-                                   {"S",
+                                   {?SERVER_TYPE_STORAGE,
                                     atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
@@ -557,7 +560,7 @@ status(node_list) ->
     S2 = case leo_manager_mnesia:get_gateway_nodes_all() of
              {ok, R2} ->
                  lists:map(fun(N) ->
-                                   {"G",
+                                   {?SERVER_TYPE_GATEWAY,
                                     atom_to_list(N#node_state.node),
                                     atom_to_list(N#node_state.state),
                                     N#node_state.ring_hash_new,
@@ -575,8 +578,8 @@ status(node_list) ->
 
 status({node_state, Node}) ->
     case leo_manager_api:get_node_status(Node) of
-        {ok, State} ->
-            {ok, State};
+        {ok, {Type, State}} ->
+            {ok, {Type, State}};
         {error, Cause} ->
             {error, Cause}
     end.
@@ -589,29 +592,37 @@ status({node_state, Node}) ->
 start(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_manager_api:get_system_status() of
-        ?STATE_STOP ->
-            {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    case leo_manager_mnesia:get_storage_nodes_all() of
+        {ok, _} ->
+            case leo_manager_api:get_system_status() of
+                ?STATE_STOP ->
+                    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
 
-            case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
-                {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
-                    case leo_manager_api:start() of
-                        {error, Cause} ->
-                            {error, Cause};
-                        {_ResL, []} ->
-                            ok;
-                        {_ResL, BadNodes} ->
-                            {error, {bad_nodes, lists:foldl(fun(Node, Acc) ->
-                                                                    Acc ++ [Node]
-                                                            end, [], BadNodes)}}
+                    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
+                        {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
+                            case leo_manager_api:start() of
+                                {error, Cause} ->
+                                    {error, Cause};
+                                {_ResL, []} ->
+                                    ok;
+                                {_ResL, BadNodes} ->
+                                    {error, {bad_nodes, lists:foldl(fun(Node, Acc) ->
+                                                                            Acc ++ [Node]
+                                                                    end, [], BadNodes)}}
+                            end;
+                        {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
+                            {error, "Attached nodes less than # of replicas"};
+                        not_found ->
+                            %% status of all-nodes is 'suspend' or 'restarted'
+                            {error, ?ERROR_ALREADY_STARTED};
+                        Error ->
+                            Error
                     end;
-                {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
-                    {error, "Attached nodes less than # of replicas"};
-                Error ->
-                    Error
+                ?STATE_RUNNING ->
+                    {error, ?ERROR_ALREADY_STARTED}
             end;
-        ?STATE_RUNNING ->
-            {error, "System already started"}
+        _ ->
+            {error, ?ERROR_NOT_STARTED}
     end.
 
 
@@ -625,7 +636,7 @@ detach(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             NodeAtom = list_to_atom(Node),
 
@@ -661,7 +672,7 @@ suspend(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             case leo_manager_api:suspend(list_to_atom(Node)) of
                 ok ->
@@ -681,7 +692,7 @@ resume(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             case leo_manager_api:resume(list_to_atom(Node)) of
                 ok ->
@@ -721,7 +732,7 @@ purge(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_PATH_SPECIFIED};
+            {error, ?ERROR_INVALID_PATH};
         [Key|_] ->
             case leo_manager_api:purge(Key) of
                 ok ->
@@ -741,12 +752,12 @@ du(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED};
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
         Tokens ->
             Mode = case length(Tokens) of
                        1 -> {summary, lists:nth(1, Tokens)};
                        2 -> {list_to_atom(lists:nth(1, Tokens)),  lists:nth(2, Tokens)};
-                       _ -> {error, badarg}
+                       _ -> {error, ?ERROR_INVALID_ARGS}
                    end,
 
             case Mode of
@@ -774,9 +785,13 @@ compact(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NO_CMODE_SPECIFIED};
         [Mode, Node|Rest] ->
-            ModeAtom = list_to_atom(Mode),
-            NodeAtom = list_to_atom(Node),
-            case catch compact(ModeAtom, NodeAtom, Rest) of
+            %% command patterns:
+            %%   compact start ${storage-node} all | ${num_of_targets} [${num_of_compact_procs}]
+            %%   compact suspend ${storage-node}
+            %%   compact resume ${storage-node}
+            %%   compact status ${storage-node}
+
+            case catch compact(Mode, list_to_atom(Node), Rest) of
                 ok ->
                     ok;
                 {ok, Status} ->
@@ -785,31 +800,40 @@ compact(CmdBody, Option) ->
                     {error, Cause}
             end;
         [_Mode|_Rest] ->
-            {error, ?ERROR_NO_NODE_SPECIFIED}
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
 
-compact(resume, Node, _) ->
-    leo_manager_api:compact(resume, Node);
-compact(suspend, Node, _) ->
-    leo_manager_api:compact(suspend, Node);
-compact(status, Node, _) ->
-    leo_manager_api:compact(status, Node);
-compact(start, Node, ["all"|Rest]) ->
-    case rpc:call(Node, leo_object_storage_api, get_object_storage_pid, [all], ?DEF_TIMEOUT) of
-        TargetPids when is_list(TargetPids) ->
-            compact(start, Node, TargetPids, Rest);
-        {_, Cause} ->
-            {error, Cause}
-    end;
-compact(start, Node, [StrTargetPids|Rest]) ->
-    StrList = string:tokens(StrTargetPids, ","),
-    AtomList = lists:map(fun erlang:list_to_atom/1, StrList),
-    compact(start, Node, AtomList, Rest).
 
-compact(start, Node, TargetPids, [MaxProc|_Rest]) ->
-    leo_manager_api:compact(start, Node, TargetPids, list_to_integer(MaxProc));
-compact(start, Node, TargetPids, []) ->
-    leo_manager_api:compact(start, Node, TargetPids, ?env_num_of_compact_proc()).
+-spec(compact(string(), atom(), list()) ->
+             ok | {error, any()}).
+compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL]) ->
+    compact(Mode, Node, [?COMPACT_TARGET_ALL, []]);
+
+compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL, Rest]) ->
+    compact(Mode, Node, 'all', Rest);
+
+compact(?COMPACT_START = Mode, Node, [NumOfTargets0 | Rest]) ->
+    case catch list_to_integer(NumOfTargets0) of
+        {'EXIT', _} ->
+            {error, ?ERROR_INVALID_ARGS};
+        NumOfTargets1 ->
+            compact(Mode, Node, NumOfTargets1, Rest)
+    end;
+
+compact(Mode, Node, _) ->
+    leo_manager_api:compact(Mode, Node).
+
+
+-spec(compact(string(), atom(), list(), list()) ->
+             ok | {error, any()}).
+compact(?COMPACT_START = Mode, Node, NumOfTargets, []) ->
+    leo_manager_api:compact(Mode, Node, NumOfTargets, ?env_num_of_compact_proc());
+
+compact(?COMPACT_START = Mode, Node, NumOfTargets, [MaxProc]) ->
+    leo_manager_api:compact(Mode, Node, NumOfTargets, list_to_integer(MaxProc));
+
+compact(_,_,_, _) ->
+    {error, ?ERROR_INVALID_ARGS}.
 
 
 %% @doc Retrieve information of an Assigned object
@@ -821,7 +845,7 @@ whereis(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
-            {error, ?ERROR_NO_PATH_SPECIFIED};
+            {error, ?ERROR_INVALID_PATH};
         Key ->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
 
@@ -1033,7 +1057,14 @@ s3_add_bucket(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, AccessKey] ->
-            leo_s3_bucket:put(list_to_binary(AccessKey), list_to_binary(Bucket));
+            case leo_s3_bucket:put(list_to_binary(AccessKey), list_to_binary(Bucket)) of
+                ok ->
+                    ok;
+                {error, badarg} ->
+                    {error, ?ERROR_INVALID_BUCKET_FORMAT};
+                {error, _Cause} ->
+                    {error, ?ERROR_COULD_NOT_STORE}
+            end;
         _ ->
             {error, ?ERROR_INVALID_ARGS}
     end.

@@ -94,12 +94,16 @@ start_link() ->
 
             %% Launch Redundant-manager
             SystemConf = load_system_config(),
-            ok = leo_redundant_manager_api:start(Mode, RedundantNodes1, ?env_queue_dir(leo_manager),
-                                                 [{n,           SystemConf#system_conf.n},
-                                                  {r,           SystemConf#system_conf.r},
-                                                  {w,           SystemConf#system_conf.w},
-                                                  {d,           SystemConf#system_conf.d},
-                                                  {bit_of_ring, SystemConf#system_conf.bit_of_ring}]),
+            ChildSpec  = {leo_redundant_manager_sup,
+                          {leo_redundant_manager_sup, start_link,
+                           [Mode, RedundantNodes1, ?env_queue_dir(leo_manager),
+                            [{n,           SystemConf#system_conf.n},
+                             {r,           SystemConf#system_conf.r},
+                             {w,           SystemConf#system_conf.w},
+                             {d,           SystemConf#system_conf.d},
+                             {bit_of_ring, SystemConf#system_conf.bit_of_ring}]]},
+                          permanent, 2000, supervisor, [leo_redundant_manager_sup]},
+            {ok, _} = supervisor:start_child(Pid, ChildSpec),
 
             %% Launch S3Libs:Auth/Bucket/EndPoint
             ok = leo_s3_libs:start(master, []),

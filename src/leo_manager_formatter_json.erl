@@ -33,14 +33,11 @@
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
          compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
         ]).
-
--define(NULL_DATETIME, "____-_-__- __:__:__").
 
 -define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
 -define(output_error_1(Cause), gen_json({[{error, list_to_binary(Cause)}]})).

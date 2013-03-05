@@ -34,13 +34,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1,
-         bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
+         bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
-
--define(NULL_DATETIME, "____-__-__ --:--:--").
 
 %% @doc Format 'ok'
 %%
@@ -226,9 +224,9 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 
 %% @doc Format a cluster node state
 %%
--spec(node_stat(#cluster_node_status{}) ->
+-spec(node_stat(string(), #cluster_node_status{}) ->
              string()).
-node_stat(State) ->
+node_stat(?SERVER_TYPE_GATEWAY, State) ->
     ObjContainer = State#cluster_node_status.avs,
     Directories  = State#cluster_node_status.dirs,
     RingHashes   = State#cluster_node_status.ring_checksum,
@@ -238,9 +236,10 @@ node_stat(State) ->
                                 "            version : ~s\r\n",
                                 "      obj-container : ~p\r\n",
                                 "            log-dir : ~s\r\n",
+                                "\r\n[status-1: ring]\r\n",
                                 "  ring state (cur)  : ~s\r\n",
                                 "  ring state (prev) : ~s\r\n",
-                                "\r\n[erlang-vm status]\r\n",
+                                "\r\n[status-2: erlang-vm]\r\n",
                                 "         vm version : ~s\r\n",
                                 "    total mem usage : ~w\r\n",
                                 "   system mem usage : ~w\r\n",
@@ -263,6 +262,53 @@ node_stat(State) ->
                    leo_misc:get_value('process_limit',    Statistics, 0),
                    leo_misc:get_value('kernel_poll',      Statistics, false),
                    leo_misc:get_value('thread_pool_size', Statistics, 0)
+                  ]);
+
+node_stat(?SERVER_TYPE_STORAGE, State) ->
+    ObjContainer = State#cluster_node_status.avs,
+    Directories  = State#cluster_node_status.dirs,
+    RingHashes   = State#cluster_node_status.ring_checksum,
+    Statistics   = State#cluster_node_status.statistics,
+    CustomItems  = leo_misc:get_value('storage', Statistics, []),
+
+    io_lib:format(lists:append(["[config]\r\n",
+                                "            version : ~s\r\n",
+                                "      obj-container : ~p\r\n",
+                                "            log-dir : ~s\r\n",
+                                "\r\n[status-1: ring]\r\n",
+                                "  ring state (cur)  : ~s\r\n",
+                                "  ring state (prev) : ~s\r\n",
+                                "\r\n[status-2: erlang-vm]\r\n",
+                                "         vm version : ~s\r\n",
+                                "    total mem usage : ~w\r\n",
+                                "   system mem usage : ~w\r\n",
+                                "    procs mem usage : ~w\r\n",
+                                "      ets mem usage : ~w\r\n",
+                                "              procs : ~w/~w\r\n",
+                                "        kernel_poll : ~w\r\n",
+                                "   thread_pool_size : ~w\r\n",
+                                "\r\n[status-3: # of msgs]\r\n",
+                                "   replication msgs : ~w\r\n",
+                                "    vnode-sync msgs : ~w\r\n",
+                                "     rebalance msgs : ~w\r\n",
+                                "\r\n"]),
+                  [State#cluster_node_status.version,
+                   ObjContainer,
+                   leo_misc:get_value('log', Directories, []),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)),
+                   leo_misc:get_value('vm_version',       Statistics, []),
+                   leo_misc:get_value('total_mem_usage',  Statistics, 0),
+                   leo_misc:get_value('system_mem_usage', Statistics, 0),
+                   leo_misc:get_value('proc_mem_usage',   Statistics, 0),
+                   leo_misc:get_value('ets_mem_usage',    Statistics, 0),
+                   leo_misc:get_value('num_of_procs',     Statistics, 0),
+                   leo_misc:get_value('process_limit',    Statistics, 0),
+                   leo_misc:get_value('kernel_poll',      Statistics, false),
+                   leo_misc:get_value('thread_pool_size', Statistics, 0),
+                   leo_misc:get_value('num_of_replication_msg', CustomItems, 0),
+                   leo_misc:get_value('num_of_sync_vnode_msg',  CustomItems, 0),
+                   leo_misc:get_value('num_of_rebalance_msg',   CustomItems, 0)
                   ]).
 
 
@@ -271,26 +317,25 @@ node_stat(State) ->
 -spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
              string()).
 du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
-    StartStr = case LastStart of
-                   0 -> ?NULL_DATETIME;
-                   _ -> leo_date:date_format(LastStart)
-               end,
-    EndStr = case LastEnd of
-                 0 -> ?NULL_DATETIME;
-                 _ -> leo_date:date_format(LastEnd)
-             end,
+    Fun = fun(0) -> ?NULL_DATETIME;
+             (D) -> leo_date:date_format(D)
+          end,
+    Ratio = case (TotalSize < 1) of
+                true  -> 0;
+                false ->
+                    erlang:round((ActiveSize / TotalSize) * 10000)/100
+            end,
+
     io_lib:format(lists:append([" active number of objects: ~w\r\n",
                                 "  total number of objects: ~w\r\n",
                                 "   active size of objects: ~w\r\n",
                                 "    total size of objects: ~w\r\n",
+                                "     ratio of active size: ~w%\r\n",
                                 "    last compaction start: ~s\r\n",
                                 "      last compaction end: ~s\r\n\r\n"]),
-                  [ActiveNum,
-                   TotalNum,
-                   ActiveSize,
-                   TotalSize,
-                   StartStr,
-                   EndStr]);
+                  [ActiveNum, TotalNum,
+                   ActiveSize, TotalSize, Ratio,
+                   Fun(LastStart), Fun(LastEnd)]);
 
 du(detail, StatsList) when is_list(StatsList) ->
     Fun = fun(Stats, Acc) ->
@@ -307,20 +352,23 @@ du(detail, StatsList) when is_list(StatsList) ->
                                                                {StartComp, FinishComp} = hd(Histories),
                                                                {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
                                                        end,
-                          Acc ++ io_lib:format(lists:append(["              file path: ~s\r\n",
-                                                             " active number of objects: ~w\r\n",
-                                                             "  total number of objects: ~w\r\n",
-                                                             "   active size of objects: ~w\r\n"
-                                                             "    total size of objects: ~w\r\n",
-                                                             "    last compaction start: ~s\r\n"
-                                                             "      last compaction end: ~s\r\n\r\n"]),
-                                               [FilePath,
-                                                Active,
-                                                Total,
-                                                ActiveSize,
-                                                TotalSize,
-                                                LatestStart1,
-                                                LatestEnd1]);
+                          Ratio = case (TotalSize < 1) of
+                                      true  -> 0;
+                                      false ->
+                                          erlang:round((ActiveSize / TotalSize) * 10000)/100
+                                  end,
+
+                          lists:append([Acc, io_lib:format(lists:append(["              file path: ~s\r\n",
+                                                                         " active number of objects: ~w\r\n",
+                                                                         "  total number of objects: ~w\r\n",
+                                                                         "   active size of objects: ~w\r\n"
+                                                                         "    total size of objects: ~w\r\n",
+                                                                         "     ratio of active size: ~w%\r\n",
+                                                                         "    last compaction start: ~s\r\n"
+                                                                         "      last compaction end: ~s\r\n\r\n"]),
+                                                           [FilePath, Active, Total,
+                                                            ActiveSize, TotalSize, Ratio,
+                                                            LatestStart1, LatestEnd1])]);
                       _Error ->
                           Acc
                   end
@@ -330,28 +378,31 @@ du(detail, StatsList) when is_list(StatsList) ->
 du(_, _) ->
     [].
 
-atomlist_to_string(AtomList, Sep) ->
-    lists:foldl(fun(Atom, Acc) ->
-                        List = atom_to_list(Atom),
-                        case Acc of
-                            [] ->
-                                List;
-                            _ ->
-                                Acc ++ Sep ++ List
-                        end
-                end, [], AtomList).
 
-compact_status({RestPids, InProgPids, LastStart}) ->
-    StrRest = atomlist_to_string(RestPids, ", "),
-    StrProg = atomlist_to_string(InProgPids, ", "),
-    StrLast = case LastStart of
-                  0 -> ?NULL_DATETIME;
-                  _ -> leo_date:date_format(LastStart)
-              end,
-    io_lib:format(lists:append([" last compaction start: ~s\r\n",
-                                "     rest of jobs(pid): ~s\r\n",
-                                "  ongoing of jobs(pid): ~s\r\n\r\n"]),
-                  [StrLast, StrRest, StrProg]).
+%% @doc Status of compaction
+%%
+-spec(compact_status(#compaction_stats{}) ->
+             string()).
+compact_status(#compaction_stats{status = Status,
+                                 total_num_of_targets    = TotalNumOfTargets,
+                                 num_of_pending_targets  = Targets1,
+                                 num_of_ongoing_targets  = Targets2,
+                                 num_of_reserved_targets = Targets3,
+                                 latest_exec_datetime    = LatestExecDate}) ->
+    Date = case LatestExecDate of
+               0 -> ?NULL_DATETIME;
+               _ -> leo_date:date_format(LatestExecDate)
+           end,
+
+    io_lib:format(lists:append(["        current status: ~w\r\n",
+                                " last compaction start: ~s\r\n",
+                                "         total targets: ~w\r\n",
+                                "  # of pending targets: ~w\r\n",
+                                "  # of ongoing targets: ~w\r\n",
+                                "  # of out of targets : ~w\r\n",
+                                "\r\n"]),
+                  [Status, Date, TotalNumOfTargets, Targets1, Targets2, Targets3]).
+
 
 %% @doc Format s3-gen-key result
 %%

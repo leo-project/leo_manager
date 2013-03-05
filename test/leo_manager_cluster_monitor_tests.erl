@@ -43,7 +43,7 @@ all_(Node) ->
                 fun() ->
                         {ok, [{storage, 'storage_0@127.0.0.1', ?STATE_DETACHED},
                               {storage, 'storage_1@127.0.0.1', ?STATE_SUSPEND},
-                              {storage, 'storage_2@127.0.0.1', ?STATE_DOWNED},
+                              {storage, 'storage_2@127.0.0.1', ?STATE_STOP},
                               {storage, 'storage_3@127.0.0.1', ?STATE_STOP},
                               {storage, Node,                  ?STATE_RUNNING},
                               {gateway, Node,                  ?STATE_RUNNING}
@@ -68,7 +68,7 @@ all_(Node) ->
     meck:new(leo_manager_mnesia),
     meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                 fun('storage_1@127.0.0.1') -> {ok, [#node_state{state = ?STATE_SUSPEND}]};
-                   ('storage_2@127.0.0.1') -> {ok, [#node_state{state = ?STATE_DOWNED}]};
+                   ('storage_2@127.0.0.1') -> {ok, [#node_state{state = ?STATE_STOP}]};
                    ('storage_3@127.0.0.1') -> {ok, [#node_state{state = ?STATE_STOP}]};
                    ('storage_5@127.0.0.1') -> {ok, [#node_state{state = ?STATE_ATTACHED}]};
                    ('storage_6@127.0.0.1') -> {ok, [#node_state{state = ?STATE_DETACHED}]};

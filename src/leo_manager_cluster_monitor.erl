@@ -201,7 +201,7 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                     gateway ->
                         catch leo_manager_mnesia:update_gateway_node(
                                 #node_state{node    = Node,
-                                            state   = ?STATE_DOWNED,
+                                            state   = ?STATE_STOP,
                                             when_is = ?CURRENT_TIME});
                     storage ->
                         case catch leo_manager_mnesia:get_storage_node_by_name(Node) of
@@ -254,7 +254,6 @@ update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;
 update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RUNNING,  _Node) -> ok;
-update_node_state(start, ?STATE_DOWNED,    Node) -> update_node_state1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_STOP,      Node) -> update_node_state1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RESTARTED,_Node) -> ok;
 update_node_state(start, not_found,        Node) -> update_node_state1(?STATE_ATTACHED,  Node);
@@ -263,7 +262,6 @@ update_node_state(down,  ?STATE_ATTACHED, _Node) -> delete;
 update_node_state(down,  ?STATE_DETACHED, _Node) -> ok;
 update_node_state(down,  ?STATE_SUSPEND,  _Node) -> ok;
 update_node_state(down,  ?STATE_RUNNING,   Node) -> update_node_state1(?STATE_STOP, Node);
-update_node_state(down,  ?STATE_DOWNED,   _Node) -> ok;
 update_node_state(down,  ?STATE_STOP,     _Node) -> ok;
 update_node_state(down,  ?STATE_RESTARTED,_Node) -> delete;
 update_node_state(down,  not_found,       _Node) -> ok.
@@ -298,7 +296,6 @@ get_remote_node_proc_fun() ->
             lists:foreach(
               fun({_Type, _Node, ?STATE_DETACHED}) -> void;
                  ({_Type, _Node, ?STATE_SUSPEND})  -> void;
-                 ({_Type, _Node, ?STATE_DOWNED})   -> void;
                  ({_Type, _Node, ?STATE_STOP})     -> void;
                  ({ Type,  Node, _}) ->
                       get_remote_node_proc_fun(Type, Node)

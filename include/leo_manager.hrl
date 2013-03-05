@@ -25,7 +25,7 @@
 -author('yosuke hara').
 -include_lib("eunit/include/eunit.hrl").
 
-%% constants.
+%% constants
 -define(SHUTDOWN_WAITING_TIME, 2000).
 -define(MAX_RESTART,              5).
 -define(MAX_TIME,                60).
@@ -41,7 +41,7 @@
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
 
 
-%% manager-related tables:
+%% manager-related tables
 -define(TBL_STORAGE_NODES,  'leo_storage_nodes').
 -define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
 -define(TBL_SYSTEM_CONF,    'leo_system_conf').
@@ -49,8 +49,12 @@
 -define(TBL_HISTORIES,      'leo_histories').
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
 
+%% server-type
+-define(SERVER_TYPE_STORAGE, "S").
+-define(SERVER_TYPE_GATEWAY, "G").
 
-%% command-related.
+
+%% command-related
 -define(COMMAND_ERROR,        "Command Error").
 -define(COMMAND_DELIMITER,    " \r\n").
 
@@ -108,7 +112,7 @@
                    {?CMD_START,         "start"},
                    {?CMD_REBALANCE,     "rebalance"},
                    {?CMD_COMPACT,       lists:append(
-                                          ["compact start ${storage-node} all|${storage_pids} [${num_of_compact_proc}]", ?CRLF,
+                                          ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
                                            "compact suspend ${storage-node}", ?CRLF,
                                            "compact resume  ${storage-node}", ?CRLF,
                                            "compact status  ${storage-node} "
@@ -117,6 +121,8 @@
                    {?CMD_PURGE,         "purge ${PATH}"},
                    {?CMD_CREATE_USER,   "create-user ${USER-ID} [${PASSWORD}]"},
                    {?CMD_DELETE_USER,   "delete-user ${USER-ID}"},
+                   {?CMD_UPDATE_USER_ROLE, "update-user-role ${USER-ID} ${ROLE-ID}"},
+                   {?CMD_UPDATE_USER_PW,   "update-user-password ${USER-ID} ${PASSWORD}"},
                    {?CMD_GET_USERS,     "get-users"},
                    {?CMD_SET_ENDPOINT,  "set-endpoint ${ENDPOINT}"},
                    {?CMD_DEL_ENDPOINT,  "delete-endpoint ${ENDPOINT}"},
@@ -129,10 +135,21 @@
                     available = true :: boolean()
                    }).
 
-%% membership.
--define(DEF_NUM_OF_ERROR_COUNT, 3).
+%% du-command-related
+-define(NULL_DATETIME, "____-__-__ __:__:__").
 
-%% error.
+%% compaction-related
+-define(COMPACT_START,      "start").
+-define(COMPACT_SUSPEND,    "suspend").
+-define(COMPACT_RESUME,     "resume").
+-define(COMPACT_STATUS,     "status").
+-define(COMPACT_TARGET_ALL, "all").
+
+
+%% membership
+-define(DEF_NUM_OF_ERROR_COUNT, 2).
+
+%% error
 -define(ERROR_COULD_NOT_CONNECT,        "Could not connect").
 -define(ERROR_NODE_NOT_EXISTS,          "Node not exist").
 -define(ERROR_FAILED_COMPACTION,        "Failed compaction").
@@ -140,20 +157,24 @@
 -define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").
 -define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach a node").
 -define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach a node").
--define(ERROR_COMMAND_NOT_FOUND,        "Command not exist").
--define(ERROR_NO_NODE_SPECIFIED,        "No node specified").
--define(ERROR_NO_CMODE_SPECIFIED,       "No compaction mode specified").
--define(ERROR_NO_PATH_SPECIFIED,        "No path specified").
+-define(ERROR_NOT_SPECIFIED_COMMAND,    "Command not exist").
+-define(ERROR_NOT_SPECIFIED_NODE,       "Not specified node").
+-define(ERROR_NO_CMODE_SPECIFIED,       "Not specified compaction mode").
+-define(ERROR_INVALID_PATH,             "Invalid path").
 -define(ERROR_INVALID_ARGS,             "Invalid arguments").
+-define(ERROR_COULD_NOT_STORE,          "Could not store value").
+-define(ERROR_INVALID_BUCKET_FORMAT,    "Invalid bucket format").
+-define(ERROR_NOT_STARTED,              "Storage-cluster does not started, yet").
+-define(ERROR_ALREADY_STARTED,          "Storage-cluster already started").
 
 
-%% type of console.
+%% type of console
 -define(CONSOLE_CUI,  'cui').
 -define(CONSOLE_JSON, 'json').
 -define(MOD_TEXT_FORMATTER, 'leo_manager_formatter_text').
 -define(MOD_JSON_FORMATTER, 'leo_manager_formatter_json').
 
-%% records.
+%% records
 %%
 -define(AUTH_NOT_YET, 0).
 -define(AUTH_USERID_1, 1).
@@ -195,7 +216,7 @@
          }).
 
 
-%% macros.
+%% macros
 %%
 -define(env_mode_of_manager(),
         case application:get_env(leo_manager, manager_mode) of
