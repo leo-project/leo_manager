@@ -312,6 +312,31 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   ]).
 
 
+%% @doc Status of compaction
+%%
+-spec(compact_status(#compaction_stats{}) ->
+             string()).
+compact_status(#compaction_stats{status = Status,
+                                 total_num_of_targets    = TotalNumOfTargets,
+                                 num_of_pending_targets  = Targets1,
+                                 num_of_ongoing_targets  = Targets2,
+                                 num_of_reserved_targets = Targets3,
+                                 latest_exec_datetime    = LatestExecDate}) ->
+    Date = case LatestExecDate of
+               0 -> ?NULL_DATETIME;
+               _ -> leo_date:date_format(LatestExecDate)
+           end,
+
+    io_lib:format(lists:append(["        current status: ~w\r\n",
+                                " last compaction start: ~s\r\n",
+                                "         total targets: ~w\r\n",
+                                "  # of pending targets: ~w\r\n",
+                                "  # of ongoing targets: ~w\r\n",
+                                "  # of out of targets : ~w\r\n",
+                                "\r\n"]),
+                  [Status, Date, TotalNumOfTargets, Targets1, Targets2, Targets3]).
+
+
 %% @doc Format storge stats-list
 %%
 -spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
@@ -377,31 +402,6 @@ du(detail, StatsList) when is_list(StatsList) ->
 
 du(_, _) ->
     [].
-
-
-%% @doc Status of compaction
-%%
--spec(compact_status(#compaction_stats{}) ->
-             string()).
-compact_status(#compaction_stats{status = Status,
-                                 total_num_of_targets    = TotalNumOfTargets,
-                                 num_of_pending_targets  = Targets1,
-                                 num_of_ongoing_targets  = Targets2,
-                                 num_of_reserved_targets = Targets3,
-                                 latest_exec_datetime    = LatestExecDate}) ->
-    Date = case LatestExecDate of
-               0 -> ?NULL_DATETIME;
-               _ -> leo_date:date_format(LatestExecDate)
-           end,
-
-    io_lib:format(lists:append(["        current status: ~w\r\n",
-                                " last compaction start: ~s\r\n",
-                                "         total targets: ~w\r\n",
-                                "  # of pending targets: ~w\r\n",
-                                "  # of ongoing targets: ~w\r\n",
-                                "  # of out of targets : ~w\r\n",
-                                "\r\n"]),
-                  [Status, Date, TotalNumOfTargets, Targets1, Targets2, Targets3]).
 
 
 %% @doc Format s3-gen-key result

@@ -34,7 +34,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
-         bad_nodes/1, system_info_and_nodes_stat/1, node_stat/1,
+         bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
         ]).
@@ -172,16 +172,15 @@ system_info_and_nodes_stat(Props) ->
 
 %% @doc Format a cluster node state
 %%
--spec(node_stat(#cluster_node_status{}) ->
+-spec(node_stat(string(), #cluster_node_status{}) ->
              string()).
-node_stat(State) ->
-    Version      = State#cluster_node_status.version,
+node_stat(?SERVER_TYPE_GATEWAY, State) ->
     Directories  = State#cluster_node_status.dirs,
     RingHashes   = State#cluster_node_status.ring_checksum,
     Statistics   = State#cluster_node_status.statistics,
 
     gen_json({[{<<"node_stat">>,
-                {[{<<"version">>,          list_to_binary(Version)},
+                {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
                   {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)))},
                   {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)))},
@@ -194,6 +193,54 @@ node_stat(State) ->
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
                   {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
                   {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)}
+                 ]}}
+              ]});
+
+node_stat(?SERVER_TYPE_STORAGE, State) ->
+    Directories  = State#cluster_node_status.dirs,
+    RingHashes   = State#cluster_node_status.ring_checksum,
+    Statistics   = State#cluster_node_status.statistics,
+    %% ObjContainer = State#cluster_node_status.avs,
+
+    gen_json({[{<<"node_stat">>,
+                {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
+                  {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
+                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)))},
+                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)))},
+                  {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
+                  {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
+                  {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
+                  {<<"procs_mem_usage">>,  leo_misc:get_value('proc_mem_usage',   Statistics, 0)},
+                  {<<"ets_mem_usage">>,    leo_misc:get_value('ets_mem_usage',    Statistics, 0)},
+                  {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
+                  {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
+                  {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
+                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)}
+                 ]}}
+              ]}).
+
+%% @doc Status of compaction
+%%
+-spec(compact_status(#compaction_stats{}) ->
+             string()).
+compact_status(#compaction_stats{status = Status,
+                                 total_num_of_targets    = TotalNumOfTargets,
+                                 num_of_pending_targets  = Targets1,
+                                 num_of_ongoing_targets  = Targets2,
+                                 num_of_reserved_targets = Targets3,
+                                 latest_exec_datetime    = LatestExecDate}) ->
+    Date = case LatestExecDate of
+               0 -> ?NULL_DATETIME;
+               _ -> leo_date:date_format(LatestExecDate)
+           end,
+
+    gen_json({[{<<"compaction_status">>,
+                {[{<<"status">>,                 Status},
+                  {<<"last_compaction_start">>,  list_to_binary(Date)},
+                  {<<"total_targets">>,          TotalNumOfTargets},
+                  {<<"num_of_pending_targets">>, Targets1},
+                  {<<"num_of_ongoing_targets">>, Targets2},
+                  {<<"num_of_out_of_targets">>,  Targets3}
                  ]}}
               ]}).
 
@@ -211,11 +258,17 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
                  0 -> ?NULL_DATETIME;
                  _ -> leo_date:date_format(LastEnd)
              end,
+    Ratio = case (TotalSize < 1) of
+                true  -> 0;
+                false ->
+                    erlang:round((ActiveSize / TotalSize) * 10000)/100
+            end,
     gen_json({[
                {<<"active_num_of_objects">>,  ActiveNum},
                {<<"total_num_of_objects">>,   TotalNum},
                {<<"active_size_of_objects">>, ActiveSize},
                {<<"total_size_of_objects">>,  TotalSize},
+               {<<"ratio_of_active_size">>,   Ratio},
                {<<"last_compaction_start">>,  list_to_binary(StartStr)},
                {<<"last_compaction_end">>,    list_to_binary(EndStr)}
               ]});
@@ -234,11 +287,17 @@ du(detail, StatsList) when is_list(StatsList) ->
                                          {StartComp, FinishComp} = hd(Histories),
                                          {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
                                  end,
+                             Ratio = case (TotalSize < 1) of
+                                         true  -> 0;
+                                         false ->
+                                             erlang:round((ActiveSize / TotalSize) * 10000)/100
+                                     end,
                              {[{<<"file_path">>,              list_to_binary(FilePath)},
                                {<<"active_num_of_objects">>,  Active},
                                {<<"total_num_of_objects">>,   Total},
                                {<<"active_size_of_objects">>, ActiveSize},
                                {<<"total_size_of_objects">>,  TotalSize},
+                               {<<"ratio_of_active_size">>,   Ratio},
                                {<<"last_compaction_start">>,  list_to_binary(LatestStart1)},
                                {<<"last_compaction_end">>,    list_to_binary(LatestEnd1)}
                               ]};
@@ -248,18 +307,6 @@ du(detail, StatsList) when is_list(StatsList) ->
     gen_json(JSON);
 du(_, _) ->
     gen_json([]).
-
-
-compact_status({RestPids, InProgPids, LastStart}) ->
-    StrLast = case LastStart of
-                  0 -> ?NULL_DATETIME;
-                  _ -> leo_date:date_format(LastStart)
-              end,
-    gen_json({[
-               {last_compaction_start, list_to_binary(StrLast)},
-               {rest_ob_jobs, RestPids},
-               {ongoing_of_jobs, InProgPids}
-              ]}).
 
 
 %% @doc Format s3-gen-key result
