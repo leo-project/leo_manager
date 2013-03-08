@@ -278,3 +278,9 @@
             _ -> all
         end).
 
+-define(ratio_of_active_size(_ActiveSize, _TotalSize),
+        case (TotalSize < 1) of
+            true  -> 0;
+            false ->
+                erlang:round((_ActiveSize / _TotalSize) * 10000)/100
+        end).

@@ -258,11 +258,8 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
                  0 -> ?NULL_DATETIME;
                  _ -> leo_date:date_format(LastEnd)
              end,
-    Ratio = case (TotalSize < 1) of
-                true  -> 0;
-                false ->
-                    erlang:round((ActiveSize / TotalSize) * 10000)/100
-            end,
+    Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
+
     gen_json({[
                {<<"active_num_of_objects">>,  ActiveNum},
                {<<"total_num_of_objects">>,   TotalNum},
@@ -287,11 +284,8 @@ du(detail, StatsList) when is_list(StatsList) ->
                                          {StartComp, FinishComp} = hd(Histories),
                                          {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
                                  end,
-                             Ratio = case (TotalSize < 1) of
-                                         true  -> 0;
-                                         false ->
-                                             erlang:round((ActiveSize / TotalSize) * 10000)/100
-                                     end,
+                             Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
+
                              {[{<<"file_path">>,              list_to_binary(FilePath)},
                                {<<"active_num_of_objects">>,  Active},
                                {<<"total_num_of_objects">>,   Total},
