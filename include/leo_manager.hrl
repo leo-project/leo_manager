@@ -284,3 +284,4 @@
             false ->
                 erlang:round((_ActiveSize / _TotalSize) * 10000)/100
         end).
+

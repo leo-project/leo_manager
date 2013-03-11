@@ -182,8 +182,8 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
     gen_json({[{<<"node_stat">>,
                 {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
-                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)))},
-                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)))},
+                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
+                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
                   {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
                   {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
                   {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
@@ -205,8 +205,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     gen_json({[{<<"node_stat">>,
                 {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
-                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)))},
-                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)))},
+                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
+                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
                   {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
                   {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
                   {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
@@ -381,11 +381,11 @@ whereis(AssignedInfo) ->
                               ]};
                         ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
                              {[{<<"node">>,          list_to_binary(Node)},
-                               {<<"vnode_id">>,      list_to_binary(leo_hex:integer_to_hex(VNodeId))},
+                               {<<"vnode_id">>,      list_to_binary(leo_hex:integer_to_hex(VNodeId, 8))},
                                {<<"size">>,          DSize},
                                {<<"num_of_chunks">>, ChunkedObjs},
-                               {<<"clock">>,         list_to_binary(leo_hex:integer_to_hex(Clock))},
-                               {<<"checksum">>,      list_to_binary(leo_hex:integer_to_hex(Checksum))},
+                               {<<"clock">>,         list_to_binary(leo_hex:integer_to_hex(Clock, 8))},
+                               {<<"checksum">>,      list_to_binary(leo_hex:integer_to_hex(Checksum, 8))},
                                {<<"timestamp">>,     list_to_binary(leo_date:date_format(Timestamp))},
                                {<<"delete">>,        DelFlag}
                               ]}

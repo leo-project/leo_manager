@@ -375,8 +375,8 @@ start() ->
                               leo_manager_mnesia:update_storage_node_status(
                                 update, #node_state{node          = Node,
                                                     state         = ?STATE_RUNNING,
-                                                    ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                    ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                                                    ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                                    ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
                                                     when_is       = leo_date:now()})
                       end, ResL1),
                     {ResL1, BadNodes0 ++ BadNodes1}
@@ -476,8 +476,8 @@ rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
             case leo_manager_mnesia:update_storage_node_status(
                    update, #node_state{node          = Node,
                                        state         = ?STATE_RUNNING,
-                                       ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                       ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                                       ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                       ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
                                        when_is       = leo_date:now()}) of
                 ok ->
                     case leo_redundant_manager_api:update_member_by_node(
@@ -535,8 +535,8 @@ rebalance4(Members, [#member{node  = Node,
             {ok, {RingHash0, RingHash1}} ->
                 _ = leo_manager_mnesia:update_storage_node_status(
                       update_chksum, #node_state{node  = Node,
-                                                 ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                 ring_hash_old = leo_hex:integer_to_hex(RingHash1)}),
+                                                 ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                                 ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8)}),
                 Errors0;
             {_, Cause} ->
                 [{Node, Cause}|Errors0];
@@ -610,8 +610,8 @@ notify(launched, gateway, Node, Checksums0) ->
             leo_manager_mnesia:update_gateway_node(
               #node_state{node          = Node,
                           state         = ?STATE_RUNNING,
-                          ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                          ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                          ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                          ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
                           when_is       = leo_date:now()});
         {ok, _} ->
             {error, ?ERR_TYPE_INCONSISTENT_HASH};
@@ -671,8 +671,8 @@ notify2(?STATE_RUNNING = State, Node) ->
                           leo_manager_mnesia:update_storage_node_status(
                             update, #node_state{node          = Node,
                                                 state         = State,
-                                                ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                ring_hash_old = leo_hex:integer_to_hex(RingHash1),
+                                                ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                                ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
                                                 when_is       = leo_date:now()});
                       {_, Cause} ->
                           {error, Cause}
@@ -921,8 +921,8 @@ synchronize(Type, Node, Members) when Type == ?CHECKSUM_RING;
 
             leo_manager_mnesia:update_storage_node_status(
               update_chksum, #node_state{node          = Node,
-                                         ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                         ring_hash_old = leo_hex:integer_to_hex(RingHash1)
+                                         ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                         ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8)
                                         }),
             ok;
         {_, Cause} ->
@@ -1004,16 +1004,16 @@ synchronize1(Type, Node) when Type == ?SYNC_MODE_CUR_RING;
                     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
                         {ok, [NodeState|_]} ->
                             _ = leo_manager_mnesia:update_gateway_node(
-                                  NodeState#node_state{ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                       ring_hash_old = leo_hex:integer_to_hex(RingHash1)});
+                                  NodeState#node_state{ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                                       ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8)});
                         _ ->
                             case leo_manager_mnesia:get_storage_node_by_name(Node) of
                                 {ok, _} ->
                                     _ = leo_manager_mnesia:update_storage_node_status(
                                           update_chksum,
                                           #node_state{node  = Node,
-                                                      ring_hash_new = leo_hex:integer_to_hex(RingHash0),
-                                                      ring_hash_old = leo_hex:integer_to_hex(RingHash1)});
+                                                      ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                                      ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8)});
                                 _ ->
                                     void
                             end
