@@ -164,8 +164,8 @@ system_info_and_nodes_stat(Props) ->
                        SystemConf#system_conf.w,
                        SystemConf#system_conf.d,
                        SystemConf#system_conf.bit_of_ring,
-                       leo_hex:integer_to_hex(RH0),
-                       leo_hex:integer_to_hex(RH1)
+                       leo_hex:integer_to_hex(RH0, 8),
+                       leo_hex:integer_to_hex(RH1, 8)
                       ]),
     system_conf_with_node_stat(FormattedSystemConf, Nodes).
 
@@ -251,8 +251,8 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   [State#cluster_node_status.version,
                    ObjContainer,
                    leo_misc:get_value('log', Directories, []),
-                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)),
-                   leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
                    leo_misc:get_value('vm_version',       Statistics, []),
                    leo_misc:get_value('total_mem_usage',  Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
@@ -295,8 +295,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   [State#cluster_node_status.version,
                    ObjContainer,
                    leo_misc:get_value('log', Directories, []),
-                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0)),
-                   leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0)),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
                    leo_misc:get_value('vm_version',       Statistics, []),
                    leo_misc:get_value('total_mem_usage',  Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
@@ -312,6 +312,31 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   ]).
 
 
+%% @doc Status of compaction
+%%
+-spec(compact_status(#compaction_stats{}) ->
+             string()).
+compact_status(#compaction_stats{status = Status,
+                                 total_num_of_targets    = TotalNumOfTargets,
+                                 num_of_pending_targets  = Targets1,
+                                 num_of_ongoing_targets  = Targets2,
+                                 num_of_reserved_targets = Targets3,
+                                 latest_exec_datetime    = LatestExecDate}) ->
+    Date = case LatestExecDate of
+               0 -> ?NULL_DATETIME;
+               _ -> leo_date:date_format(LatestExecDate)
+           end,
+
+    io_lib:format(lists:append(["        current status: ~w\r\n",
+                                " last compaction start: ~s\r\n",
+                                "         total targets: ~w\r\n",
+                                "  # of pending targets: ~w\r\n",
+                                "  # of ongoing targets: ~w\r\n",
+                                "  # of out of targets : ~w\r\n",
+                                "\r\n"]),
+                  [Status, Date, TotalNumOfTargets, Targets1, Targets2, Targets3]).
+
+
 %% @doc Format storge stats-list
 %%
 -spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
@@ -320,11 +345,7 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
     Fun = fun(0) -> ?NULL_DATETIME;
              (D) -> leo_date:date_format(D)
           end,
-    Ratio = case (TotalSize < 1) of
-                true  -> 0;
-                false ->
-                    erlang:round((ActiveSize / TotalSize) * 10000)/100
-            end,
+    Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
     io_lib:format(lists:append([" active number of objects: ~w\r\n",
                                 "  total number of objects: ~w\r\n",
@@ -352,11 +373,7 @@ du(detail, StatsList) when is_list(StatsList) ->
                                                                {StartComp, FinishComp} = hd(Histories),
                                                                {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
                                                        end,
-                          Ratio = case (TotalSize < 1) of
-                                      true  -> 0;
-                                      false ->
-                                          erlang:round((ActiveSize / TotalSize) * 10000)/100
-                                  end,
+                          Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
                           lists:append([Acc, io_lib:format(lists:append(["              file path: ~s\r\n",
                                                                          " active number of objects: ~w\r\n",
@@ -377,31 +394,6 @@ du(detail, StatsList) when is_list(StatsList) ->
 
 du(_, _) ->
     [].
-
-
-%% @doc Status of compaction
-%%
--spec(compact_status(#compaction_stats{}) ->
-             string()).
-compact_status(#compaction_stats{status = Status,
-                                 total_num_of_targets    = TotalNumOfTargets,
-                                 num_of_pending_targets  = Targets1,
-                                 num_of_ongoing_targets  = Targets2,
-                                 num_of_reserved_targets = Targets3,
-                                 latest_exec_datetime    = LatestExecDate}) ->
-    Date = case LatestExecDate of
-               0 -> ?NULL_DATETIME;
-               _ -> leo_date:date_format(LatestExecDate)
-           end,
-
-    io_lib:format(lists:append(["        current status: ~w\r\n",
-                                " last compaction start: ~s\r\n",
-                                "         total targets: ~w\r\n",
-                                "  # of pending targets: ~w\r\n",
-                                "  # of ongoing targets: ~w\r\n",
-                                "  # of out of targets : ~w\r\n",
-                                "\r\n"]),
-                  [Status, Date, TotalNumOfTargets, Targets1, Targets2, Targets3]).
 
 
 %% @doc Format s3-gen-key result
@@ -576,14 +568,14 @@ whereis(AssignedInfo) ->
                                               _ -> "*"
                                           end,
                                  lists:append([" ",
-                                               string:left(DelStr,                            lists:nth(1,LenPerCol)),
-                                               string:left(Node,                              lists:nth(2,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(VNodeId),   lists:nth(3,LenPerCol)),
-                                               string:left(leo_file:dsize(DSize),             lists:nth(4,LenPerCol)),
-                                               string:left(string:sub_string(leo_hex:integer_to_hex(Checksum), 1, 10),
+                                               string:left(DelStr,                              lists:nth(1,LenPerCol)),
+                                               string:left(Node,                                lists:nth(2,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(VNodeId, 8), lists:nth(3,LenPerCol)),
+                                               string:left(leo_file:dsize(DSize),               lists:nth(4,LenPerCol)),
+                                               string:left(string:sub_string(leo_hex:integer_to_hex(Checksum, 8), 1, 10),
                                                            lists:nth(5,LenPerCol)),
-                                               string:left(integer_to_list(ChunkedObjs),      lists:nth(6,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(Clock),     lists:nth(7,LenPerCol)),
+                                               string:left(integer_to_list(ChunkedObjs),        lists:nth(6,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(Clock, 8),   lists:nth(7,LenPerCol)),
                                                FormattedDate,
                                                ?CRLF])
                          end,
