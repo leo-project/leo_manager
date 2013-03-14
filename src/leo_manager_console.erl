@@ -820,7 +820,7 @@ compact(CmdBody, Option) ->
 compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL]) ->
     compact(Mode, Node, [?COMPACT_TARGET_ALL, []]);
 
-compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL, Rest]) ->
+compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL | Rest]) ->
     compact(Mode, Node, 'all', Rest);
 
 compact(?COMPACT_START = Mode, Node, [NumOfTargets0 | Rest]) ->
@@ -840,8 +840,13 @@ compact(Mode, Node, _) ->
 compact(?COMPACT_START = Mode, Node, NumOfTargets, []) ->
     leo_manager_api:compact(Mode, Node, NumOfTargets, ?env_num_of_compact_proc());
 
-compact(?COMPACT_START = Mode, Node, NumOfTargets, [MaxProc]) ->
-    leo_manager_api:compact(Mode, Node, NumOfTargets, list_to_integer(MaxProc));
+compact(?COMPACT_START = Mode, Node, NumOfTargets, [MaxProc1|_]) ->
+    case catch list_to_integer(MaxProc1) of
+        {'EXIT', _} ->
+            {error, ?ERROR_INVALID_ARGS};
+        MaxProc2 ->
+            leo_manager_api:compact(Mode, Node, NumOfTargets, MaxProc2)
+    end;
 
 compact(_,_,_, _) ->
     {error, ?ERROR_INVALID_ARGS}.
