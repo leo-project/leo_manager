@@ -537,44 +537,48 @@ status(CmdBody, Option) ->
     end.
 
 status(node_list) ->
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    Version = case application:get_env(leo_manager, system_version) of
-                  {ok, Vsn} -> Vsn;
-                  undefined -> []
-              end,
-    {ok, {RingHash0, RingHash1}} = leo_redundant_manager_api:checksum(ring),
+    case leo_manager_mnesia:get_system_config() of
+        {ok, SystemConf} ->
+            Version = case application:get_env(leo_manager, system_version) of
+                          {ok, Vsn} -> Vsn;
+                          undefined -> []
+                      end,
+            {ok, {RingHash0, RingHash1}} = leo_redundant_manager_api:checksum(ring),
 
-    S1 = case leo_manager_mnesia:get_storage_nodes_all() of
-             {ok, R1} ->
-                 lists:map(fun(N) ->
-                                   {?SERVER_TYPE_STORAGE,
-                                    atom_to_list(N#node_state.node),
-                                    atom_to_list(N#node_state.state),
-                                    N#node_state.ring_hash_new,
-                                    N#node_state.ring_hash_old,
-                                    N#node_state.when_is}
-                           end, R1);
-             _ ->
-                 []
-         end,
-    S2 = case leo_manager_mnesia:get_gateway_nodes_all() of
-             {ok, R2} ->
-                 lists:map(fun(N) ->
-                                   {?SERVER_TYPE_GATEWAY,
-                                    atom_to_list(N#node_state.node),
-                                    atom_to_list(N#node_state.state),
-                                    N#node_state.ring_hash_new,
-                                    N#node_state.ring_hash_old,
-                                    N#node_state.when_is}
-                           end, R2);
-             _ ->
-                 []
-         end,
-    {ok, {node_list, [{system_config, SystemConf},
-                      {version,       Version},
-                      {ring_hash,     [RingHash0, RingHash1]},
-                      {nodes,         S1 ++ S2}
-                     ]}};
+            S1 = case leo_manager_mnesia:get_storage_nodes_all() of
+                     {ok, R1} ->
+                         lists:map(fun(N) ->
+                                           {?SERVER_TYPE_STORAGE,
+                                            atom_to_list(N#node_state.node),
+                                            atom_to_list(N#node_state.state),
+                                            N#node_state.ring_hash_new,
+                                            N#node_state.ring_hash_old,
+                                            N#node_state.when_is}
+                                   end, R1);
+                     _ ->
+                         []
+                 end,
+            S2 = case leo_manager_mnesia:get_gateway_nodes_all() of
+                     {ok, R2} ->
+                         lists:map(fun(N) ->
+                                           {?SERVER_TYPE_GATEWAY,
+                                            atom_to_list(N#node_state.node),
+                                            atom_to_list(N#node_state.state),
+                                            N#node_state.ring_hash_new,
+                                            N#node_state.ring_hash_old,
+                                            N#node_state.when_is}
+                                   end, R2);
+                     _ ->
+                         []
+                 end,
+            {ok, {node_list, [{system_config, SystemConf},
+                              {version,       Version},
+                              {ring_hash,     [RingHash0, RingHash1]},
+                              {nodes,         S1 ++ S2}
+                             ]}};
+        {error, Cause} ->
+            {error, Cause}
+    end;
 
 status({node_state, Node}) ->
     case leo_manager_api:get_node_status(Node) of
@@ -755,8 +759,15 @@ du(CmdBody, Option) ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         Tokens ->
             Mode = case length(Tokens) of
-                       1 -> {summary, lists:nth(1, Tokens)};
-                       2 -> {list_to_atom(lists:nth(1, Tokens)),  lists:nth(2, Tokens)};
+                       1 ->
+                           {summary, lists:nth(1, Tokens)};
+                       2 ->
+                           case lists:nth(1, Tokens) of
+                               "detail" ->
+                                   {detail, lists:nth(2, Tokens)};
+                               _ ->
+                                   {error, ?ERROR_INVALID_ARGS}
+                           end;
                        _ -> {error, ?ERROR_INVALID_ARGS}
                    end,
 

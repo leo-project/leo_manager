@@ -193,25 +193,40 @@ create_available_commands(Mode, Nodes) ->
 -spec(get_storage_nodes_all() ->
              {ok, list()} | not_found | {error, any()}).
 get_storage_nodes_all() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_STORAGE_NODES)]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_STORAGE_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
+
 
 %% @doc Retrieve a storage node by node-name
 %%
 -spec(get_storage_node_by_name(atom()) ->
              {ok, list()} | not_found | {error, any()}).
 get_storage_node_by_name(Node) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_STORAGE_NODES),
-                                 X#node_state.node =:= Node]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_STORAGE_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl),
+                                         X#node_state.node =:= Node]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %% @doc Retrieve storage nodes by status
@@ -219,13 +234,20 @@ get_storage_node_by_name(Node) ->
 -spec(get_storage_nodes_by_status(atom()) ->
              {ok, list()} | not_found | {error, any()}).
 get_storage_nodes_by_status(Status) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_STORAGE_NODES),
-                                 X#node_state.state =:= Status]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_STORAGE_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl),
+                                         X#node_state.state =:= Status]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %% @doc Retrieve all gateway nodes
@@ -233,25 +255,40 @@ get_storage_nodes_by_status(Status) ->
 -spec(get_gateway_nodes_all() ->
              {ok, list()} | not_found | {error, any()}).
 get_gateway_nodes_all() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_GATEWAY_NODES)]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_GATEWAY_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
+
 
 %% @doc Retrieve gateway node info by node-name
 %%
 -spec(get_gateway_node_by_name(atom()) ->
              {ok, list()} | not_found | {error, any()}).
 get_gateway_node_by_name(Node) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_GATEWAY_NODES),
-                                 X#node_state.node =:= Node]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_GATEWAY_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl),
+                                         X#node_state.node =:= Node]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %% @doc Retrieve system configuration
@@ -259,12 +296,19 @@ get_gateway_node_by_name(Node) ->
 -spec(get_system_config() ->
              {ok, #system_conf{}} | not_found | {error, any()}).
 get_system_config() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_SYSTEM_CONF)]),
-                Q2 = qlc:sort(Q1, [{order, descending}]),
-                qlc:e(Q2)
-        end,
-    get_system_config(leo_mnesia:read(F)).
+    Tbl = ?TBL_SYSTEM_CONF,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
+                        Q2 = qlc:sort(Q1, [{order, descending}]),
+                        qlc:e(Q2)
+                end,
+            get_system_config(leo_mnesia:read(F))
+    end.
 get_system_config({ok, [H|_]}) ->
     {ok, H};
 get_system_config(Other) ->
@@ -276,12 +320,19 @@ get_system_config(Other) ->
 -spec(get_rebalance_info_all() ->
              {ok, list()} | not_found | {error, any()}).
 get_rebalance_info_all() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_REBALANCE_INFO)]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_REBALANCE_INFO,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(?TBL_REBALANCE_INFO)]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %% @doc Retrieve rebalance info by node
@@ -289,13 +340,20 @@ get_rebalance_info_all() ->
 -spec(get_rebalance_info_by_node(atom()) ->
              {ok, list()} | not_found | {error, any()}).
 get_rebalance_info_by_node(Node) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_REBALANCE_INFO),
-                                 X#rebalance_info.node =:= Node]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_REBALANCE_INFO,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl),
+                                         X#rebalance_info.node =:= Node]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %% @doc Retrieve all histories
@@ -303,23 +361,37 @@ get_rebalance_info_by_node(Node) ->
 -spec(get_histories_all() ->
              {ok, list()} | not_found | {error, any()}).
 get_histories_all() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_HISTORIES)]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_HISTORIES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %% @doc Retrieve all available commands
 %%
 get_available_commands_all() ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_AVAILABLE_CMDS)]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_AVAILABLE_CMDS,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %% @doc Retrieve available command by name
@@ -327,13 +399,20 @@ get_available_commands_all() ->
 -spec(get_available_command_by_name(atom()) ->
              {ok, list()} | not_found | {error, any()}).
 get_available_command_by_name(Name) ->
-    F = fun() ->
-                Q1 = qlc:q([X || X <- mnesia:table(?TBL_AVAILABLE_CMDS),
-                                 X#cmd_state.name =:= Name]),
-                Q2 = qlc:sort(Q1, [{order, ascending}]),
-                qlc:e(Q2)
-        end,
-    leo_mnesia:read(F).
+    Tbl = ?TBL_AVAILABLE_CMDS,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Q1 = qlc:q([X || X <- mnesia:table(Tbl),
+                                         X#cmd_state.name =:= Name]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
 
 
 %%-----------------------------------------------------------------------
@@ -349,8 +428,15 @@ update_storage_node_status(NodeState) ->
 -spec(update_storage_node_status(update | update_state | keep_state | update_chksum | increment_error | init_error, atom()) ->
              ok | {error, any()}).
 update_storage_node_status(update, NodeState) ->
-    F = fun()-> mnesia:write(?TBL_STORAGE_NODES, NodeState, write) end,
-    leo_mnesia:write(F);
+    Tbl = ?TBL_STORAGE_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun()-> mnesia:write(Tbl, NodeState, write) end,
+            leo_mnesia:write(F)
+    end;
 
 update_storage_node_status(update_state, NodeState) ->
     #node_state{node = Node, state = State} = NodeState,
@@ -417,8 +503,15 @@ update_storage_node_status(_, _) ->
 -spec(update_gateway_node(#node_state{}) ->
              ok | {error, any()}).
 update_gateway_node(NodeState) ->
-    F = fun() -> mnesia:write(?TBL_GATEWAY_NODES, NodeState, write) end,
-    leo_mnesia:write(F).
+    Tbl = ?TBL_GATEWAY_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() -> mnesia:write(Tbl, NodeState, write) end,
+            leo_mnesia:write(F)
+    end.
 
 
 %% @doc Modify system-configuration
@@ -426,8 +519,15 @@ update_gateway_node(NodeState) ->
 -spec(update_system_config(#system_conf{}) ->
              ok | {error, any()}).
 update_system_config(SystemConfig) ->
-    F = fun()-> mnesia:write(?TBL_SYSTEM_CONF, SystemConfig, write) end,
-    leo_mnesia:write(F).
+    Tbl = ?TBL_SYSTEM_CONF,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun()-> mnesia:write(Tbl, SystemConfig, write) end,
+            leo_mnesia:write(F)
+    end.
 
 
 %% @doc Modify rebalance-info
@@ -435,8 +535,15 @@ update_system_config(SystemConfig) ->
 -spec(update_rebalance_info(#rebalance_info{}) ->
              ok | {error, any()}).
 update_rebalance_info(RebalanceInfo) ->
-    F = fun()-> mnesia:write(?TBL_REBALANCE_INFO, RebalanceInfo, write) end,
-    leo_mnesia:write(F).
+    Tbl = ?TBL_REBALANCE_INFO,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun()-> mnesia:write(Tbl, RebalanceInfo, write) end,
+            leo_mnesia:write(F)
+    end.
 
 
 %% @doc Modify bucket-info
@@ -455,19 +562,33 @@ insert_history(Command) ->
         {error, Reason} ->
             {error, Reason};
         _ ->
-            F = fun() -> mnesia:write(?TBL_HISTORIES, #history{id = Id,
-                                                               command = NewCommand,
-                                                               created = leo_date:now()}, write) end,
-            leo_mnesia:write(F)
+            Tbl = ?TBL_HISTORIES,
+
+            case catch mnesia:table_info(Tbl, all) of
+                {'EXIT', _Cause} ->
+                    {error, ?ERROR_MNESIA_NOT_START};
+                _ ->
+                    F = fun() -> mnesia:write(?TBL_HISTORIES, #history{id = Id,
+                                                                       command = NewCommand,
+                                                                       created = leo_date:now()}, write) end,
+                    leo_mnesia:write(F)
+            end
     end.
 
 
 insert_available_command(Command, Help) ->
-    F = fun() -> mnesia:write(?TBL_AVAILABLE_CMDS,
-                              #cmd_state{name = Command,
-                                         help = Help,
-                                         available = true}, write) end,
-    leo_mnesia:write(F).
+    Tbl = ?TBL_AVAILABLE_CMDS,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() -> mnesia:write(Tbl,
+                                      #cmd_state{name = Command,
+                                                 help = Help,
+                                                 available = true}, write) end,
+            leo_mnesia:write(F)
+    end.
 
 
 %%-----------------------------------------------------------------------
@@ -477,8 +598,15 @@ insert_available_command(Command, Help) ->
 -spec(delete_storage_node(atom()) ->
              ok | {error, any()}).
 delete_storage_node(Node) ->
-    F = fun() ->
-                mnesia:delete_object(?TBL_STORAGE_NODES, Node, write)
-        end,
-    leo_mnesia:delete(F).
+    Tbl = ?TBL_STORAGE_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        mnesia:delete_object(Tbl, Node, write)
+                end,
+            leo_mnesia:delete(F)
+    end.
 
