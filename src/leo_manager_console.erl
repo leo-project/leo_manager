@@ -948,10 +948,18 @@ s3_update_user_password(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, Password|_] ->
-            case leo_s3_user:update(#user{id       = UserId,
-                                          password = Password}) of
-                ok ->
-                    ok;
+            case leo_s3_user:find_by_id(UserId) of
+                {ok, #user{role_id = RoleId}} ->
+                    case leo_s3_user:update(#user{id       = UserId,
+                                                  role_id  = RoleId,
+                                                  password = Password}) of
+                        ok ->
+                            ok;
+                        {error, Cause} ->
+                            {error, Cause}
+                    end;
+                not_found ->
+                    {error, "user not found"};
                 {error, Cause} ->
                     {error, Cause}
             end;
