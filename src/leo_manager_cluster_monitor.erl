@@ -131,6 +131,12 @@ handle_call({register, RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Htb
 
     case is_exists_proc(Htbl, Node) of
         true ->
+            case TypeOfNode of
+                gateway ->
+                    _ = register_fun_0(TypeOfNode, Node);
+                _ ->
+                    void
+            end,
             {reply, ok, Arg};
         false ->
             MonitorRef = erlang:monitor(process, Pid),
