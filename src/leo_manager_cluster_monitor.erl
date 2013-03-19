@@ -404,10 +404,17 @@ register_fun_0(gateway, Node) ->
             ?error("register_fun_0/2", "cause:~p", [Cause]),
             {error, Cause};
         _Other ->
-            leo_manager_mnesia:update_gateway_node(
-              #node_state{node    = Node,
-                          state   = ?STATE_RUNNING,
-                          when_is = ?CURRENT_TIME})
+            case rpc:call(Node, leo_redundant_manager_api, checksum, [?CHECKSUM_RING], ?DEF_TIMEOUT) of
+                {ok, {Chksum0, Chksum1}} ->
+                    leo_manager_mnesia:update_gateway_node(
+                      #node_state{node    = Node,
+                                  state   = ?STATE_RUNNING,
+                                  ring_hash_new = leo_hex:integer_to_hex(Chksum0, 8),
+                                  ring_hash_old = leo_hex:integer_to_hex(Chksum1, 8),
+                                  when_is = ?CURRENT_TIME});
+                _ ->
+                    void
+            end
     end;
 
 register_fun_0(storage, Node) ->
