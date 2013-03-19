@@ -817,9 +817,6 @@ compact(CmdBody, Option) ->
 
 -spec(compact(string(), atom(), list()) ->
              ok | {error, any()}).
-compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL]) ->
-    compact(Mode, Node, [?COMPACT_TARGET_ALL, []]);
-
 compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL | Rest]) ->
     compact(Mode, Node, 'all', Rest);
 
