@@ -96,7 +96,7 @@ start_link() ->
             SystemConf = load_system_config(),
             ChildSpec  = {leo_redundant_manager_sup,
                           {leo_redundant_manager_sup, start_link,
-                           [Mode, RedundantNodes1, ?env_queue_dir(leo_manager),
+                           [Mode, [list_to_atom(RedundantNodes0), node()], ?env_queue_dir(leo_manager),
                             [{n,           SystemConf#system_conf.n},
                              {r,           SystemConf#system_conf.r},
                              {w,           SystemConf#system_conf.w},

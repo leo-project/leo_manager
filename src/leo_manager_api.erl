@@ -684,8 +684,8 @@ notify2(?STATE_RUNNING = State, Node) ->
 
 notify2(State, Node) ->
     Ret = leo_manager_mnesia:update_storage_node_status(
-                    update_state, #node_state{node  = Node,
-                                              state = State}),
+            update_state, #node_state{node  = Node,
+                                      state = State}),
     notify3(Ret, State, Node).
 
 
@@ -944,16 +944,34 @@ synchronize(?CHECKSUM_RING, Node) when is_atom(Node) ->
     synchronize1(?SYNC_MODE_CUR_RING,  Node),
     synchronize1(?SYNC_MODE_PREV_RING, Node);
 
+
 %% @doc From gateway and storage-node
 %%
 synchronize(?CHECKSUM_MEMBER = Type, [{Node0, Checksum0},
                                       {Node1, Checksum1}]) ->
-    case leo_redundant_manager_api:checksum(Type) of
-        {ok, LocalChecksum} ->
-            compare_local_chksum_with_remote_chksum(?SYNC_MODE_MEMBERS, Node0, LocalChecksum, Checksum0),
-            compare_local_chksum_with_remote_chksum(?SYNC_MODE_MEMBERS, Node1, LocalChecksum, Checksum1);
-        Error ->
-            Error
+    Ret = case (Node0 == node()) of
+              true ->
+                  case leo_manager_mnesia:get_storage_node_by_name(Node1) of
+                      {ok, [#node_state{state = ?STATE_STOP}|_]} ->
+                          notify1(Node1);
+                      _ ->
+                          null
+                  end;
+              false ->
+                  null
+          end,
+
+    case Ret of
+        null ->
+            case leo_redundant_manager_api:checksum(Type) of
+                {ok, LocalChecksum} ->
+                    compare_local_chksum_with_remote_chksum(?SYNC_MODE_MEMBERS, Node0, LocalChecksum, Checksum0),
+                    compare_local_chksum_with_remote_chksum(?SYNC_MODE_MEMBERS, Node1, LocalChecksum, Checksum1);
+                Error ->
+                    Error
+            end;
+        _ ->
+            Ret
     end;
 
 synchronize(?CHECKSUM_RING = Type, [{Node0, {CurRingHash0, PrevRingHash0}},
