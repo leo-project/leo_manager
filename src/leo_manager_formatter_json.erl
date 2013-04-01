@@ -35,7 +35,7 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
         ]).
 
@@ -305,9 +305,9 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_credential(binary(), binary()) ->
+-spec(credential(binary(), binary()) ->
              string()).
-s3_credential(AccessKeyId, SecretAccessKey) ->
+credential(AccessKeyId, SecretAccessKey) ->
     gen_json({[
                {access_key_id,     AccessKeyId},
                {secret_access_key, SecretAccessKey}
@@ -316,9 +316,9 @@ s3_credential(AccessKeyId, SecretAccessKey) ->
 
 %% @doc Format s3-owers
 %%
--spec(s3_users(list(#user_credential{})) ->
+-spec(users(list(#user_credential{})) ->
              string()).
-s3_users(Owners) ->
+users(Owners) ->
     JSON = lists:map(fun(User) ->
                              UserId      = leo_misc:get_value(user_id,       User),
                              RoleId      = leo_misc:get_value(role_id,       User),

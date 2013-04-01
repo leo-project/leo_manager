@@ -35,7 +35,7 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
          whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
@@ -76,7 +76,8 @@ help() ->
                         ?CMD_RESUME,
                         ?CMD_START,
                         ?CMD_REBALANCE,
-                        ?CMD_WHEREIS], []),
+                        ?CMD_WHEREIS,
+                        ?CMD_RECOVER], []),
                   help("[Storage]\r\n",
                        [?CMD_DU,
                         ?CMD_COMPACT], []),
@@ -375,17 +376,18 @@ du(detail, StatsList) when is_list(StatsList) ->
                                                        end,
                           Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
-                          lists:append([Acc, io_lib:format(lists:append(["              file path: ~s\r\n",
-                                                                         " active number of objects: ~w\r\n",
-                                                                         "  total number of objects: ~w\r\n",
-                                                                         "   active size of objects: ~w\r\n"
-                                                                         "    total size of objects: ~w\r\n",
-                                                                         "     ratio of active size: ~w%\r\n",
-                                                                         "    last compaction start: ~s\r\n"
-                                                                         "      last compaction end: ~s\r\n\r\n"]),
-                                                           [FilePath, Active, Total,
-                                                            ActiveSize, TotalSize, Ratio,
-                                                            LatestStart1, LatestEnd1])]);
+                          lists:append([Acc, io_lib:format(
+                                               lists:append(["              file path: ~s\r\n",
+                                                             " active number of objects: ~w\r\n",
+                                                             "  total number of objects: ~w\r\n",
+                                                             "   active size of objects: ~w\r\n"
+                                                             "    total size of objects: ~w\r\n",
+                                                             "     ratio of active size: ~w%\r\n",
+                                                             "    last compaction start: ~s\r\n"
+                                                             "      last compaction end: ~s\r\n\r\n"]),
+                                               [FilePath, Active, Total,
+                                                ActiveSize, TotalSize, Ratio,
+                                                LatestStart1, LatestEnd1])]);
                       _Error ->
                           Acc
                   end
@@ -398,18 +400,18 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_credential(string(), string()) ->
+-spec(credential(string(), string()) ->
              string()).
-s3_credential(AccessKeyId, SecretAccessKey) ->
+credential(AccessKeyId, SecretAccessKey) ->
     io_lib:format("  access-key-id: ~s\r\n  secret-access-key: ~s\r\n\r\n",
                   [AccessKeyId, SecretAccessKey]).
 
 
 %% @doc Format s3-users result
 %%
--spec(s3_users(list()) ->
+-spec(users(list()) ->
              string()).
-s3_users(Owners) ->
+users(Owners) ->
     Col1Len = lists:foldl(fun(User, Acc) ->
                                   UserId = leo_misc:get_value(user_id, User),
                                   Len = length(UserId),

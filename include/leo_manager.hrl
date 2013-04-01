@@ -92,6 +92,7 @@
 -define(CMD_GET_BUCKETS,      "get-buckets").
 -define(CMD_DU,               "du").
 -define(CMD_WHEREIS,          "whereis").
+-define(CMD_RECOVER,          "recover").
 -define(CMD_HISTORY,          "history").
 -define(CMD_PURGE,            "purge").
 -define(LOGIN,                "login").
@@ -102,13 +103,16 @@
 -define(COMMANDS, [{?CMD_HELP,          "help"},
                    {?CMD_QUIT,          "quit"},
                    {?CMD_VERSION,       "version"},
-                   {?CMD_STATUS,        "status [${NODE]}"},
+                   {?CMD_STATUS,        "status [${storage-node}|${gateway-node}]"},
                    {?CMD_HISTORY,       "history"},
-                   {?CMD_WHEREIS,       "whereis ${PATH}"},
-                   {?CMD_DETACH,        "detach ${NODE}"},
-                   {?CMD_SUSPEND,       "suspend ${NODE}"},
-                   {?CMD_RESUME,        "resume ${NODE}"},
-                   {?CMD_DETACH,        "detach ${NODE}"},
+                   {?CMD_WHEREIS,       "whereis ${path}"},
+                   {?CMD_RECOVER,       lists:append(
+                                          ["recover file ${path}", ?CRLF,
+                                           "recover node ${storage-node}"])},
+                   {?CMD_DETACH,        "detach ${storage-node}"},
+                   {?CMD_SUSPEND,       "suspend ${storage-node}"},
+                   {?CMD_RESUME,        "resume ${storage-node}"},
+                   {?CMD_DETACH,        "detach ${storage-node}"},
                    {?CMD_START,         "start"},
                    {?CMD_REBALANCE,     "rebalance"},
                    {?CMD_COMPACT,       lists:append(
@@ -117,17 +121,17 @@
                                            "compact resume  ${storage-node}", ?CRLF,
                                            "compact status  ${storage-node} "
                                           ])},
-                   {?CMD_DU,            "du ${NODE}"},
-                   {?CMD_PURGE,         "purge ${PATH}"},
-                   {?CMD_CREATE_USER,   "create-user ${USER-ID} [${PASSWORD}]"},
-                   {?CMD_DELETE_USER,   "delete-user ${USER-ID}"},
-                   {?CMD_UPDATE_USER_ROLE, "update-user-role ${USER-ID} ${ROLE-ID}"},
-                   {?CMD_UPDATE_USER_PW,   "update-user-password ${USER-ID} ${PASSWORD}"},
+                   {?CMD_DU,            "du ${storage-node}"},
+                   {?CMD_PURGE,         "purge ${path}"},
+                   {?CMD_CREATE_USER,   "create-user ${user-id} [${password}]"},
+                   {?CMD_DELETE_USER,   "delete-user ${user-id}"},
+                   {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
+                   {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
                    {?CMD_GET_USERS,     "get-users"},
-                   {?CMD_SET_ENDPOINT,  "set-endpoint ${ENDPOINT}"},
-                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${ENDPOINT}"},
+                   {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
+                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
-                   {?CMD_ADD_BUCKET,    "add-bucket ${BUCKET} ${ACCESS_KEY_ID}"},
+                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"},
                    {?CMD_GET_BUCKETS,   "get-buckets"}
                   ]).
 -record(cmd_state, {name :: string(),
