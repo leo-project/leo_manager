@@ -417,6 +417,21 @@ handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command, #state{f
     {reply, Reply, State};
 
 
+%% Command: "recover file|node ${PATH}|${NODE}"
+%%
+handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case recover(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_RECOVER, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "purge ${PATH}"
 %%
 handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
@@ -868,6 +883,30 @@ whereis(CmdBody, Option) ->
                 {_, Cause} ->
                     {error, Cause}
             end
+    end.
+
+
+%% @doc Recover object(s) by a key/node
+%% @private
+-spec(recover(binary(), binary()) ->
+             ok | {error, any()}).
+recover(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_INVALID_PATH};
+        [Op, Key |Rest] when Rest == [] ->
+            HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
+
+            case catch leo_manager_api:recover(Op, Key, HasRoutingTable) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    {error, Cause}
+            end;
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 

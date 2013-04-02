@@ -51,7 +51,7 @@ manager_controller_test_() ->
                            fun rebalance_0_/1, fun rebalance_1_/1, fun rebalance_2_/1,
                            fun du_0_/1, fun du_1_/1, fun du_2_/1, fun du_3_/1,
                            fun compact_0_/1, fun compact_1_/1,
-                           fun whereis_/1,
+                           fun whereis_/1, fun recover_/1,
                            fun purge_0_/1, fun purge_1_/1,
                            fun history_/1,
                            fun help_/1,
@@ -1165,6 +1165,59 @@ whereis_({Node0, _Node1, Sock}) ->
     ?assertNotEqual([], meck:history(leo_storage_handler_object)),
     catch gen_tcp:close(Sock),
     ok.
+
+
+recover_({Node0, _Node1, Sock}) ->
+    ok = meck:new(leo_manager_mnesia, [non_strict]),
+    ok = meck:expect(leo_manager_mnesia, insert_history,
+                     fun(_) ->
+                             ok
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
+                     fun(Cmd) ->
+                             {ok, [#cmd_state{name = Cmd,
+                                              available = true}]}
+                     end),
+
+    ok = meck:new(leo_redundant_manager_api, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_api, checksum,
+                     fun(ring) ->
+                             1
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, get_redundancies_by_key,
+                     fun(_Key) ->
+                             {ok, #redundancies{id    = 1,
+                                                nodes = [{Node0, true}]}}
+                     end),
+
+    ok = meck:new(leo_utils, [non_strict]),
+    ok = meck:expect(leo_utils, date_format,
+                     fun(_) ->
+                             ""
+                     end),
+    ok = meck:new(leo_hex, [non_strict]),
+    ok = meck:expect(leo_hex, integer_to_hex,
+                     fun(_) ->
+                             0
+                     end),
+
+    ok = rpc:call(Node0, meck, new,    [leo_storage_api, [no_link, non_strict]]),
+    ok = rpc:call(Node0, meck, expect, [leo_storage_api, synchronize,
+                                        fun(_, _, _) ->
+                                                ok
+                                        end]),
+
+    Command1 = "recover file air/on/g/string\r\n",
+    ok = gen_tcp:send(Sock, list_to_binary(Command1)),
+    timer:sleep(100),
+
+    Command2 = "recover node " ++ atom_to_list(Node0) ++ "\r\n",
+    ok = gen_tcp:send(Sock, list_to_binary(Command2)),
+    timer:sleep(100),
+
+    catch gen_tcp:close(Sock),
+    ok.
+
 
 purge_0_({Node0, _, Sock}) ->
     ok = meck:new(leo_manager_mnesia, [non_strict]),

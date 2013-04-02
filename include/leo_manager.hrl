@@ -119,7 +119,7 @@
                                           ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
                                            "compact suspend ${storage-node}", ?CRLF,
                                            "compact resume  ${storage-node}", ?CRLF,
-                                           "compact status  ${storage-node} "
+                                           "compact status  ${storage-node}"
                                           ])},
                    {?CMD_DU,            "du ${storage-node}"},
                    {?CMD_PURGE,         "purge ${path}"},
@@ -148,6 +148,11 @@
 -define(COMPACT_RESUME,     "resume").
 -define(COMPACT_STATUS,     "status").
 -define(COMPACT_TARGET_ALL, "all").
+
+
+%% recover type
+-define(RECOVER_BY_FILE, "file").
+-define(RECOVER_BY_NODE, "node").
 
 
 %% membership

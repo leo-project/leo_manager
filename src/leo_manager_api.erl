@@ -46,7 +46,7 @@
          start/0, rebalance/0]).
 
 -export([register/4, notify/3, notify/4, purge/1,
-         whereis/2, compact/2, compact/4, stats/2,
+         whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1
         ]).
@@ -741,8 +741,8 @@ whereis([Key|_], true) ->
     case leo_redundant_manager_api:get_redundancies_by_key(KeyBin) of
         {ok, #redundancies{id = AddrId, nodes = Redundancies}} ->
             whereis1(AddrId, KeyBin, Redundancies, []);
-        undefined ->
-            {error, ?ERROR_META_NOT_FOUND}
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_RING}
     end;
 
 whereis(_Key, false) ->
@@ -774,6 +774,37 @@ whereis1(AddrId, Key, [{Node, true }|T], Acc) ->
 
 whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
     whereis1(AddrId, Key, T, [{atom_to_list(Node), not_found} | Acc]).
+
+
+%% @doc Recover object(s) by a key/node
+%%
+-spec(recover(binary(), string(), boolean()) ->
+             ok | {error, any()}).
+recover(?RECOVER_BY_FILE, Key, true) ->
+    case leo_redundant_manager_api:get_redundancies_by_key(Key) of
+        {ok, #redundancies{nodes = Redundancies}} ->
+            case lists:foldl(
+                   fun({Node, true}, false) ->
+                           (ok == rpc:call(Node, leo_storage_api, synchronize,
+                                           ['object', Key, 'error_msg_replicate_data']));
+                      (_, Acc) ->
+                           Acc
+                   end, false, Redundancies) of
+                true ->
+                    ok;
+                false ->
+                    {error, ""}
+            end;
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_RING}
+    end;
+recover(?RECOVER_BY_NODE, _Key, true) ->
+    %% @TODO
+    ok;
+recover(_,_,true) ->
+    {error, ?ERROR_INVALID_ARGS};
+recover(_,_,false) ->
+    {error, ?ERROR_COULD_NOT_GET_RING}.
 
 
 %% @doc Do compact.
