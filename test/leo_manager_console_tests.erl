@@ -1178,6 +1178,10 @@ recover_({Node0, _Node1, Sock}) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_system_config,
+                     fun() ->
+                             {ok, #system_conf{}}
+                     end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
     ok = meck:expect(leo_redundant_manager_api, checksum,
@@ -1188,6 +1192,15 @@ recover_({Node0, _Node1, Sock}) ->
                      fun(_Key) ->
                              {ok, #redundancies{id    = 1,
                                                 nodes = [{Node0, true}]}}
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, checksum,
+                     fun(_) ->
+                             {ok, {1,1}}
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, get_members,
+                     fun() ->
+                             {ok, [#member{node  = Node0,
+                                           state = ?STATE_RUNNING}]}
                      end),
 
     ok = meck:new(leo_utils, [non_strict]),
