@@ -178,6 +178,8 @@
 -define(ERROR_MNESIA_NOT_START,         "Mnesia does not start, yet").
 -define(ERROR_DURING_REBALANCE,         "During rebalance").
 -define(ERROR_NOT_SATISFY_CONDITION,    "Not satisfy conditions").
+-define(ERROR_TARGET_NODE_NOT_RUNNING,  "Target node does not running").
+
 
 
 %% type of console

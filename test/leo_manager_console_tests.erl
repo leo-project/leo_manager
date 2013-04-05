@@ -1216,7 +1216,7 @@ recover_({Node0, _Node1, Sock}) ->
 
     ok = rpc:call(Node0, meck, new,    [leo_storage_api, [no_link, non_strict]]),
     ok = rpc:call(Node0, meck, expect, [leo_storage_api, synchronize,
-                                        fun(_, _, _) ->
+                                        fun(_, _) ->
                                                 ok
                                         end]),
 

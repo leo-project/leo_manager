@@ -783,8 +783,8 @@ recover(?RECOVER_BY_FILE, Key, true) ->
         {ok, #redundancies{nodes = Redundancies}} ->
             case lists:foldl(
                    fun({Node, true}, false) ->
-                           (ok == rpc:call(Node, leo_storage_api, synchronize,
-                                           ['object', Key, 'error_msg_replicate_data']));
+                           (ok == rpc:call(Node, ?API_STORAGE, synchronize,
+                                           [Key, 'error_msg_replicate_data']));
                       (_, Acc) ->
                            Acc
                    end, false, Redundancies) of
@@ -797,48 +797,70 @@ recover(?RECOVER_BY_FILE, Key, true) ->
             {error, ?ERROR_COULD_NOT_GET_RING}
     end;
 recover(?RECOVER_BY_NODE, Node, true) ->
-    %% Check during-rebalance?
-    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-        {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
-            {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-            {ok, Members1}    = leo_redundant_manager_api:get_members(),
-            {Total, Active, Members2} =
-                lists:foldl(fun(#member{state = ?STATE_DETACHED}, Acc) ->
-                                    Acc;
-                               (#member{state = ?STATE_RUNNING,
-                                        node  = N}, {Num1,Num2,M}) ->
-                                    {Num1+1, Num2+1, [N|M]};
-                               (_, {Num1,Num2,M}) ->
-                                    {Num1+1, Num2, M}
-                               end, {0,0,[]}, Members1),
-
-            %% Check (# of running members >= n-1)?
-            Ret1 = ((Total - Active) >= SystemConf#system_conf.n - 1),
-            %% Exec recovery the node
-            recover_node_1(Ret1, Members2, Node);
-        _ ->
-            {error, ?ERROR_DURING_REBALANCE}
+    case leo_misc:node_existence(Node) of
+        true ->
+            %% Check during-rebalance?
+            case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+                {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+                    %% Check running?
+                    Ret = case leo_redundant_manager_api:get_member_by_node(Node) of
+                              {ok, #member{state = ?STATE_RUNNING}} -> true;
+                              _ -> false
+                          end,
+                    recover_node_1(Ret, Node);
+                _ ->
+                    {error, ?ERROR_DURING_REBALANCE}
+            end;
+        false ->
+            {error, ?ERROR_COULD_NOT_CONNECT}
     end;
 recover(_,_,true) ->
     {error, ?ERROR_INVALID_ARGS};
 recover(_,_,false) ->
     {error, ?ERROR_COULD_NOT_GET_RING}.
 
-%% @doc Recover a node
+%% @doc Execute recovery of the target node
+%%      Check conditions
 %% @private
-recover_node_1(true, Members, Node) ->
+recover_node_1(true, Node) ->
+    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, Members1}   = leo_redundant_manager_api:get_members(),
+    {Total, Active, Members2} =
+        lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
+                            Acc;
+                       (#member{state = ?STATE_DETACHED}, Acc) ->
+                            Acc;
+                       (#member{state = ?STATE_RUNNING,
+                                node  = N}, {Num1,Num2,M}) ->
+                            {Num1+1, Num2+1, [N|M]};
+                       (_, {Num1,Num2,M}) ->
+                            {Num1+1, Num2, M}
+                    end, {0,0,[]}, Members1),
+
+    %% Check (# of running members >= n-1)?
+    Ret1 = ((Total - Active) >= SystemConf#system_conf.n - 1),
+    recover_node_2(Ret1, Members2, Node);
+recover_node_1(false, _) ->
+    {error, ?ERROR_TARGET_NODE_NOT_RUNNING}.
+
+%% @doc Execute recovery of the target node
+%%      Check # of active nodes
+%% @private
+recover_node_2(true, Members, Node) ->
     Ret = case rpc:multicall(Members, erlang, node, [Node], ?DEF_TIMEOUT) of
               {_, []} -> true;
               _ -> false
           end,
-    recover_node_2(Ret, Members, Node);
-recover_node_1(false,_,_) ->
+    recover_node_3(Ret, Members, Node);
+recover_node_2(false,_,_) ->
     {error, ?ERROR_NOT_SATISFY_CONDITION}.
 
-recover_node_2(true, Members, Node) ->
-    _ = rpc:multicall(Members, leo_storage_api, synchronize,
+%% @doc Execute recovery of the target node
+%% @private
+recover_node_3(true, Members, Node) ->
+    _ = rpc:multicall(Members, ?API_STORAGE, synchronize,
                       [Node], ?DEF_TIMEOUT);
-recover_node_2(false,_,_) ->
+recover_node_3(false,_,_) ->
     {error, ?ERROR_NOT_SATISFY_CONDITION}.
 
 
