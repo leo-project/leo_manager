@@ -797,17 +797,21 @@ recover(?RECOVER_BY_FILE, Key, true) ->
             {error, ?ERROR_COULD_NOT_GET_RING}
     end;
 recover(?RECOVER_BY_NODE, Node, true) ->
-    case leo_misc:node_existence(Node) of
+    Node1 = case is_atom(Node) of
+                true  -> Node;
+                false -> list_to_atom(Node)
+            end,
+    case leo_misc:node_existence(Node1) of
         true ->
             %% Check during-rebalance?
             case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
                 {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
                     %% Check running?
-                    Ret = case leo_redundant_manager_api:get_member_by_node(Node) of
+                    Ret = case leo_redundant_manager_api:get_member_by_node(Node1) of
                               {ok, #member{state = ?STATE_RUNNING}} -> true;
                               _ -> false
                           end,
-                    recover_node_1(Ret, Node);
+                    recover_node_1(Ret, Node1);
                 _ ->
                     {error, ?ERROR_DURING_REBALANCE}
             end;
@@ -837,9 +841,8 @@ recover_node_1(true, Node) ->
                             {Num1+1, Num2, M}
                     end, {0,0,[]}, Members1),
 
-    %% Check (# of running members >= n-1)?
-    Ret1 = ((Total - Active) >= SystemConf#system_conf.n - 1),
-    recover_node_2(Ret1, Members2, Node);
+    Ret = ((Total - Active) =< SystemConf#system_conf.n - 1),
+    recover_node_2(Ret, Members2, Node);
 recover_node_1(false, _) ->
     {error, ?ERROR_TARGET_NODE_NOT_RUNNING}.
 
@@ -858,8 +861,14 @@ recover_node_2(false,_,_) ->
 %% @doc Execute recovery of the target node
 %% @private
 recover_node_3(true, Members, Node) ->
-    _ = rpc:multicall(Members, ?API_STORAGE, synchronize,
-                      [Node], ?DEF_TIMEOUT);
+    case rpc:multicall(Members, ?API_STORAGE, synchronize,
+                       [Node], ?DEF_TIMEOUT) of
+        {_, []} ->
+            ok;
+        {_, BadNodes} ->
+            ?warn("recover_node_3/3", "bad_nodes:~p", [BadNodes]),
+            {error, BadNodes}
+    end;
 recover_node_3(false,_,_) ->
     {error, ?ERROR_NOT_SATISFY_CONDITION}.
 
