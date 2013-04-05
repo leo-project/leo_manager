@@ -779,19 +779,16 @@ whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
 -spec(recover(binary(), string(), boolean()) ->
              ok | {error, any()}).
 recover(?RECOVER_BY_FILE, Key, true) ->
-    case leo_redundant_manager_api:get_redundancies_by_key(Key) of
+    Key1 = list_to_binary(Key),
+    case leo_redundant_manager_api:get_redundancies_by_key(Key1) of
         {ok, #redundancies{nodes = Redundancies}} ->
-            case lists:foldl(
-                   fun({Node, true}, false) ->
-                           (ok == rpc:call(Node, ?API_STORAGE, synchronize,
-                                           [Key, 'error_msg_replicate_data']));
-                      (_, Acc) ->
-                           Acc
-                   end, false, Redundancies) of
-                true ->
+            Nodes = [N || {N, _} <- Redundancies],
+            case rpc:multicall(Nodes, ?API_STORAGE, synchronize,
+                               [Key1, 'error_msg_replicate_data'], ?DEF_TIMEOUT) of
+                {_, []} ->
                     ok;
-                false ->
-                    {error, ""}
+                {_, BadNodes} ->
+                    {error, BadNodes}
             end;
         _ ->
             {error, ?ERROR_COULD_NOT_GET_RING}
