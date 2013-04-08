@@ -48,7 +48,7 @@
 -export([register/4, notify/3, notify/4, purge/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1
+         set_endpoint/1, delete_bucket/2
         ]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
@@ -846,28 +846,8 @@ recover(_,_,false) ->
 %%      Check conditions
 %% @private
 recover_node_1(true, Node) ->
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    {ok, Members1}   = leo_redundant_manager_api:get_members(),
-    {Total, Active, Members2} =
-        lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
-                            Acc;
-                       (#member{state = ?STATE_DETACHED}, Acc) ->
-                            Acc;
-                       (#member{state = ?STATE_RUNNING,
-                                node  = N}, {Num1,Num2,M}) ->
-                            {Num1+1, Num2+1, [N|M]};
-                       (_, {Num1,Num2,M}) ->
-                            {Num1+1, Num2, M}
-                    end, {0,0,[]}, Members1),
-
-    NVal = SystemConf#system_conf.n,
-    Diff = case (SystemConf#system_conf.n < 3) of
-               true  -> 0;
-               false ->
-                   NVal - (NVal - 1)
-           end,
-    Ret = ((Total - Active) =< Diff),
-    recover_node_2(Ret, Members2, Node);
+    {Ret, Members}= is_allow_to_distribute_command(Node),
+    recover_node_2(Ret, Members, Node);
 recover_node_1(false, _) ->
     {error, ?ERROR_TARGET_NODE_NOT_RUNNING}.
 
@@ -1216,4 +1196,91 @@ set_endpoint(Endpoint) ->
         Error ->
             Error
     end.
+
+
+%% @doc Remove a bucket from storage-cluster and manager
+%%
+-spec(delete_bucket(binary(), binary()) ->
+             ok | {error, any()}).
+delete_bucket(AccessKeyId, Bucket) ->
+    AccessKeyBin = list_to_binary(AccessKeyId),
+    BucketBin    = list_to_binary(Bucket),
+
+    %% Check during-rebalance
+    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+        {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+            %% Check preconditions
+            case is_allow_to_distribute_command() of
+                {true, _}->
+                    case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
+                        ok ->
+                            delete_bucket_1(AccessKeyBin, BucketBin);
+                        not_found ->
+                            {error, "Bucket not found"};
+                        {error, _} ->
+                            {error, ?ERROR_INVALID_ARGS}
+                    end;
+                _ ->
+                    {error, ?ERROR_NOT_SATISFY_CONDITION}
+            end;
+        _ ->
+            {error, ?ERROR_DURING_REBALANCE}
+    end.
+
+delete_bucket_1(AccessKeyBin, BucketBin) ->
+    case leo_redundant_manager_api:get_members_by_status(?STATE_RUNNING) of
+        {ok, Members} ->
+            Nodes = lists:map(fun(#member{node = Node}) ->
+
+                                      Node
+                              end, Members),
+            case rpc:multicall(Nodes, leo_storage_handler_directory,
+                               delete_objects_in_parent_dir,
+                               [BucketBin], ?DEF_TIMEOUT) of
+                {_, []} -> void;
+                {_, BadNodes} ->
+                    ?error("start/0", "bad-nodes:~p", [BadNodes])
+            end,
+            delete_bucket_2(AccessKeyBin, BucketBin);
+        {error, Cause} ->
+            {error, Cause}
+    end.
+
+delete_bucket_2(AccessKeyBin, BucketBin) ->
+    case leo_s3_bucket:delete(AccessKeyBin, BucketBin) of
+        ok ->
+            ok;
+        {error, badarg} ->
+            {error, ?ERROR_INVALID_BUCKET_FORMAT};
+        {error, _Cause} ->
+            {error, ?ERROR_COULD_NOT_STORE}
+    end.
+
+
+%% @doc Is allow distribute to a command
+%% @private
+is_allow_to_distribute_command() ->
+    is_allow_to_distribute_command([]).
+is_allow_to_distribute_command(Node) ->
+    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, Members1}   = leo_redundant_manager_api:get_members(),
+    {Total, Active, Members2} =
+        lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
+                            Acc;
+                       (#member{state = ?STATE_DETACHED}, Acc) ->
+                            Acc;
+                       (#member{state = ?STATE_RUNNING,
+                                node  = N}, {Num1,Num2,M}) ->
+                            {Num1+1, Num2+1, [N|M]};
+                       (_, {Num1,Num2,M}) ->
+                            {Num1+1, Num2, M}
+                    end, {0,0,[]}, Members1),
+
+    NVal = SystemConf#system_conf.n,
+    Diff = case (SystemConf#system_conf.n < 3) of
+               true  -> 0;
+               false ->
+                   NVal - (NVal - 1)
+           end,
+    {((Total - Active) =< Diff), Members2}.
 

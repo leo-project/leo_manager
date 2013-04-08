@@ -90,6 +90,7 @@
 -define(CMD_GET_ENDPOINTS,    "get-endpoints").
 -define(CMD_ADD_BUCKET,       "add-bucket").
 -define(CMD_GET_BUCKETS,      "get-buckets").
+-define(CMD_DELETE_BUCKET,    "delete-bucket").
 -define(CMD_DU,               "du").
 -define(CMD_WHEREIS,          "whereis").
 -define(CMD_RECOVER,          "recover").
@@ -133,8 +134,9 @@
                    {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
                    {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
-                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_GET_BUCKETS,   "get-buckets"}
+                   {?CMD_GET_BUCKETS,   "get-buckets"},
+                   {?CMD_DELETE_BUCKET, "delete-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),

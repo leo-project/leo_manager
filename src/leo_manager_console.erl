@@ -357,7 +357,7 @@ handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command, #state{formatter =
     {reply, Reply, State};
 
 
-%% Command: "del-endpoint ${END_POINT}"
+%% Command: "del-endpoint ${end_point}"
 %%
 handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -372,7 +372,7 @@ handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #st
     {reply, Reply, State};
 
 
-%% Command: "get-buckets"
+%% Command: "add-buckets ${bucket} ${access-key-id}"
 %%
 handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -384,6 +384,20 @@ handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #stat
                   end
           end,
     Reply = invoke(?CMD_ADD_BUCKET, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "delete-buckets ${bucket} ${access-key-id}"
+%%
+handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case delete_bucket(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DELETE_BUCKET, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -1108,7 +1122,7 @@ del_endpoint(CmdBody, Option) ->
     end.
 
 
-%% @doc Insert an Buckets in the manager
+%% @doc Insert a Buckets in the manager
 %% @private
 -spec(add_bucket(binary(), binary()) ->
              ok | {error, any()}).
@@ -1130,7 +1144,22 @@ add_bucket(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve an Buckets from the manager
+%% @doc Remove a Buckets from the manager
+%% @private
+-spec(delete_bucket(binary(), binary()) ->
+             ok | {error, any()}).
+delete_bucket(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, AccessKey] ->
+            leo_manager_api:delete_bucket(AccessKey, Bucket);
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
+%% @doc Retrieve a Buckets from the manager
 %% @private
 -spec(get_buckets(binary()) ->
              ok | {error, any()}).
