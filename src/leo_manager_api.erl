@@ -860,7 +860,13 @@ recover_node_1(true, Node) ->
                             {Num1+1, Num2, M}
                     end, {0,0,[]}, Members1),
 
-    Ret = ((Total - Active) =< SystemConf#system_conf.n - 1),
+    NVal = SystemConf#system_conf.n,
+    Diff = case (SystemConf#system_conf.n < 3) of
+               true  -> 0;
+               false ->
+                   NVal - (NVal - 1)
+           end,
+    Ret = ((Total - Active) =< Diff),
     recover_node_2(Ret, Members2, Node);
 recover_node_1(false, _) ->
     {error, ?ERROR_TARGET_NODE_NOT_RUNNING}.
