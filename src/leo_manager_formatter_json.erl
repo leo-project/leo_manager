@@ -192,14 +192,16 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
                   {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
-                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)}
+                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
+                  {<<"handler_api">>,      leo_misc:get_value('handler_api',      Statistics, 0)}
                  ]}}
               ]});
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
-    Directories  = State#cluster_node_status.dirs,
-    RingHashes   = State#cluster_node_status.ring_checksum,
-    Statistics   = State#cluster_node_status.statistics,
+    Directories = State#cluster_node_status.dirs,
+    RingHashes  = State#cluster_node_status.ring_checksum,
+    Statistics  = State#cluster_node_status.statistics,
+    MsgQueue    = leo_misc:get_value('storage', Statistics, []),
     %% ObjContainer = State#cluster_node_status.avs,
 
     gen_json({[{<<"node_stat">>,
@@ -215,7 +217,10 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
                   {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
-                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)}
+                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
+                  {<<"replication_msgs">>, leo_misc:get_value('num_of_replication_msg', MsgQueue, 0)},
+                  {<<"sync_vnode_msgs">>,  leo_misc:get_value('num_of_sync_vnode_msg',  MsgQueue, 0)},
+                  {<<"rebalance_msgs">>,   leo_misc:get_value('num_of_rebalance_msg',   MsgQueue, 0)}
                  ]}}
               ]}).
 
