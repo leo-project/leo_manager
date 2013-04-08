@@ -108,7 +108,9 @@
                    {?CMD_WHEREIS,       "whereis ${path}"},
                    {?CMD_RECOVER,       lists:append(
                                           ["recover file ${path}", ?CRLF,
-                                           "recover node ${storage-node}"])},
+                                           "recover node ${storage-node}", ?CRLF,
+                                           "recover ring ${storage-node}"
+                                          ])},
                    {?CMD_DETACH,        "detach ${storage-node}"},
                    {?CMD_SUSPEND,       "suspend ${storage-node}"},
                    {?CMD_RESUME,        "resume ${storage-node}"},
@@ -153,6 +155,7 @@
 %% recover type
 -define(RECOVER_BY_FILE, "file").
 -define(RECOVER_BY_NODE, "node").
+-define(RECOVER_BY_RING, "ring").
 
 
 %% membership

@@ -1228,6 +1228,10 @@ recover_({Node0, _Node1, Sock}) ->
     ok = gen_tcp:send(Sock, list_to_binary(Command2)),
     timer:sleep(100),
 
+    Command3 = "recover ring " ++ atom_to_list(Node0) ++ "\r\n",
+    ok = gen_tcp:send(Sock, list_to_binary(Command3)),
+    timer:sleep(100),
+
     catch gen_tcp:close(Sock),
     ok.
 

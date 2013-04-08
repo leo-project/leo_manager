@@ -333,12 +333,9 @@ distribute_members(ok, Node0) ->
 
             case rpc:multicall(DestNodes, leo_redundant_manager_api, update_members,
                                [Members], ?DEF_TIMEOUT) of
-                {_, []} ->
-                    void;
+                {_, []} -> void;
                 {_, BadNodes} ->
-                    ?warn("resume/3", "bad_nodes:~p", [BadNodes]);
-                _ ->
-                    void
+                    ?error("start/0", "bad-nodes:~p", [BadNodes])
             end,
             ok;
         Error ->
@@ -815,6 +812,31 @@ recover(?RECOVER_BY_NODE, Node, true) ->
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
     end;
+
+recover(?RECOVER_BY_RING, Node, true) ->
+    Node1 = case is_atom(Node) of
+                true  -> Node;
+                false -> list_to_atom(Node)
+            end,
+    case leo_misc:node_existence(Node1) of
+        true ->
+            %% Check during-rebalance?
+            case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+                {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+                    %% Sync target-node's member/ring with manager
+                    case leo_redundant_manager_api:get_members() of
+                        {ok, Members} ->
+                            synchronize(?CHECKSUM_RING, Node1, Members);
+                        Error ->
+                            Error
+                    end;
+                _ ->
+                    {error, ?ERROR_DURING_REBALANCE}
+            end;
+        false ->
+            {error, ?ERROR_COULD_NOT_CONNECT}
+    end;
+
 recover(_,_,true) ->
     {error, ?ERROR_INVALID_ARGS};
 recover(_,_,false) ->
