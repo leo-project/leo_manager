@@ -175,13 +175,18 @@ system_info_and_nodes_stat(Props) ->
 -spec(node_stat(string(), #cluster_node_status{}) ->
              string()).
 node_stat(?SERVER_TYPE_GATEWAY, State) ->
-    Directories  = State#cluster_node_status.dirs,
-    RingHashes   = State#cluster_node_status.ring_checksum,
-    Statistics   = State#cluster_node_status.statistics,
+    Version      = leo_misc:get_value('version',       State, []),
+    Directories  = leo_misc:get_value('dirs',          State, []),
+    HttpConf     = leo_misc:get_value('http_conf',     State, []),
+    RingHashes   = leo_misc:get_value('ring_checksum', State, []),
+    Statistics   = leo_misc:get_value('statistics',    State, []),
 
     gen_json({[{<<"node_stat">>,
-                {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
+                {[
+                  %% config-1
+                  {<<"version">>,          list_to_binary(Version)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
+                  %% config-2
                   {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
                   {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
                   {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
@@ -193,19 +198,36 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
                   {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
                   {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
-                  {<<"handler_api">>,      leo_misc:get_value('handler_api',      Statistics, 0)}
+                  %% config-2
+                  {<<"handler">>,                  list_to_binary(atom_to_list(leo_misc:get_value('handler', HttpConf, '')))},
+                  {<<"port">>,                     leo_misc:get_value('port',             HttpConf, 0)},
+                  {<<"ssl_port">>,                 leo_misc:get_value('ssl_port',         HttpConf, 0)},
+                  {<<"num_of_acceptors">>,         leo_misc:get_value('num_of_acceptors', HttpConf, 0)},
+                  {<<"http_cache">>,               list_to_binary(atom_to_list(leo_misc:get_value('http_cache', HttpConf, '')))},
+                  {<<"cache_workers">>,            leo_misc:get_value('cache_workers',            HttpConf, 0)},
+                  {<<"cache_expire">>,             leo_misc:get_value('cache_expire',             HttpConf, 0)},
+                  {<<"cache_ram_capacity">>,       leo_misc:get_value('cache_ram_capacity',       HttpConf, 0)},
+                  {<<"cache_disc_capacity">>,      leo_misc:get_value('cache_disc_capacity',      HttpConf, 0)},
+                  {<<"cache_disc_threshold_len">>, leo_misc:get_value('cache_disc_threshold_len', HttpConf, 0)},
+                  {<<"cache_disc_dir_data">>,      list_to_binary(leo_misc:get_value('cache_disc_dir_data',    HttpConf, ""))},
+                  {<<"cache_disc_dir_journal">>,   list_to_binary(leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
+                  {<<"cache_max_content_len">>,    leo_misc:get_value('cache_max_content_len',    HttpConf, 0)},
+                  {<<"max_chunked_objs">>,         leo_misc:get_value('max_chunked_objs',         HttpConf, 0)},
+                  {<<"max_len_for_obj">>,          leo_misc:get_value('max_len_for_obj',          HttpConf, 0)},
+                  {<<"chunked_obj_len">>,          leo_misc:get_value('chunked_obj_len',          HttpConf, 0)},
+                  {<<"threshold_obj_len">>,        leo_misc:get_value('threshold_obj_len',        HttpConf, 0)}
                  ]}}
               ]});
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
-    Directories = State#cluster_node_status.dirs,
-    RingHashes  = State#cluster_node_status.ring_checksum,
-    Statistics  = State#cluster_node_status.statistics,
+    Version     = leo_misc:get_value('version',       State, []),
+    Directories = leo_misc:get_value('dirs',          State, []),
+    RingHashes  = leo_misc:get_value('ring_checksum', State, []),
+    Statistics  = leo_misc:get_value('statistics',    State, []),
     MsgQueue    = leo_misc:get_value('storage', Statistics, []),
-    %% ObjContainer = State#cluster_node_status.avs,
 
     gen_json({[{<<"node_stat">>,
-                {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
+                {[{<<"version">>,          list_to_binary(Version)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
                   {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
                   {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
