@@ -1190,9 +1190,15 @@ set_endpoint(Endpoint) ->
 %%
 -spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
-delete_bucket(AccessKeyId, Bucket) ->
-    AccessKeyBin = list_to_binary(AccessKeyId),
-    BucketBin    = list_to_binary(Bucket),
+delete_bucket(AccessKey, Bucket) ->
+    AccessKeyBin = case is_binary(AccessKey) of
+                       true  -> AccessKey;
+                       false -> list_to_binary(AccessKey)
+                   end,
+    BucketBin    = case is_binary(Bucket) of
+                       true  -> Bucket;
+                       false -> list_to_binary(Bucket)
+                   end,
 
     %% Check during-rebalance
     case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
