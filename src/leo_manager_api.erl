@@ -852,20 +852,8 @@ recover_node_1(false, _) ->
     {error, ?ERROR_TARGET_NODE_NOT_RUNNING}.
 
 %% @doc Execute recovery of the target node
-%%      Check # of active nodes
 %% @private
 recover_node_2(true, Members, Node) ->
-    Ret = case rpc:multicall(Members, erlang, node, [Node], ?DEF_TIMEOUT) of
-              {_, []} -> true;
-              _ -> false
-          end,
-    recover_node_3(Ret, Members, Node);
-recover_node_2(false,_,_) ->
-    {error, ?ERROR_NOT_SATISFY_CONDITION}.
-
-%% @doc Execute recovery of the target node
-%% @private
-recover_node_3(true, Members, Node) ->
     case rpc:multicall(Members, ?API_STORAGE, synchronize,
                        [Node], ?DEF_TIMEOUT) of
         {_, []} ->
@@ -874,7 +862,7 @@ recover_node_3(true, Members, Node) ->
             ?warn("recover_node_3/3", "bad_nodes:~p", [BadNodes]),
             {error, BadNodes}
     end;
-recover_node_3(false,_,_) ->
+recover_node_2(false,_,_) ->
     {error, ?ERROR_NOT_SATISFY_CONDITION}.
 
 
@@ -1282,5 +1270,14 @@ is_allow_to_distribute_command(Node) ->
                false ->
                    NVal - (NVal - 1)
            end,
-    {((Total - Active) =< Diff), Members2}.
+    Ret  = case ((Total - Active) =< Diff) of
+               true ->
+                   case rpc:multicall(Members2, erlang, node, [], ?DEF_TIMEOUT) of
+                       {_, []} -> true;
+                       _ -> false
+                   end;
+               false ->
+                   false
+           end,
+    {Ret, Members2}.
 
