@@ -438,7 +438,7 @@ rebalance1(_State, []) ->
     {error, not_need_to_rebalance};
 rebalance1(true, _Nodes) ->
     case is_allow_to_distribute_command() of
-        true ->
+        {true, _} ->
             case leo_redundant_manager_api:rebalance() of
                 {ok, List} ->
                     Tbl = leo_hashtable:new(),
@@ -446,7 +446,7 @@ rebalance1(true, _Nodes) ->
                 Error ->
                     Error
             end;
-        false ->
+        {false, _} ->
             {error, ?ERROR_NOT_SATISFY_CONDITION}
     end.
 
@@ -1272,6 +1272,8 @@ is_allow_to_distribute_command(Node) ->
         lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
                             Acc;
                        (#member{state = ?STATE_DETACHED}, Acc) ->
+                            Acc;
+                       (#member{state = ?STATE_ATTACHED}, Acc) ->
                             Acc;
                        (#member{state = ?STATE_RUNNING,
                                 node  = N}, {Num1,Num2,M}) ->
