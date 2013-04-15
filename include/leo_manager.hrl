@@ -90,8 +90,10 @@
 -define(CMD_GET_ENDPOINTS,    "get-endpoints").
 -define(CMD_ADD_BUCKET,       "add-bucket").
 -define(CMD_GET_BUCKETS,      "get-buckets").
+-define(CMD_DELETE_BUCKET,    "delete-bucket").
 -define(CMD_DU,               "du").
 -define(CMD_WHEREIS,          "whereis").
+-define(CMD_RECOVER,          "recover").
 -define(CMD_HISTORY,          "history").
 -define(CMD_PURGE,            "purge").
 -define(LOGIN,                "login").
@@ -102,33 +104,39 @@
 -define(COMMANDS, [{?CMD_HELP,          "help"},
                    {?CMD_QUIT,          "quit"},
                    {?CMD_VERSION,       "version"},
-                   {?CMD_STATUS,        "status [${NODE]}"},
+                   {?CMD_STATUS,        "status [${storage-node}|${gateway-node}]"},
                    {?CMD_HISTORY,       "history"},
-                   {?CMD_WHEREIS,       "whereis ${PATH}"},
-                   {?CMD_DETACH,        "detach ${NODE}"},
-                   {?CMD_SUSPEND,       "suspend ${NODE}"},
-                   {?CMD_RESUME,        "resume ${NODE}"},
-                   {?CMD_DETACH,        "detach ${NODE}"},
+                   {?CMD_WHEREIS,       "whereis ${path}"},
+                   {?CMD_RECOVER,       lists:append(
+                                          ["recover file ${path}", ?CRLF,
+                                           "recover node ${storage-node}", ?CRLF,
+                                           "recover ring ${storage-node}"
+                                          ])},
+                   {?CMD_DETACH,        "detach ${storage-node}"},
+                   {?CMD_SUSPEND,       "suspend ${storage-node}"},
+                   {?CMD_RESUME,        "resume ${storage-node}"},
+                   {?CMD_DETACH,        "detach ${storage-node}"},
                    {?CMD_START,         "start"},
                    {?CMD_REBALANCE,     "rebalance"},
                    {?CMD_COMPACT,       lists:append(
                                           ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
                                            "compact suspend ${storage-node}", ?CRLF,
                                            "compact resume  ${storage-node}", ?CRLF,
-                                           "compact status  ${storage-node} "
+                                           "compact status  ${storage-node}"
                                           ])},
-                   {?CMD_DU,            "du ${NODE}"},
-                   {?CMD_PURGE,         "purge ${PATH}"},
-                   {?CMD_CREATE_USER,   "create-user ${USER-ID} [${PASSWORD}]"},
-                   {?CMD_DELETE_USER,   "delete-user ${USER-ID}"},
-                   {?CMD_UPDATE_USER_ROLE, "update-user-role ${USER-ID} ${ROLE-ID}"},
-                   {?CMD_UPDATE_USER_PW,   "update-user-password ${USER-ID} ${PASSWORD}"},
+                   {?CMD_DU,            "du ${storage-node}"},
+                   {?CMD_PURGE,         "purge ${path}"},
+                   {?CMD_CREATE_USER,   "create-user ${user-id} [${password}]"},
+                   {?CMD_DELETE_USER,   "delete-user ${user-id}"},
+                   {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
+                   {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
                    {?CMD_GET_USERS,     "get-users"},
-                   {?CMD_SET_ENDPOINT,  "set-endpoint ${ENDPOINT}"},
-                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${ENDPOINT}"},
+                   {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
+                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
-                   {?CMD_ADD_BUCKET,    "add-bucket ${BUCKET} ${ACCESS_KEY_ID}"},
-                   {?CMD_GET_BUCKETS,   "get-buckets"}
+                   {?CMD_GET_BUCKETS,   "get-buckets"},
+                   {?CMD_DELETE_BUCKET, "delete-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),
@@ -144,6 +152,12 @@
 -define(COMPACT_RESUME,     "resume").
 -define(COMPACT_STATUS,     "status").
 -define(COMPACT_TARGET_ALL, "all").
+
+
+%% recover type
+-define(RECOVER_BY_FILE, "file").
+-define(RECOVER_BY_NODE, "node").
+-define(RECOVER_BY_RING, "ring").
 
 
 %% membership
@@ -167,6 +181,10 @@
 -define(ERROR_NOT_STARTED,              "Storage-cluster does not started, yet").
 -define(ERROR_ALREADY_STARTED,          "Storage-cluster already started").
 -define(ERROR_MNESIA_NOT_START,         "Mnesia does not start, yet").
+-define(ERROR_DURING_REBALANCE,         "During rebalance").
+-define(ERROR_NOT_SATISFY_CONDITION,    "Not satisfy conditions").
+-define(ERROR_TARGET_NODE_NOT_RUNNING,  "Target node does not running").
+
 
 
 %% type of console

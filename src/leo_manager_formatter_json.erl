@@ -35,7 +35,7 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
          whereis/1, histories/1
         ]).
 
@@ -175,13 +175,18 @@ system_info_and_nodes_stat(Props) ->
 -spec(node_stat(string(), #cluster_node_status{}) ->
              string()).
 node_stat(?SERVER_TYPE_GATEWAY, State) ->
-    Directories  = State#cluster_node_status.dirs,
-    RingHashes   = State#cluster_node_status.ring_checksum,
-    Statistics   = State#cluster_node_status.statistics,
+    Version      = leo_misc:get_value('version',       State, []),
+    Directories  = leo_misc:get_value('dirs',          State, []),
+    HttpConf     = leo_misc:get_value('http_conf',     State, []),
+    RingHashes   = leo_misc:get_value('ring_checksum', State, []),
+    Statistics   = leo_misc:get_value('statistics',    State, []),
 
     gen_json({[{<<"node_stat">>,
-                {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
+                {[
+                  %% config-1
+                  {<<"version">>,          list_to_binary(Version)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
+                  %% config-2
                   {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
                   {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
                   {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
@@ -192,18 +197,37 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
                   {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
-                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)}
+                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
+                  %% config-2
+                  {<<"handler">>,                  list_to_binary(atom_to_list(leo_misc:get_value('handler', HttpConf, '')))},
+                  {<<"port">>,                     leo_misc:get_value('port',             HttpConf, 0)},
+                  {<<"ssl_port">>,                 leo_misc:get_value('ssl_port',         HttpConf, 0)},
+                  {<<"num_of_acceptors">>,         leo_misc:get_value('num_of_acceptors', HttpConf, 0)},
+                  {<<"http_cache">>,               list_to_binary(atom_to_list(leo_misc:get_value('http_cache', HttpConf, '')))},
+                  {<<"cache_workers">>,            leo_misc:get_value('cache_workers',            HttpConf, 0)},
+                  {<<"cache_expire">>,             leo_misc:get_value('cache_expire',             HttpConf, 0)},
+                  {<<"cache_ram_capacity">>,       leo_misc:get_value('cache_ram_capacity',       HttpConf, 0)},
+                  {<<"cache_disc_capacity">>,      leo_misc:get_value('cache_disc_capacity',      HttpConf, 0)},
+                  {<<"cache_disc_threshold_len">>, leo_misc:get_value('cache_disc_threshold_len', HttpConf, 0)},
+                  {<<"cache_disc_dir_data">>,      list_to_binary(leo_misc:get_value('cache_disc_dir_data',    HttpConf, ""))},
+                  {<<"cache_disc_dir_journal">>,   list_to_binary(leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
+                  {<<"cache_max_content_len">>,    leo_misc:get_value('cache_max_content_len',    HttpConf, 0)},
+                  {<<"max_chunked_objs">>,         leo_misc:get_value('max_chunked_objs',         HttpConf, 0)},
+                  {<<"max_len_for_obj">>,          leo_misc:get_value('max_len_for_obj',          HttpConf, 0)},
+                  {<<"chunked_obj_len">>,          leo_misc:get_value('chunked_obj_len',          HttpConf, 0)},
+                  {<<"threshold_obj_len">>,        leo_misc:get_value('threshold_obj_len',        HttpConf, 0)}
                  ]}}
               ]});
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
-    Directories  = State#cluster_node_status.dirs,
-    RingHashes   = State#cluster_node_status.ring_checksum,
-    Statistics   = State#cluster_node_status.statistics,
-    %% ObjContainer = State#cluster_node_status.avs,
+    Version     = leo_misc:get_value('version',       State, []),
+    Directories = leo_misc:get_value('dirs',          State, []),
+    RingHashes  = leo_misc:get_value('ring_checksum', State, []),
+    Statistics  = leo_misc:get_value('statistics',    State, []),
+    MsgQueue    = leo_misc:get_value('storage', Statistics, []),
 
     gen_json({[{<<"node_stat">>,
-                {[{<<"version">>,          list_to_binary(State#cluster_node_status.version)},
+                {[{<<"version">>,          list_to_binary(Version)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
                   {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
                   {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
@@ -215,7 +239,10 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
                   {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
-                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)}
+                  {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
+                  {<<"replication_msgs">>, leo_misc:get_value('num_of_replication_msg', MsgQueue, 0)},
+                  {<<"sync_vnode_msgs">>,  leo_misc:get_value('num_of_sync_vnode_msg',  MsgQueue, 0)},
+                  {<<"rebalance_msgs">>,   leo_misc:get_value('num_of_rebalance_msg',   MsgQueue, 0)}
                  ]}}
               ]}).
 
@@ -305,9 +332,9 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_credential(binary(), binary()) ->
+-spec(credential(binary(), binary()) ->
              string()).
-s3_credential(AccessKeyId, SecretAccessKey) ->
+credential(AccessKeyId, SecretAccessKey) ->
     gen_json({[
                {access_key_id,     AccessKeyId},
                {secret_access_key, SecretAccessKey}
@@ -316,9 +343,9 @@ s3_credential(AccessKeyId, SecretAccessKey) ->
 
 %% @doc Format s3-owers
 %%
--spec(s3_users(list(#user_credential{})) ->
+-spec(users(list(#user_credential{})) ->
              string()).
-s3_users(Owners) ->
+users(Owners) ->
     JSON = lists:map(fun(User) ->
                              UserId      = leo_misc:get_value(user_id,       User),
                              RoleId      = leo_misc:get_value(role_id,       User),

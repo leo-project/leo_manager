@@ -35,7 +35,7 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, s3_credential/2, s3_users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
          whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
@@ -70,26 +70,28 @@ error(Node, Cause) ->
 -spec(help() ->
              string()).
 help() ->
-    lists:append([help("[Cluster]\r\n",
+    lists:append([help("[Cluster Operation]\r\n",
                        [?CMD_DETACH,
                         ?CMD_SUSPEND,
                         ?CMD_RESUME,
                         ?CMD_START,
                         ?CMD_REBALANCE,
-                        ?CMD_WHEREIS], []),
-                  help("[Storage]\r\n",
+                        ?CMD_WHEREIS,
+                        ?CMD_RECOVER], []),
+                  help("[Storage Maintenance]\r\n",
                        [?CMD_DU,
                         ?CMD_COMPACT], []),
-                  help("[Gateway]\r\n",
+                  help("[Gateway Maintenance]\r\n",
                        [?CMD_PURGE], []),
-                  help("[S3-API related]\r\n",
+                  help("[S3-related Maintenance]\r\n",
                        [?CMD_CREATE_USER,
                         ?CMD_DELETE_USER,
                         ?CMD_GET_USERS,
                         ?CMD_SET_ENDPOINT,
-                        ?CMD_GET_ENDPOINTS,
                         ?CMD_DEL_ENDPOINT,
+                        ?CMD_GET_ENDPOINTS,
                         ?CMD_ADD_BUCKET,
+                        ?CMD_DELETE_BUCKET,
                         ?CMD_GET_BUCKETS], []),
                   help("[Misc]\r\n",
                        [?CMD_VERSION,
@@ -227,32 +229,74 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 -spec(node_stat(string(), #cluster_node_status{}) ->
              string()).
 node_stat(?SERVER_TYPE_GATEWAY, State) ->
-    ObjContainer = State#cluster_node_status.avs,
-    Directories  = State#cluster_node_status.dirs,
-    RingHashes   = State#cluster_node_status.ring_checksum,
-    Statistics   = State#cluster_node_status.statistics,
+    Version      = leo_misc:get_value('version',       State, []),
+    Directories  = leo_misc:get_value('dirs',          State, []),
+    HttpConf     = leo_misc:get_value('http_conf',     State, []),
+    RingHashes   = leo_misc:get_value('ring_checksum', State, []),
+    Statistics   = leo_misc:get_value('statistics',    State, []),
 
-    io_lib:format(lists:append(["[config]\r\n",
-                                "            version : ~s\r\n",
-                                "      obj-container : ~p\r\n",
-                                "            log-dir : ~s\r\n",
+    io_lib:format(lists:append(["[config-1]\r\n",
+                                "                      version : ~s\r\n",
+                                "                      log dir : ~s\r\n",
+                                "[config-2]\r\n",
+                                "  -- http-server-related --\r\n",
+                                "          using api [s3|rest] : ~w\r\n",
+                                "               listening port : ~w\r\n",
+                                "           listening ssl port : ~w\r\n",
+                                "               # of_acceptors : ~w\r\n",
+                                "  -- cache-related --\r\n",
+                                "      http cache [true|false] : ~w\r\n",
+                                "           # of cache_workers : ~w\r\n",
+                                "                 cache expire : ~w\r\n",
+                                "        cache max content len : ~w\r\n",
+                                "           ram cache capacity : ~w\r\n",
+                                "       disc cache capacity    : ~w\r\n",
+                                "       disc cache threshold   : ~w\r\n",
+                                "       disc cache data dir    : ~s\r\n",
+                                "       disc cache journal dir : ~s\r\n",
+                                "  -- large-object-related --\r\n",
+                                "        max # of chunked objs : ~w\r\n",
+                                "            max object length : ~w\r\n",
+                                "        chunked object length : ~w\r\n",
+                                " threshold chunked obj length : ~w\r\n",
                                 "\r\n[status-1: ring]\r\n",
-                                "  ring state (cur)  : ~s\r\n",
-                                "  ring state (prev) : ~s\r\n",
+                                "            ring state (cur)  : ~s\r\n",
+                                "            ring state (prev) : ~s\r\n",
                                 "\r\n[status-2: erlang-vm]\r\n",
-                                "         vm version : ~s\r\n",
-                                "    total mem usage : ~w\r\n",
-                                "   system mem usage : ~w\r\n",
-                                "    procs mem usage : ~w\r\n",
-                                "      ets mem usage : ~w\r\n",
-                                "              procs : ~w/~w\r\n",
-                                "        kernel_poll : ~w\r\n",
-                                "   thread_pool_size : ~w\r\n\r\n"]),
-                  [State#cluster_node_status.version,
-                   ObjContainer,
+                                "                   vm version : ~s\r\n",
+                                "              total mem usage : ~w\r\n",
+                                "             system mem usage : ~w\r\n",
+                                "              procs mem usage : ~w\r\n",
+                                "                ets mem usage : ~w\r\n",
+                                "                        procs : ~w/~w\r\n",
+                                "                  kernel_poll : ~w\r\n",
+                                "             thread_pool_size : ~w\r\n\r\n"]),
+                  [
+                   %% config-1 [2]
+                   Version,
                    leo_misc:get_value('log', Directories, []),
+                   %% config-2 [17]
+                   leo_misc:get_value('handler',                  HttpConf, ''),
+                   leo_misc:get_value('port',                     HttpConf, 0),
+                   leo_misc:get_value('ssl_port',                 HttpConf, 0),
+                   leo_misc:get_value('num_of_acceptors',         HttpConf, 0),
+                   leo_misc:get_value('http_cache',               HttpConf, ''),
+                   leo_misc:get_value('cache_workers',            HttpConf, 0),
+                   leo_misc:get_value('cache_expire',             HttpConf, 0),
+                   leo_misc:get_value('cache_max_content_len',    HttpConf, 0),
+                   leo_misc:get_value('cache_ram_capacity',       HttpConf, 0),
+                   leo_misc:get_value('cache_disc_capacity',      HttpConf, 0),
+                   leo_misc:get_value('cache_disc_threshold_len', HttpConf, 0),
+                   leo_misc:get_value('cache_disc_dir_data',      HttpConf, ""),
+                   leo_misc:get_value('cache_disc_dir_journal',   HttpConf, ""),
+                   leo_misc:get_value('max_chunked_objs',         HttpConf, 0),
+                   leo_misc:get_value('max_len_for_obj',          HttpConf, 0),
+                   leo_misc:get_value('chunked_obj_len',          HttpConf, 0),
+                   leo_misc:get_value('threshold_obj_len',        HttpConf, 0),
+                   %% status-1 [2]
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
+                   %% status-2 [8]
                    leo_misc:get_value('vm_version',       Statistics, []),
                    leo_misc:get_value('total_mem_usage',  Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
@@ -265,16 +309,17 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   ]);
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
-    ObjContainer = State#cluster_node_status.avs,
-    Directories  = State#cluster_node_status.dirs,
-    RingHashes   = State#cluster_node_status.ring_checksum,
-    Statistics   = State#cluster_node_status.statistics,
+    Version      = leo_misc:get_value('version',       State, []),
+    Directories  = leo_misc:get_value('dirs',          State, []),
+    RingHashes   = leo_misc:get_value('ring_checksum', State, []),
+    Statistics   = leo_misc:get_value('statistics',    State, []),
+    ObjContainer = leo_misc:get_value('avs',           State, []),
     CustomItems  = leo_misc:get_value('storage', Statistics, []),
 
     io_lib:format(lists:append(["[config]\r\n",
                                 "            version : ~s\r\n",
                                 "      obj-container : ~p\r\n",
-                                "            log-dir : ~s\r\n",
+                                "            log dir : ~s\r\n",
                                 "\r\n[status-1: ring]\r\n",
                                 "  ring state (cur)  : ~s\r\n",
                                 "  ring state (prev) : ~s\r\n",
@@ -292,7 +337,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 "    vnode-sync msgs : ~w\r\n",
                                 "     rebalance msgs : ~w\r\n",
                                 "\r\n"]),
-                  [State#cluster_node_status.version,
+                  [Version,
                    ObjContainer,
                    leo_misc:get_value('log', Directories, []),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
@@ -375,17 +420,18 @@ du(detail, StatsList) when is_list(StatsList) ->
                                                        end,
                           Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
-                          lists:append([Acc, io_lib:format(lists:append(["              file path: ~s\r\n",
-                                                                         " active number of objects: ~w\r\n",
-                                                                         "  total number of objects: ~w\r\n",
-                                                                         "   active size of objects: ~w\r\n"
-                                                                         "    total size of objects: ~w\r\n",
-                                                                         "     ratio of active size: ~w%\r\n",
-                                                                         "    last compaction start: ~s\r\n"
-                                                                         "      last compaction end: ~s\r\n\r\n"]),
-                                                           [FilePath, Active, Total,
-                                                            ActiveSize, TotalSize, Ratio,
-                                                            LatestStart1, LatestEnd1])]);
+                          lists:append([Acc, io_lib:format(
+                                               lists:append(["              file path: ~s\r\n",
+                                                             " active number of objects: ~w\r\n",
+                                                             "  total number of objects: ~w\r\n",
+                                                             "   active size of objects: ~w\r\n"
+                                                             "    total size of objects: ~w\r\n",
+                                                             "     ratio of active size: ~w%\r\n",
+                                                             "    last compaction start: ~s\r\n"
+                                                             "      last compaction end: ~s\r\n\r\n"]),
+                                               [FilePath, Active, Total,
+                                                ActiveSize, TotalSize, Ratio,
+                                                LatestStart1, LatestEnd1])]);
                       _Error ->
                           Acc
                   end
@@ -398,18 +444,18 @@ du(_, _) ->
 
 %% @doc Format s3-gen-key result
 %%
--spec(s3_credential(string(), string()) ->
+-spec(credential(string(), string()) ->
              string()).
-s3_credential(AccessKeyId, SecretAccessKey) ->
+credential(AccessKeyId, SecretAccessKey) ->
     io_lib:format("  access-key-id: ~s\r\n  secret-access-key: ~s\r\n\r\n",
                   [AccessKeyId, SecretAccessKey]).
 
 
 %% @doc Format s3-users result
 %%
--spec(s3_users(list()) ->
+-spec(users(list()) ->
              string()).
-s3_users(Owners) ->
+users(Owners) ->
     Col1Len = lists:foldl(fun(User, Acc) ->
                                   UserId = leo_misc:get_value(user_id, User),
                                   Len = length(UserId),

@@ -248,11 +248,11 @@ handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command, #state{f
 %%
 handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_create_user(Command, Option) of
+                  case create_user(Command, Option) of
                       {ok, PropList} ->
                           AccessKeyId     = leo_misc:get_value('access_key_id',     PropList),
                           SecretAccessKey = leo_misc:get_value('secret_access_key', PropList),
-                          Formatter:s3_credential(AccessKeyId, SecretAccessKey);
+                          Formatter:credential(AccessKeyId, SecretAccessKey);
                       {error, Cause} ->
                           Formatter:error(Cause)
                   end
@@ -265,7 +265,7 @@ handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command, #sta
 %%
 handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_update_user_role(Command, Option) of
+                  case update_user_role(Command, Option) of
                       ok ->
                           Formatter:ok();
                       not_found = Cause ->
@@ -282,7 +282,7 @@ handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command,
 %%
 handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_update_user_password(Command, Option) of
+                  case update_user_password(Command, Option) of
                       ok ->
                           Formatter:ok();
                       not_found = Cause ->
@@ -299,7 +299,7 @@ handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #
 %%
 handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_delete_user(Command, Option) of
+                  case delete_user(Command, Option) of
                       ok ->
                           Formatter:ok();
                       not_found = Cause ->
@@ -316,9 +316,9 @@ handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command, #sta
 %%
 handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_get_users(Command) of
+                  case get_users(Command) of
                       {ok, List} ->
-                          Formatter:s3_users(List);
+                          Formatter:users(List);
                       {error, Cause} ->
                           Formatter:error(Cause)
                   end
@@ -331,7 +331,7 @@ handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command, #state{formatter = For
 %%
 handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_set_endpoint(Command, Option) of
+                  case set_endpoint(Command, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -346,7 +346,7 @@ handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #st
 %%
 handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_get_endpoints(Command) of
+                  case get_endpoints(Command) of
                       {ok, EndPoints} ->
                           Formatter:endpoints(EndPoints);
                       {error, Cause} ->
@@ -357,11 +357,11 @@ handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command, #state{formatter =
     {reply, Reply, State};
 
 
-%% Command: "del-endpoint ${END_POINT}"
+%% Command: "del-endpoint ${end_point}"
 %%
 handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_del_endpoint(Command, Option) of
+                  case del_endpoint(Command, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -372,11 +372,11 @@ handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #st
     {reply, Reply, State};
 
 
-%% Command: "get-buckets"
+%% Command: "add-buckets ${bucket} ${access-key-id}"
 %%
 handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_add_bucket(Command, Option) of
+                  case add_bucket(Command, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -386,12 +386,26 @@ handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #stat
     Reply = invoke(?CMD_ADD_BUCKET, Formatter, Fun),
     {reply, Reply, State};
 
+%% Command: "delete-buckets ${bucket} ${access-key-id}"
+%%
+handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case delete_bucket(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DELETE_BUCKET, Formatter, Fun),
+    {reply, Reply, State};
+
 
 %% Command: "get-buckets"
 %%
 handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case s3_get_buckets(Command) of
+                  case get_buckets(Command) of
                       {ok, Buckets} ->
                           Formatter:buckets(Buckets);
                       {error, Cause} ->
@@ -414,6 +428,21 @@ handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command, #state{f
                   end
           end,
     Reply = invoke(?CMD_WHEREIS, Formatter, Fun),
+    {reply, Reply, State};
+
+
+%% Command: "recover file|node ${PATH}|${NODE}"
+%%
+handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case recover(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_RECOVER, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -871,11 +900,35 @@ whereis(CmdBody, Option) ->
     end.
 
 
+%% @doc Recover object(s) by a key/node
+%% @private
+-spec(recover(binary(), binary()) ->
+             ok | {error, any()}).
+recover(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_INVALID_PATH};
+        [Op, Key |Rest] when Rest == [] ->
+            HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
+
+            case catch leo_manager_api:recover(Op, Key, HasRoutingTable) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    {error, Cause}
+            end;
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
 %% @doc Create a user account (S3)
 %% @private
--spec(s3_create_user(binary(), binary()) ->
+-spec(create_user(binary(), binary()) ->
              ok | {error, any()}).
-s3_create_user(CmdBody, Option) ->
+create_user(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     Ret = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -914,9 +967,9 @@ s3_create_user(CmdBody, Option) ->
 
 %% @doc Update user's role-id
 %% @private
--spec(s3_update_user_role(binary(), binary()) ->
+-spec(update_user_role(binary(), binary()) ->
              ok | {error, any()}).
-s3_update_user_role(CmdBody, Option) ->
+update_user_role(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -938,9 +991,9 @@ s3_update_user_role(CmdBody, Option) ->
 
 %% @doc Update user's password
 %% @private
--spec(s3_update_user_password(binary(), binary()) ->
+-spec(update_user_password(binary(), binary()) ->
              ok | {error, any()}).
-s3_update_user_password(CmdBody, Option) ->
+update_user_password(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -967,9 +1020,9 @@ s3_update_user_password(CmdBody, Option) ->
 
 %% @doc Remove a user
 %% @private
--spec(s3_delete_user(binary(), binary()) ->
+-spec(delete_user(binary(), binary()) ->
              ok | {error, any()}).
-s3_delete_user(CmdBody, Option) ->
+delete_user(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -989,9 +1042,9 @@ s3_delete_user(CmdBody, Option) ->
 
 %% @doc Retrieve Users
 %% @private
--spec(s3_get_users(binary()) ->
+-spec(get_users(binary()) ->
              {ok, list(#credential{})} | {error, any()}).
-s3_get_users(CmdBody) ->
+get_users(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case leo_s3_user:find_all() of
@@ -1006,9 +1059,9 @@ s3_get_users(CmdBody) ->
 
 %% @doc Insert an Endpoint into the manager
 %% @private
--spec(s3_set_endpoint(binary(), binary()) ->
+-spec(set_endpoint(binary(), binary()) ->
              ok | {error, any()}).
-s3_set_endpoint(CmdBody, Option) ->
+set_endpoint(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -1032,9 +1085,9 @@ s3_set_endpoint(CmdBody, Option) ->
 
 %% @doc Retrieve an Endpoint from the manager
 %% @private
--spec(s3_get_endpoints(binary()) ->
+-spec(get_endpoints(binary()) ->
              ok | {error, any()}).
-s3_get_endpoints(CmdBody) ->
+get_endpoints(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case leo_s3_endpoint:get_endpoints() of
@@ -1049,9 +1102,9 @@ s3_get_endpoints(CmdBody) ->
 
 %% @doc Remove an Endpoint from the manager
 %% @private
--spec(s3_del_endpoint(binary(), binary()) ->
+-spec(del_endpoint(binary(), binary()) ->
              ok | {error, any()}).
-s3_del_endpoint(CmdBody, Option) ->
+del_endpoint(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -1069,11 +1122,11 @@ s3_del_endpoint(CmdBody, Option) ->
     end.
 
 
-%% @doc Insert an Buckets in the manager
+%% @doc Insert a Buckets in the manager
 %% @private
--spec(s3_add_bucket(binary(), binary()) ->
+-spec(add_bucket(binary(), binary()) ->
              ok | {error, any()}).
-s3_add_bucket(CmdBody, Option) ->
+add_bucket(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
@@ -1091,11 +1144,26 @@ s3_add_bucket(CmdBody, Option) ->
     end.
 
 
-%% @doc Retrieve an Buckets from the manager
+%% @doc Remove a Buckets from the manager
 %% @private
--spec(s3_get_buckets(binary()) ->
+-spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
-s3_get_buckets(CmdBody) ->
+delete_bucket(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, AccessKey] ->
+            leo_manager_api:delete_bucket(AccessKey, Bucket);
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
+%% @doc Retrieve a Buckets from the manager
+%% @private
+-spec(get_buckets(binary()) ->
+             ok | {error, any()}).
+get_buckets(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case catch leo_s3_bucket:find_all_including_owner() of

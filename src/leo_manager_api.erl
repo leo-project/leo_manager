@@ -46,9 +46,9 @@
          start/0, rebalance/0]).
 
 -export([register/4, notify/3, notify/4, purge/1,
-         whereis/2, compact/2, compact/4, stats/2,
+         whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1
+         set_endpoint/1, delete_bucket/2
         ]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
@@ -333,12 +333,9 @@ distribute_members(ok, Node0) ->
 
             case rpc:multicall(DestNodes, leo_redundant_manager_api, update_members,
                                [Members], ?DEF_TIMEOUT) of
-                {_, []} ->
-                    void;
+                {_, []} -> void;
                 {_, BadNodes} ->
-                    ?warn("resume/3", "bad_nodes:~p", [BadNodes]);
-                _ ->
-                    void
+                    ?error("start/0", "bad-nodes:~p", [BadNodes])
             end,
             ok;
         Error ->
@@ -440,12 +437,17 @@ rebalance1(false, _Nodes) ->
 rebalance1(_State, []) ->
     {error, not_need_to_rebalance};
 rebalance1(true, _Nodes) ->
-    case leo_redundant_manager_api:rebalance() of
-        {ok, List} ->
-            Tbl = leo_hashtable:new(),
-            rebalance2(Tbl, List);
-        Error ->
-            Error
+    case is_allow_to_distribute_command() of
+        {true, _} ->
+            case leo_redundant_manager_api:rebalance() of
+                {ok, List} ->
+                    Tbl = leo_hashtable:new(),
+                    rebalance2(Tbl, List);
+                Error ->
+                    Error
+            end;
+        {false, _} ->
+            {error, ?ERROR_NOT_SATISFY_CONDITION}
     end.
 
 rebalance2(Tbl, []) ->
@@ -496,8 +498,6 @@ rebalance3(?STATE_ATTACHED, [Node|Rest], Members) ->
             {error, Cause};
         timeout = Cause ->
             {error, Cause}
-            %% Error ->
-            %%     Error
     end;
 
 rebalance3(?STATE_DETACHED, [Node|_Rest], Members) ->
@@ -741,8 +741,8 @@ whereis([Key|_], true) ->
     case leo_redundant_manager_api:get_redundancies_by_key(KeyBin) of
         {ok, #redundancies{id = AddrId, nodes = Redundancies}} ->
             whereis1(AddrId, KeyBin, Redundancies, []);
-        undefined ->
-            {error, ?ERROR_META_NOT_FOUND}
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_RING}
     end;
 
 whereis(_Key, false) ->
@@ -774,6 +774,101 @@ whereis1(AddrId, Key, [{Node, true }|T], Acc) ->
 
 whereis1(AddrId, Key, [{Node, false}|T], Acc) ->
     whereis1(AddrId, Key, T, [{atom_to_list(Node), not_found} | Acc]).
+
+
+%% @doc Recover key/node
+%%
+-spec(recover(binary(), string(), boolean()) ->
+             ok | {error, any()}).
+recover(?RECOVER_BY_FILE, Key, true) ->
+    Key1 = list_to_binary(Key),
+    case leo_redundant_manager_api:get_redundancies_by_key(Key1) of
+        {ok, #redundancies{nodes = Redundancies}} ->
+            Nodes = [N || {N, _} <- Redundancies],
+            case rpc:multicall(Nodes, ?API_STORAGE, synchronize,
+                               [Key1, 'error_msg_replicate_data'], ?DEF_TIMEOUT) of
+                {_, []} ->
+                    ok;
+                {_, BadNodes} ->
+                    {error, BadNodes}
+            end;
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_RING}
+    end;
+recover(?RECOVER_BY_NODE, Node, true) ->
+    Node1 = case is_atom(Node) of
+                true  -> Node;
+                false -> list_to_atom(Node)
+            end,
+    case leo_misc:node_existence(Node1) of
+        true ->
+            %% Check during-rebalance?
+            case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+                {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+                    %% Check running?
+                    Ret = case leo_redundant_manager_api:get_member_by_node(Node1) of
+                              {ok, #member{state = ?STATE_RUNNING}} -> true;
+                              _ -> false
+                          end,
+                    recover_node_1(Ret, Node1);
+                _ ->
+                    {error, ?ERROR_DURING_REBALANCE}
+            end;
+        false ->
+            {error, ?ERROR_COULD_NOT_CONNECT}
+    end;
+
+recover(?RECOVER_BY_RING, Node, true) ->
+    Node1 = case is_atom(Node) of
+                true  -> Node;
+                false -> list_to_atom(Node)
+            end,
+    case leo_misc:node_existence(Node1) of
+        true ->
+            %% Check during-rebalance?
+            case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+                {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+                    %% Sync target-node's member/ring with manager
+                    case leo_redundant_manager_api:get_members() of
+                        {ok, Members} ->
+                            synchronize(?CHECKSUM_RING, Node1, Members);
+                        Error ->
+                            Error
+                    end;
+                _ ->
+                    {error, ?ERROR_DURING_REBALANCE}
+            end;
+        false ->
+            {error, ?ERROR_COULD_NOT_CONNECT}
+    end;
+
+recover(_,_,true) ->
+    {error, ?ERROR_INVALID_ARGS};
+recover(_,_,false) ->
+    {error, ?ERROR_COULD_NOT_GET_RING}.
+
+%% @doc Execute recovery of the target node
+%%      Check conditions
+%% @private
+recover_node_1(true, Node) ->
+    {Ret, Members}= is_allow_to_distribute_command(Node),
+    recover_node_2(Ret, Members, Node);
+recover_node_1(false, _) ->
+    {error, ?ERROR_TARGET_NODE_NOT_RUNNING}.
+
+%% @doc Execute recovery of the target node
+%% @private
+recover_node_2(true, Members, Node) ->
+    case rpc:multicall(Members, ?API_STORAGE, synchronize,
+                       [Node], ?DEF_TIMEOUT) of
+        {_, []} ->
+            ok;
+        {_, BadNodes} ->
+            ?warn("recover_node_3/3", "bad_nodes:~p", [BadNodes]),
+            {error, BadNodes}
+    end;
+recover_node_2(false,_,_) ->
+    {error, ?ERROR_NOT_SATISFY_CONDITION}.
 
 
 %% @doc Do compact.
@@ -1094,4 +1189,113 @@ set_endpoint(Endpoint) ->
         Error ->
             Error
     end.
+
+
+%% @doc Remove a bucket from storage-cluster and manager
+%%
+-spec(delete_bucket(binary(), binary()) ->
+             ok | {error, any()}).
+delete_bucket(AccessKey, Bucket) ->
+    AccessKeyBin = case is_binary(AccessKey) of
+                       true  -> AccessKey;
+                       false -> list_to_binary(AccessKey)
+                   end,
+    BucketBin    = case is_binary(Bucket) of
+                       true  -> Bucket;
+                       false -> list_to_binary(Bucket)
+                   end,
+
+    %% Check during-rebalance
+    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+        {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+            %% Check preconditions
+            case is_allow_to_distribute_command() of
+                {true, _}->
+                    case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
+                        ok ->
+                            delete_bucket_1(AccessKeyBin, BucketBin);
+                        not_found ->
+                            {error, "Bucket not found"};
+                        {error, _} ->
+                            {error, ?ERROR_INVALID_ARGS}
+                    end;
+                _ ->
+                    {error, ?ERROR_NOT_SATISFY_CONDITION}
+            end;
+        _ ->
+            {error, ?ERROR_DURING_REBALANCE}
+    end.
+
+delete_bucket_1(AccessKeyBin, BucketBin) ->
+    case leo_redundant_manager_api:get_members_by_status(?STATE_RUNNING) of
+        {ok, Members} ->
+            Nodes = lists:map(fun(#member{node = Node}) ->
+
+                                      Node
+                              end, Members),
+            case rpc:multicall(Nodes, leo_storage_handler_directory,
+                               delete_objects_in_parent_dir,
+                               [BucketBin], ?DEF_TIMEOUT) of
+                {_, []} -> void;
+                {_, BadNodes} ->
+                    ?error("start/0", "bad-nodes:~p", [BadNodes])
+            end,
+            delete_bucket_2(AccessKeyBin, BucketBin);
+        {error, Cause} ->
+            {error, Cause}
+    end.
+
+delete_bucket_2(AccessKeyBin, BucketBin) ->
+    case leo_s3_bucket:delete(AccessKeyBin, BucketBin) of
+        ok ->
+            ok;
+        {error, badarg} ->
+            {error, ?ERROR_INVALID_BUCKET_FORMAT};
+        {error, _Cause} ->
+            {error, ?ERROR_COULD_NOT_STORE}
+    end.
+
+
+%% @doc Is allow distribute to a command
+%% @private
+-spec(is_allow_to_distribute_command() ->
+             boolean()).
+is_allow_to_distribute_command() ->
+    is_allow_to_distribute_command([]).
+
+-spec(is_allow_to_distribute_command(atom()) ->
+             boolean()).
+is_allow_to_distribute_command(Node) ->
+    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, Members1}   = leo_redundant_manager_api:get_members(),
+    {Total, Active, Members2} =
+        lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
+                            Acc;
+                       (#member{state = ?STATE_DETACHED}, Acc) ->
+                            Acc;
+                       (#member{state = ?STATE_ATTACHED}, Acc) ->
+                            Acc;
+                       (#member{state = ?STATE_RUNNING,
+                                node  = N}, {Num1,Num2,M}) ->
+                            {Num1+1, Num2+1, [N|M]};
+                       (_, {Num1,Num2,M}) ->
+                            {Num1+1, Num2, M}
+                    end, {0,0,[]}, Members1),
+
+    NVal = SystemConf#system_conf.n,
+    Diff = case (SystemConf#system_conf.n < 3) of
+               true  -> 0;
+               false ->
+                   NVal - (NVal - 1)
+           end,
+    Ret  = case ((Total - Active) =< Diff) of
+               true ->
+                   case rpc:multicall(Members2, erlang, node, [], ?DEF_TIMEOUT) of
+                       {_, []} -> true;
+                       _ -> false
+                   end;
+               false ->
+                   false
+           end,
+    {Ret, Members2}.
 
