@@ -807,6 +807,10 @@ rebalance_0_({Node0, _, Sock}) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_system_config,
+                     fun() ->
+                             {ok, #system_conf{}}
+                     end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
     ok = meck:expect(leo_redundant_manager_api, checksum,
@@ -841,6 +845,10 @@ rebalance_1_({Node0, _, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_system_config,
+                     fun() ->
+                             {ok, #system_conf{}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -880,6 +888,10 @@ rebalance_2_({Node0, Node1, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_system_config,
+                     fun() ->
+                             {ok, #system_conf{}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),

@@ -437,12 +437,17 @@ rebalance1(false, _Nodes) ->
 rebalance1(_State, []) ->
     {error, not_need_to_rebalance};
 rebalance1(true, _Nodes) ->
-    case leo_redundant_manager_api:rebalance() of
-        {ok, List} ->
-            Tbl = leo_hashtable:new(),
-            rebalance2(Tbl, List);
-        Error ->
-            Error
+    case is_allow_to_distribute_command() of
+        true ->
+            case leo_redundant_manager_api:rebalance() of
+                {ok, List} ->
+                    Tbl = leo_hashtable:new(),
+                    rebalance2(Tbl, List);
+                Error ->
+                    Error
+            end;
+        false ->
+            {error, ?ERROR_NOT_SATISFY_CONDITION}
     end.
 
 rebalance2(Tbl, []) ->
@@ -1253,8 +1258,13 @@ delete_bucket_2(AccessKeyBin, BucketBin) ->
 
 %% @doc Is allow distribute to a command
 %% @private
+-spec(is_allow_to_distribute_command() ->
+             boolean()).
 is_allow_to_distribute_command() ->
     is_allow_to_distribute_command([]).
+
+-spec(is_allow_to_distribute_command(atom()) ->
+             boolean()).
 is_allow_to_distribute_command(Node) ->
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
     {ok, Members1}   = leo_redundant_manager_api:get_members(),
