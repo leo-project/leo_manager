@@ -424,6 +424,15 @@ register_fun_0(storage, Node) ->
 
 -spec(register_fun_1(storage, atom(), any()) ->
              ok | {error, any()}).
+register_fun_1(storage, Node, {ok, [#node_state{state = ?STATE_DETACHED}|_]}) ->
+    case leo_manager_api:attach(Node) of
+        ok ->
+            update_node_state1(?STATE_RESTARTED, Node);
+        {error, Cause} ->
+            ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+            {error, Cause}
+    end;
+
 register_fun_1(storage, Node, {ok, [#node_state{state = State}|_]}) ->
     update_node_state(start, State, Node);
 
