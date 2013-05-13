@@ -392,6 +392,11 @@ suspend_0_({Node0, _, Sock}) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{node  = Node0,
+                                               state = ?STATE_RUNNING}]}
+                     end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
     ok = meck:expect(leo_redundant_manager_api, has_member,
@@ -444,6 +449,11 @@ suspend_1_({Node0, _, Sock}) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
                      end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{node  = Node0,
+                                               state = ?STATE_RUNNING}]}
+                     end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
     ok = meck:expect(leo_redundant_manager_api, has_member,
@@ -489,6 +499,11 @@ suspend_2_({Node0, _, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
+                     end),
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+                     fun(_Node) ->
+                             {ok, [#node_state{node  = Node0,
+                                               state = ?STATE_RUNNING}]}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),

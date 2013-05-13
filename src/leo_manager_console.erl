@@ -707,11 +707,17 @@ suspend(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
-            case leo_manager_api:suspend(list_to_atom(Node)) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
+            NodeAtom = list_to_atom(Node),
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                    case leo_manager_api:suspend(NodeAtom) of
+                        ok ->
+                            ok;
+                        {error, Cause} ->
+                            {error, Cause}
+                    end;
+                _ ->
+                    {error, ?ERROR_COULD_NOT_SUSPEND_NODE}
             end
     end.
 
@@ -727,11 +733,23 @@ resume(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
-            case leo_manager_api:resume(list_to_atom(Node)) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
+            NodeAtom = list_to_atom(Node),
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                {ok, [#node_state{state = ?STATE_ATTACHED}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                {ok, [#node_state{state = ?STATE_DETACHED}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                {ok, [#node_state{state = ?STATE_STOP}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                _ ->
+                    case leo_manager_api:resume(NodeAtom) of
+                        ok ->
+                            ok;
+                        {error, Cause} ->
+                            {error, Cause}
+                    end
             end
     end.
 

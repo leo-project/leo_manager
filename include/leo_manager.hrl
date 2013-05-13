@@ -169,8 +169,10 @@
 -define(ERROR_FAILED_COMPACTION,        "Failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS, "Failed to get storage stats").
 -define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").
--define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach a node").
--define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach a node").
+-define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach the node").
+-define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach the node").
+-define(ERROR_COULD_NOT_SUSPEND_NODE,   "Could not suspend the node").
+-define(ERROR_COULD_NOT_RESUME_NODE,    "Could not resume the node").
 -define(ERROR_NOT_SPECIFIED_COMMAND,    "Command not exist").
 -define(ERROR_NOT_SPECIFIED_NODE,       "Not specified node").
 -define(ERROR_NO_CMODE_SPECIFIED,       "Not specified compaction mode").
