@@ -45,7 +45,7 @@
          distribute_members/1, distribute_members/2,
          start/0, rebalance/0]).
 
--export([register/4, notify/3, notify/4, purge/1,
+-export([register/4, notify/3, notify/4, purge/1, remove/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1, delete_bucket/2
@@ -711,7 +711,6 @@ notify3({error,_Cause},_State,_Node) ->
     {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}.
 
 
-
 %% @doc purge an object.
 %%
 -spec(purge(string()) -> ok).
@@ -725,6 +724,53 @@ purge(Path) ->
                                         Acc
                                 end, [], R1),
             _ = rpc:multicall(Nodes, ?API_GATEWAY, purge, [Path], ?DEF_TIMEOUT),
+            ok;
+        _Error ->
+            {error, ?ERROR_COULD_NOT_GET_GATEWAY}
+    end.
+
+
+%% @doc remove a gateway-node
+%%
+-spec(remove(atom()) -> ok | {error, any()}).
+remove(Node) when is_atom(Node) ->
+    remove_3(Node);
+remove(Node) ->
+    remove_1(Node).
+
+%% @private
+remove_1(Node) ->
+    case string:tokens(Node, "@") of
+        [_, IP] ->
+            remove_2(Node, IP);
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+%% @private
+remove_2(Node, IP) ->
+    case string:tokens(IP, ".") of
+        [_,_,_,_] ->
+            remove_3(list_to_atom(Node));
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+%% @private
+remove_3(Node) ->
+    case leo_manager_mnesia:get_gateway_node_by_name(Node) of
+        {ok, [#node_state{state = ?STATE_STOP} = NodeState|_]} ->
+            remove_4(NodeState);
+        {ok, _} ->
+            {error, ?ERROR_STILL_RUNNING};
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+%% @private
+remove_4(NodeState) ->
+    case leo_manager_mnesia:delete_gateway_node(NodeState) of
+        ok ->
             ok;
         _Error ->
             {error, ?ERROR_COULD_NOT_GET_GATEWAY}

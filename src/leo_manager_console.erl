@@ -461,6 +461,21 @@ handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command, #state{for
     {reply, Reply, State};
 
 
+%% Command: "remove ${GATEWAY_NODE}"
+%%
+handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case remove(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_REMOVE, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "history"
 %%
 handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
@@ -786,6 +801,26 @@ purge(CmdBody, Option) ->
             {error, ?ERROR_INVALID_PATH};
         [Key|_] ->
             case leo_manager_api:purge(Key) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc remove a gateway-node
+%% @private
+-spec(remove(binary(), binary()) ->
+             ok | {error, any()}).
+remove(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_INVALID_PATH};
+        [Node|_] ->
+            case leo_manager_api:remove(Node) of
                 ok ->
                     ok;
                 {error, Cause} ->

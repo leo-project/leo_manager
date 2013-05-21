@@ -61,7 +61,8 @@
          insert_history/1,
          insert_available_command/2,
 
-         delete_storage_node/1
+         delete_storage_node/1,
+         delete_gateway_node/1
         ]).
 
 
@@ -599,6 +600,23 @@ insert_available_command(Command, Help) ->
              ok | {error, any()}).
 delete_storage_node(Node) ->
     Tbl = ?TBL_STORAGE_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        mnesia:delete_object(Tbl, Node, write)
+                end,
+            leo_mnesia:delete(F)
+    end.
+
+
+%% @doc Remove gateway-node by name
+-spec(delete_gateway_node(atom()) ->
+             ok | {error, any()}).
+delete_gateway_node(Node) ->
+    Tbl = ?TBL_GATEWAY_NODES,
 
     case catch mnesia:table_info(Tbl, all) of
         {'EXIT', _Cause} ->

@@ -96,6 +96,7 @@
 -define(CMD_RECOVER,          "recover").
 -define(CMD_HISTORY,          "history").
 -define(CMD_PURGE,            "purge").
+-define(CMD_REMOVE,           "remove").
 -define(LOGIN,                "login").
 -define(AUTHORIZED,           <<"_authorized_\r\n">>).
 -define(USER_ID,              <<"_user_id_\r\n">>).
@@ -126,6 +127,7 @@
                                           ])},
                    {?CMD_DU,            "du ${storage-node}"},
                    {?CMD_PURGE,         "purge ${path}"},
+                   {?CMD_REMOVE,        "remove ${gateway-node}"},
                    {?CMD_CREATE_USER,   "create-user ${user-id} [${password}]"},
                    {?CMD_DELETE_USER,   "delete-user ${user-id}"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
@@ -182,6 +184,7 @@
 -define(ERROR_INVALID_BUCKET_FORMAT,    "Invalid bucket format").
 -define(ERROR_NOT_STARTED,              "Storage-cluster does not started, yet").
 -define(ERROR_ALREADY_STARTED,          "Storage-cluster already started").
+-define(ERROR_STILL_RUNNING,            "still running").
 -define(ERROR_MNESIA_NOT_START,         "Mnesia does not start, yet").
 -define(ERROR_DURING_REBALANCE,         "During rebalance").
 -define(ERROR_NOT_SATISFY_CONDITION,    "Not satisfy conditions").
