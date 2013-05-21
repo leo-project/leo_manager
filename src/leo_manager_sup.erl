@@ -109,7 +109,17 @@ start_link() ->
             ok = leo_s3_libs:start(master, []),
 
             %% Launch Mnesia and create that tables
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, RedundantNodes1]),
+            {ok, Dir} = application:get_env(mnesia, dir),
+            case filelib:fold_files(Dir, "\\.DCD$", false,
+                                    fun(X, Acc) ->
+                                            [X|Acc]
+                                    end, []) of
+                [] ->
+                    timer:apply_after(?CHECK_INTERVAL, ?MODULE,
+                                      create_mnesia_tables, [Mode, RedundantNodes1]);
+                _  ->
+                    create_mnesia_tables2()
+            end,
             {ok, Pid};
         Error ->
             Error
@@ -131,7 +141,8 @@ create_mnesia_tables(Mode, RedundantNodes) ->
                 pong ->
                     create_mnesia_tables1(Mode, RedundantNodes);
                 pang ->
-                    timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, RedundantNodes])
+                    timer:apply_after(?CHECK_INTERVAL, ?MODULE,
+                                      create_mnesia_tables, [Mode, RedundantNodes])
             end
     end.
 
