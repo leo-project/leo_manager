@@ -358,7 +358,7 @@ start() ->
                               end, Members),
             {ok, SystemConf}   = leo_manager_mnesia:get_system_config(),
             {ResL0, BadNodes0} = rpc:multicall(
-                                   Nodes, ?API_STORAGE, start, [Members, SystemConf], infinity),
+                                   Nodes, ?API_STORAGE, start, [Members, SystemConf], ?DEF_TIMEOUT),
 
             %% Update an object of node-status.
             case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
