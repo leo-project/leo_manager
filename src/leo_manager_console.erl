@@ -475,6 +475,33 @@ handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command, #state{fo
     Reply = invoke(?CMD_REMOVE, Formatter, Fun),
     {reply, Reply, State};
 
+%% Command: "backup-mnesia ${MNESIA_BACKUPFILE}"
+%%
+handle_call(_Socket, <<?CMD_BACKUP_MNESIA, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case backup_mnesia(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_BACKUP_MNESIA, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "restore-mnesia ${MNESIA_BACKUPFILE}"
+%%
+handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case restore_mnesia(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_RESTORE_MNESIA, Formatter, Fun),
+    {reply, Reply, State};
 
 %% Command: "history"
 %%
@@ -523,6 +550,29 @@ invoke(Command, Formatter, Fun) ->
             Fun()
     end.
 
+%% @private
+-spec(backup_mnesia(binary(), binary()) ->
+             ok | {error, any()}).
+backup_mnesia(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        [BackupFile|_] ->
+            leo_manager_mnesia:backup(BackupFile)
+    end.
+
+%% @private
+-spec(restore_mnesia(binary(), binary()) ->
+             ok | {error, any()}).
+restore_mnesia(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        [BackupFile|_] ->
+            leo_manager_mnesia:restore(BackupFile)
+    end.
 
 %% @doc Retrieve version of the system
 %% @private

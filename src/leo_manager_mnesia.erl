@@ -31,6 +31,7 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_libs.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% API
@@ -62,7 +63,12 @@
          insert_available_command/2,
 
          delete_storage_node/1,
-         delete_gateway_node/1
+         delete_gateway_node/1,
+
+         delete_all/0,
+         backup/1,
+         restore/1
+
         ]).
 
 
@@ -627,4 +633,77 @@ delete_gateway_node(Node) ->
                 end,
             leo_mnesia:delete(F)
     end.
+
+%% @doc Delete all tables
+-spec(delete_all() ->
+             ok | {error, any()}).
+delete_all() ->
+    {atomic, ok} = mnesia:delete_table(?TBL_HISTORIES),
+    {atomic, ok} = mnesia:delete_table(?TBL_SYSTEM_CONF),
+    {atomic, ok} = mnesia:delete_table(?TBL_GATEWAY_NODES),
+    {atomic, ok} = mnesia:delete_table(?TBL_STORAGE_NODES),
+    {atomic, ok} = mnesia:delete_table(?TBL_AVAILABLE_CMDS),
+    {atomic, ok} = mnesia:delete_table(?TBL_REBALANCE_INFO),
+    ok.
+
+%% @doc Backup mnesia tables
+-spec(backup(file:filename()) ->
+             ok | {error, any()}).
+backup(DstFilePath) ->
+    {ok, Name, _Nodes} = mnesia:activate_checkpoint(
+            [{ram_overrides_dump, true},
+             {name, "backup"},
+             {max,[?TBL_HISTORIES, 
+                   ?TBL_SYSTEM_CONF,
+                   ?TBL_GATEWAY_NODES,
+                   ?TBL_STORAGE_NODES,
+                   ?TBL_AVAILABLE_CMDS,
+                   ?TBL_REBALANCE_INFO,
+                   ?ENDPOINT_TABLE,
+                   ?AUTH_TABLE,
+                   ?BUCKET_TABLE,
+                   ?USERS_TABLE,
+                   ?USER_CREDENTIAL_TABLE]}]),
+    try
+        mnesia:backup_checkpoint(Name, DstFilePath)
+    after
+        mnesia:deactivate_checkpoint(Name)
+    end.
+
+%% @doc Restore mnesia tables
+-spec(restore(file:filename()) ->
+             ok | {error, any()}).
+restore(DstFilePath) ->
+    case mnesia:restore(DstFilePath, [{default_op, recreate_tables}]) of
+        {atomic, RestoredTabs} ->
+            validate_restored_tables(RestoredTabs);
+        {aborted, Reason} ->
+            {error, Reason}
+    end.
+
+%% @private validate restored tables
+validate_restored_tables(RestoredTabs) ->
+    TableSet = sets:new(),
+    TableSet2 = sets:add_element(?TBL_HISTORIES, TableSet),
+    TableSet3 = sets:add_element(?TBL_SYSTEM_CONF, TableSet2),
+    TableSet4 = sets:add_element(?TBL_GATEWAY_NODES, TableSet3),
+    TableSet5 = sets:add_element(?TBL_STORAGE_NODES, TableSet4),
+    TableSet6 = sets:add_element(?TBL_AVAILABLE_CMDS, TableSet5),
+    TableSet7 = sets:add_element(?TBL_REBALANCE_INFO, TableSet6),
+    TableSet8 = sets:add_element(?ENDPOINT_TABLE, TableSet7),
+    TableSet9 = sets:add_element(?AUTH_TABLE, TableSet8),
+    TableSet10 = sets:add_element(?BUCKET_TABLE, TableSet9),
+    TableSet11 = sets:add_element(?USERS_TABLE, TableSet10),
+    TableSet12 = sets:add_element(?USER_CREDENTIAL_TABLE, TableSet11),
+    validate_restored_tables(RestoredTabs, TableSet12).
+
+validate_restored_tables([], ExpectedTableSet) ->
+    case sets:size(ExpectedTableSet) of
+        0 ->
+            ok;
+        _ ->
+            {error, {missing_tables, ExpectedTableSet}}
+    end;
+validate_restored_tables([T|Rest], ExpectedTableSet) ->
+    validate_restored_tables(Rest, sets:del_element(T, ExpectedTableSet)).
 

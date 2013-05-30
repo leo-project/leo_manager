@@ -97,6 +97,8 @@
 -define(CMD_HISTORY,          "history").
 -define(CMD_PURGE,            "purge").
 -define(CMD_REMOVE,           "remove").
+-define(CMD_BACKUP_MNESIA,    "backup-mnesia").
+-define(CMD_RESTORE_MNESIA,   "restore-mnesia").
 -define(LOGIN,                "login").
 -define(AUTHORIZED,           <<"_authorized_\r\n">>).
 -define(USER_ID,              <<"_user_id_\r\n">>).
@@ -136,6 +138,8 @@
                    {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
                    {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
+                   {?CMD_BACKUP_MNESIA, "backup-mnesia ${backupfilepath}"},
+                   {?CMD_RESTORE_MNESIA,"restore-mnesia ${backupfilepath}"},
                    {?CMD_GET_BUCKETS,   "get-buckets"},
                    {?CMD_DELETE_BUCKET, "delete-bucket ${bucket} ${access-key-id}"},
                    {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"}
@@ -189,6 +193,8 @@
 -define(ERROR_DURING_REBALANCE,         "During rebalance").
 -define(ERROR_NOT_SATISFY_CONDITION,    "Not satisfy conditions").
 -define(ERROR_TARGET_NODE_NOT_RUNNING,  "Target node does not running").
+-define(ERROR_FAILED_BACKUP_MNESIA,     "Failed to backup the mnesia backup file").
+-define(ERROR_FAILED_RESTORE_MNESIA,    "Failed to restore the mnesia backup file").
 
 
 
