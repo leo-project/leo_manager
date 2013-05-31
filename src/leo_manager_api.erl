@@ -39,6 +39,7 @@
 
 %% API
 -export([get_system_config/0, get_system_status/0, get_members/0,
+         update_manager_nodes/1,
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
 
 -export([attach/1, detach/1, suspend/1, resume/1,
@@ -344,6 +345,48 @@ distribute_members(ok, Node0) ->
 distribute_members(Error, _Node) ->
     Error.
 
+%% @doc update manager nodes
+%%
+-spec(update_manager_nodes(list()) ->
+             ok | {error, any()}).
+update_manager_nodes(Managers) ->
+    Ret = case leo_manager_mnesia:get_storage_nodes_all() of
+        {ok, Members} ->
+            Fun = fun(#node_state{node  = Node}, Acc) ->
+                          [Node|Acc]
+            end,
+            StorageNodes = lists:foldl(Fun, [], Members),
+            case rpc:multicall(StorageNodes, leo_storage_api, update_manager_nodes,
+                               [Managers], ?DEF_TIMEOUT) of
+                {_, []} -> ok;
+                {_, BadNodes} ->
+                    ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
+                    {error, {badrpc, BadNodes}}
+            end;
+        Error ->
+            Error
+    end,
+    update_manager_nodes(Managers, Ret).
+
+update_manager_nodes(Managers, ok) ->
+    case leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, Members} ->
+            Fun = fun(#node_state{node  = Node}, Acc) ->
+                          [Node|Acc]
+                  end,
+            GatewayNodes = lists:foldl(Fun, [], Members),
+            case rpc:multicall(GatewayNodes, leo_gateway_api, update_manager_nodes,
+                               [Managers], ?DEF_TIMEOUT) of
+                {_, []} -> ok;
+                {_, BadNodes} ->
+                    ?error("update_manager_nodes/2", "bad-nodes:~p", [BadNodes]),
+                    {error, {badrpc, BadNodes}}
+            end;
+        Error ->
+            Error
+    end;
+update_manager_nodes(_Managers, Error) ->
+    Error.
 
 %% @doc Launch the leo-storage, but exclude Gateway(s).
 %%

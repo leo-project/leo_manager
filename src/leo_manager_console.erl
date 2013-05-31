@@ -503,6 +503,20 @@ handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command, #
     Reply = invoke(?CMD_RESTORE_MNESIA, Formatter, Fun),
     {reply, Reply, State};
 
+%% Command: "update-managers ${MANAGER_MASTER} ${MANAGER_SLAVE}"
+%%
+handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case update_manager_nodes(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_MANAGERS, Formatter, Fun),
+    {reply, Reply, State};
+
 %% Command: "history"
 %%
 handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
@@ -572,6 +586,19 @@ restore_mnesia(CmdBody, Option) ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [BackupFile|_] ->
             leo_manager_mnesia:restore(BackupFile)
+    end.
+
+%% @private
+-spec(update_manager_nodes(binary(), binary()) ->
+             ok | {error, any()}).
+update_manager_nodes(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Master, Slave|_] ->
+            leo_manager_api:update_manager_nodes(
+                [list_to_atom(Master), list_to_atom(Slave)]);
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
 
 %% @doc Retrieve version of the system

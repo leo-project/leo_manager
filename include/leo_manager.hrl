@@ -99,6 +99,7 @@
 -define(CMD_REMOVE,           "remove").
 -define(CMD_BACKUP_MNESIA,    "backup-mnesia").
 -define(CMD_RESTORE_MNESIA,   "restore-mnesia").
+-define(CMD_UPDATE_MANAGERS,  "update-managers").
 -define(LOGIN,                "login").
 -define(AUTHORIZED,           <<"_authorized_\r\n">>).
 -define(USER_ID,              <<"_user_id_\r\n">>).
@@ -134,6 +135,7 @@
                    {?CMD_DELETE_USER,   "delete-user ${user-id}"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
                    {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
+                   {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
                    {?CMD_GET_USERS,     "get-users"},
                    {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
                    {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
@@ -195,8 +197,7 @@
 -define(ERROR_TARGET_NODE_NOT_RUNNING,  "Target node does not running").
 -define(ERROR_FAILED_BACKUP_MNESIA,     "Failed to backup the mnesia backup file").
 -define(ERROR_FAILED_RESTORE_MNESIA,    "Failed to restore the mnesia backup file").
-
-
+-define(ERROR_FAILED_UPDATE_MANAGERS,   "Failed to update the manager nodes").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').
