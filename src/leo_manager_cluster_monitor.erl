@@ -131,22 +131,19 @@ handle_call({register, RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Htb
 
     case is_exists_proc(Htbl, Node) of
         true ->
-            case TypeOfNode of
-                gateway ->
-                    _ = register_fun_0(TypeOfNode, Node);
-                _ ->
-                    void
-            end,
-            {reply, ok, Arg};
+            Ret = register_fun_0(TypeOfNode, Node),
+            {reply, Ret, Arg};
         false ->
-            MonitorRef = erlang:monitor(process, Pid),
-            ProcInfo   = {Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}},
-
-            _ = register_fun_0(TypeOfNode, Node),
-
-            {reply, ok, {_Refs = [MonitorRef | Refs],
-                         _Htbl = [ProcInfo   | Htbl],
-                         _Pids = Pids}}
+            case register_fun_0(TypeOfNode, Node) of
+                ok ->
+                    MonitorRef = erlang:monitor(process, Pid),
+                    ProcInfo   = {Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}},
+                    {reply, ok, {_Refs = [MonitorRef | Refs],
+                                 _Htbl = [ProcInfo   | Htbl],
+                                 _Pids = Pids}};
+                Error ->
+                    {reply, Error, Arg}
+            end
     end;
 
 handle_call({demonitor, Node}, _From, {MonitorRefs, Htbl, Pids} = Arg) ->
@@ -447,9 +444,10 @@ register_fun_1(storage, Node, not_found = State) ->
                     {error, Cause}
             end;
         {error, Cause} ->
-            ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause])
+            ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+            {error, Cause}
     end;
 
 register_fun_1(storage, Node, {error, Cause}) ->
-    ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]).
-
+    ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+    {error, Cause}.
