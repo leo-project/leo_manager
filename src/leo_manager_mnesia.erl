@@ -651,19 +651,19 @@ delete_all() ->
              ok | {error, any()}).
 backup(DstFilePath) ->
     {ok, Name, _Nodes} = mnesia:activate_checkpoint(
-            [{ram_overrides_dump, true},
-             {name, "backup"},
-             {max,[?TBL_HISTORIES, 
-                   ?TBL_SYSTEM_CONF,
-                   ?TBL_GATEWAY_NODES,
-                   ?TBL_STORAGE_NODES,
-                   ?TBL_AVAILABLE_CMDS,
-                   ?TBL_REBALANCE_INFO,
-                   ?ENDPOINT_TABLE,
-                   ?AUTH_TABLE,
-                   ?BUCKET_TABLE,
-                   ?USERS_TABLE,
-                   ?USER_CREDENTIAL_TABLE]}]),
+                           [{ram_overrides_dump, true},
+                            {name, "backup"},
+                            {max,[?TBL_HISTORIES,
+                                  ?TBL_SYSTEM_CONF,
+                                  ?TBL_GATEWAY_NODES,
+                                  ?TBL_STORAGE_NODES,
+                                  ?TBL_AVAILABLE_CMDS,
+                                  ?TBL_REBALANCE_INFO,
+                                  ?ENDPOINT_TABLE,
+                                  ?AUTH_TABLE,
+                                  ?BUCKET_TABLE,
+                                  ?USERS_TABLE,
+                                  ?USER_CREDENTIAL_TABLE]}]),
     try
         mnesia:backup_checkpoint(Name, DstFilePath)
     after

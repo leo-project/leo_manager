@@ -351,21 +351,21 @@ distribute_members(Error, _Node) ->
              ok | {error, any()}).
 update_manager_nodes(Managers) ->
     Ret = case leo_manager_mnesia:get_storage_nodes_all() of
-        {ok, Members} ->
-            Fun = fun(#node_state{node  = Node}, Acc) ->
-                          [Node|Acc]
-            end,
-            StorageNodes = lists:foldl(Fun, [], Members),
-            case rpc:multicall(StorageNodes, leo_storage_api, update_manager_nodes,
-                               [Managers], ?DEF_TIMEOUT) of
-                {_, []} -> ok;
-                {_, BadNodes} ->
-                    ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
-                    {error, {badrpc, BadNodes}}
-            end;
-        Error ->
-            Error
-    end,
+              {ok, Members} ->
+                  Fun = fun(#node_state{node  = Node}, Acc) ->
+                                [Node|Acc]
+                        end,
+                  StorageNodes = lists:foldl(Fun, [], Members),
+                  case rpc:multicall(StorageNodes, leo_storage_api, update_manager_nodes,
+                                     [Managers], ?DEF_TIMEOUT) of
+                      {_, []} -> ok;
+                      {_, BadNodes} ->
+                          ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
+                          {error, {badrpc, BadNodes}}
+                  end;
+              Error ->
+                  Error
+          end,
     update_manager_nodes(Managers, Ret).
 
 update_manager_nodes(Managers, ok) ->

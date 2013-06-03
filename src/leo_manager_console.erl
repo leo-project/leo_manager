@@ -596,7 +596,7 @@ update_manager_nodes(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Master, Slave|_] ->
             leo_manager_api:update_manager_nodes(
-                [list_to_atom(Master), list_to_atom(Slave)]);
+              [list_to_atom(Master), list_to_atom(Slave)]);
         _ ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.

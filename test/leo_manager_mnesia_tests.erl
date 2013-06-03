@@ -86,7 +86,7 @@ all_(_) ->
     ?assertEqual(true, length(Res2) == 1),
 
     ok = leo_manager_mnesia:update_storage_node_status(update_chksum, NodeState0#node_state{ring_hash_new = "12345",
-                                                                                              ring_hash_old = "67890"}),
+                                                                                            ring_hash_old = "67890"}),
     {ok, Res3} = leo_manager_mnesia:get_storage_nodes_all(),
     ?assertEqual(true, length(Res3) == 1),
 
@@ -107,7 +107,7 @@ all_(_) ->
     Node1  = 'test1@127.0.0.1',
     State1 = 'running',
     NodeState1 = #node_state{node = Node1,
-                            state = State1},
+                             state = State1},
     ok = leo_manager_mnesia:update_gateway_node(NodeState1),
     {ok, Res6} = leo_manager_mnesia:get_gateway_nodes_all(),
     ?assertEqual([#node_state{node  = Node1,
