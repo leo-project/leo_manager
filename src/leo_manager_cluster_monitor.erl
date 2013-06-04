@@ -426,8 +426,6 @@ register_fun_1(#registration{node = Node,
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
         {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
             ok;
-        not_found ->
-            ok;
         {error, Cause} ->
             ?error("register_fun_1/2", "cause:~p", [Cause]),
             {error, Cause};
