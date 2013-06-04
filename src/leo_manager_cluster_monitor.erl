@@ -161,10 +161,10 @@ handle_call({register, RegistrationInfo}, _From, {Refs, Htbl, Pids} = Arg) ->
 
     case is_exists_proc(Htbl, Node) of
         true ->
-            Ret = register_fun_0(RegistrationInfo),
+            Ret = register_fun_1(RegistrationInfo),
             {reply, Ret, Arg};
         false ->
-            case register_fun_0(RegistrationInfo) of
+            case register_fun_1(RegistrationInfo) of
                 ok ->
                     MonitorRef = erlang:monitor(process, Pid),
                     ProcInfo   = {Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}},
@@ -285,21 +285,21 @@ code_change(_OldVsn, State, _Extra) ->
              ok | delete | {error, any()}).
 update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;
-update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state1(?STATE_RESTARTED, Node);
-update_node_state(start, ?STATE_RUNNING,   Node) -> update_node_state1(?STATE_RESTARTED, Node);
-update_node_state(start, ?STATE_STOP,      Node) -> update_node_state1(?STATE_RESTARTED, Node);
+update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state_1(?STATE_RESTARTED, Node);
+update_node_state(start, ?STATE_RUNNING,   Node) -> update_node_state_1(?STATE_RESTARTED, Node);
+update_node_state(start, ?STATE_STOP,      Node) -> update_node_state_1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RESTARTED,_Node) -> ok;
-update_node_state(start, not_found,        Node) -> update_node_state1(?STATE_ATTACHED,  Node);
+update_node_state(start, not_found,        Node) -> update_node_state_1(?STATE_ATTACHED,  Node);
 
 update_node_state(down,  ?STATE_ATTACHED, _Node) -> delete;
 update_node_state(down,  ?STATE_DETACHED, _Node) -> ok;
 update_node_state(down,  ?STATE_SUSPEND,  _Node) -> ok;
-update_node_state(down,  ?STATE_RUNNING,   Node) -> update_node_state1(?STATE_STOP, Node);
+update_node_state(down,  ?STATE_RUNNING,   Node) -> update_node_state_1(?STATE_STOP, Node);
 update_node_state(down,  ?STATE_STOP,     _Node) -> ok;
 update_node_state(down,  ?STATE_RESTARTED,_Node) -> delete;
 update_node_state(down,  not_found,       _Node) -> ok.
 
-update_node_state1(State, Node) ->
+update_node_state_1(State, Node) ->
     case leo_manager_mnesia:update_storage_node_status(
            update, #node_state{node          = Node,
                                state         = State,
@@ -419,10 +419,9 @@ delete_by_pid(ProcList, Pid0) ->
 
 %% @doc Register a remote-node's process into the monitor
 %%
-%% -spec(register_fun_0(gateway | storage, atom()) ->
-%%              ok | {error, any()}).
-
-register_fun_0(#registration{node = Node,
+-spec(register_fun_1(#registration{}) ->
+             ok | {error, any()}).
+register_fun_1(#registration{node = Node,
                              type = gateway}) ->
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
         {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
@@ -430,7 +429,7 @@ register_fun_0(#registration{node = Node,
         not_found ->
             ok;
         {error, Cause} ->
-            ?error("register_fun_0/2", "cause:~p", [Cause]),
+            ?error("register_fun_1/2", "cause:~p", [Cause]),
             {error, Cause};
         _Other ->
             case rpc:call(Node, leo_redundant_manager_api, checksum, [?CHECKSUM_RING], ?DEF_TIMEOUT) of
@@ -446,51 +445,51 @@ register_fun_0(#registration{node = Node,
             end
     end;
 
-register_fun_0(#registration{node = Node,
+register_fun_1(#registration{node = Node,
                              type = storage} = RegistrationInfo) ->
     Ret = leo_manager_mnesia:get_storage_node_by_name(Node),
-    register_fun_1(Ret, RegistrationInfo).
+    register_fun_2(Ret, RegistrationInfo).
 
 
--spec(register_fun_1({ok, list(#node_state{})} | not_found| {error, any()}, #registration{}) ->
+-spec(register_fun_2({ok, list(#node_state{})} | not_found| {error, any()}, #registration{}) ->
              ok | {error, any()}).
-register_fun_1({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,
+register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,
                                                                              type = storage,
                                                                              level_1 = L1,
                                                                              level_2 = L2,
                                                                              num_of_vnodes = NumOfVNodes}) ->
     case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
         ok ->
-            update_node_state1(?STATE_RESTARTED, Node);
+            update_node_state_1(?STATE_RESTARTED, Node);
         {error, Cause} ->
-            ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
+            ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
             {error, Cause}
     end;
 
-register_fun_1({ok, [#node_state{state = State}|_]}, #registration{node = Node,
+register_fun_2({ok, [#node_state{state = State}|_]}, #registration{node = Node,
                                                                    type = storage}) ->
     update_node_state(start, State, Node);
 
-register_fun_1(not_found = State, #registration{node = Node,
+register_fun_2(not_found = State, #registration{node = Node,
                                                 type = storage,
                                                 level_1 = L1,
                                                 level_2 = L2,
                                                 num_of_vnodes = NumOfVNodes}) ->
-    case update_node_state(start, State, Node) of
+    case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
         ok ->
-            case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
+            case update_node_state(start, State, Node) of
                 ok ->
                     ok;
                 {error, Cause} ->
-                    ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
+                    ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
                     {error, Cause}
             end;
         {error, Cause} ->
-            ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
+            ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
             {error, Cause}
     end;
 
-register_fun_1({error, Cause}, #registration{node = Node,
+register_fun_2({error, Cause}, #registration{node = Node,
                                              type = storage}) ->
-    ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
+    ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
     {error, Cause}.

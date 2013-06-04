@@ -432,7 +432,8 @@ get_available_command_by_name(Name) ->
 update_storage_node_status(NodeState) ->
     update_storage_node_status(update_state, NodeState).
 
--spec(update_storage_node_status(update | update_state | keep_state | update_chksum | increment_error | init_error, atom()) ->
+-spec(update_storage_node_status(
+        update|update_state|keep_state|update_chksum|increment_error|init_error, atom()) ->
              ok | {error, any()}).
 update_storage_node_status(update, NodeState) ->
     Tbl = ?TBL_STORAGE_NODES,

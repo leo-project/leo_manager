@@ -46,7 +46,8 @@
          distribute_members/1, distribute_members/2,
          start/0, rebalance/0]).
 
--export([register/4, notify/3, notify/4, purge/1, remove/1,
+-export([register/4, register/7,
+         notify/3, notify/4, purge/1, remove/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1, delete_bucket/2
@@ -622,6 +623,11 @@ rebalance5([{Node, Info}|T], Errors0) ->
              ok).
 register(RequestedTimes, Pid, Node, Type) ->
     leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type).
+
+-spec(register(first | again, pid(), atom(), atom(), string(), string(), pos_integer()) ->
+             ok).
+register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
+    leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes).
 
 
 %% @doc Notified "Synchronized" from cluster-nods.
