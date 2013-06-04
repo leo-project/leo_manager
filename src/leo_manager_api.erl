@@ -179,18 +179,33 @@ attach(Node) ->
 attach(Node,_L1, L2, NumOfVNodes) ->
     case leo_misc:node_existence(Node) of
         true ->
-            Clock = leo_date:clock(),
-            case leo_redundant_manager_api:attach(Node, L2, Clock, NumOfVNodes) of
-                ok ->
-                    leo_manager_mnesia:update_storage_node_status(
-                      #node_state{node    = Node,
-                                  state   = ?STATE_ATTACHED,
-                                  when_is = leo_date:now()});
-                Error ->
-                    Error
-            end;
+            Status = get_system_status(),
+            attach_1(Status, Node,_L1, L2, leo_date:clock(), NumOfVNodes);
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
+    end.
+
+attach_1(?STATE_RUNNING, Node,_L1, L2, Clock, NumOfVNodes) ->
+    State = ?STATE_ATTACHED,
+    case leo_redundant_manager_api:reserve(Node, State, L2, Clock, NumOfVNodes) of
+        ok ->
+            leo_manager_mnesia:update_storage_node_status(
+              #node_state{node    = Node,
+                          state   = State,
+                          when_is = leo_date:now()});
+        Error ->
+            Error
+    end;
+
+attach_1(_, Node,_L1, L2, Clock, NumOfVNodes) ->
+    case leo_redundant_manager_api:attach(Node, L2, Clock, NumOfVNodes) of
+        ok ->
+            leo_manager_mnesia:update_storage_node_status(
+              #node_state{node    = Node,
+                          state   = ?STATE_ATTACHED,
+                          when_is = leo_date:now()});
+        Error ->
+            Error
     end.
 
 
@@ -229,16 +244,7 @@ detach(Node) ->
         true ->
             case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
                 {ok, {CurRingHash, PrevRingHash}} when CurRingHash =:= PrevRingHash ->
-                    case leo_redundant_manager_api:detach(Node) of
-                        ok ->
-                            Res = leo_manager_mnesia:update_storage_node_status(
-                                    #node_state{node    = Node,
-                                                state   = ?STATE_DETACHED,
-                                                when_is = leo_date:now()}),
-                            distribute_members(Res, Node);
-                        Error ->
-                            Error
-                    end;
+                    detach_1(Node);
                 {ok, _Checksums} ->
                     {error, on_rebalances};
                 Error ->
@@ -246,6 +252,18 @@ detach(Node) ->
             end;
         false ->
             {error, ?ERROR_NODE_NOT_EXISTS}
+    end.
+
+detach_1(Node) ->
+    State = ?STATE_DETACHED,
+    case leo_redundant_manager_api:reserve(Node, State, leo_date:clock()) of
+        ok ->
+            leo_manager_mnesia:update_storage_node_status(
+              #node_state{node    = Node,
+                          state   = State,
+                          when_is = leo_date:now()});
+        Error ->
+            Error
     end.
 
 
