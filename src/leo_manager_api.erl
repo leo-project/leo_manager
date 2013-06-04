@@ -42,7 +42,7 @@
          update_manager_nodes/1,
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
 
--export([attach/1, detach/1, suspend/1, resume/1,
+-export([attach/1, attach/4, detach/1, suspend/1, resume/1,
          distribute_members/1, distribute_members/2,
          start/0, rebalance/0]).
 
@@ -173,9 +173,13 @@ get_nodes() ->
 -spec(attach(atom()) ->
              ok | {error, any()}).
 attach(Node) ->
+    attach(Node, [], [], ?DEF_NUMBER_OF_VNODES).
+
+attach(Node,_L1, L2, NumOfVNodes) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case leo_redundant_manager_api:attach(Node) of
+            Clock = leo_date:clock(),
+            case leo_redundant_manager_api:attach(Node, L2, Clock, NumOfVNodes) of
                 ok ->
                     leo_manager_mnesia:update_storage_node_status(
                       #node_state{node    = Node,

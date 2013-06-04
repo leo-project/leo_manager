@@ -38,7 +38,7 @@
 -export([start_link/0,
          stop/0]).
 
--export([register/4,
+-export([register/4, register/7,
          demonitor/1,
          get_remote_node_proc/0,
          get_server_node_alias/1]).
@@ -62,6 +62,15 @@
 -undef(DEF_TIMEOUT).
 -define(DEF_TIMEOUT, 30000).
 
+-record(registration, {pid           :: pid(),
+                       node          :: atom(),
+                       type          :: gateway|storage,
+                       times         :: integer(),
+                       level_1 = []  :: string(),
+                       level_2 = []  :: string(),
+                       num_of_vnodes = ?DEF_NUMBER_OF_VNODES :: pos_integer()
+                      }).
+
 %%--------------------------------------------------------------------
 %% API
 %%--------------------------------------------------------------------
@@ -79,7 +88,23 @@ stop() ->
 -spec(register(first|again, pid(), atom(), storage|gateway) ->
              ok).
 register(RequestedTimes, Pid, Node, TypeOfNode) ->
-    gen_server:call(?MODULE, {register, RequestedTimes, Pid, Node, TypeOfNode}, ?DEF_TIMEOUT).
+    RegistrationInfo = #registration{pid   = Pid,
+                                     node  = Node,
+                                     type  = TypeOfNode,
+                                     times = RequestedTimes},
+    gen_server:call(?MODULE, {register, RegistrationInfo}, ?DEF_TIMEOUT).
+
+-spec(register(first|again, pid(), atom(), storage, string(), string(), pos_integer()) ->
+             ok).
+register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes) ->
+    RegistrationInfo = #registration{pid   = Pid,
+                                     node  = Node,
+                                     type  = TypeOfNode,
+                                     times = RequestedTimes,
+                                     level_1 = L1Id,
+                                     level_2 = L2Id,
+                                     num_of_vnodes = NumOfVNodes},
+    gen_server:call(?MODULE, {register, RegistrationInfo}, ?DEF_TIMEOUT).
 
 
 %% @doc Demonitor pid from monitor.
@@ -126,15 +151,20 @@ handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
 
 
-handle_call({register, RequestedTimes, Pid, Node, TypeOfNode}, _From, {Refs, Htbl, Pids} = Arg) ->
-    ?info("handle_call - register", "requested-times:~w, node:~w", [RequestedTimes, Node]),
+handle_call({register, RegistrationInfo}, _From, {Refs, Htbl, Pids} = Arg) ->
+    ?info("handle_call - register", "requested-times:~w, node:~w",
+          [RegistrationInfo#registration.times,
+           RegistrationInfo#registration.node]),
+    #registration{pid   = Pid,
+                  node  = Node,
+                  type  = TypeOfNode} = RegistrationInfo,
 
     case is_exists_proc(Htbl, Node) of
         true ->
-            Ret = register_fun_0(TypeOfNode, Node),
+            Ret = register_fun_0(RegistrationInfo),
             {reply, Ret, Arg};
         false ->
-            case register_fun_0(TypeOfNode, Node) of
+            case register_fun_0(RegistrationInfo) of
                 ok ->
                     MonitorRef = erlang:monitor(process, Pid),
                     ProcInfo   = {Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}},
@@ -256,7 +286,7 @@ code_change(_OldVsn, State, _Extra) ->
 update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;
 update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state1(?STATE_RESTARTED, Node);
-update_node_state(start, ?STATE_RUNNING,  _Node) -> ok;
+update_node_state(start, ?STATE_RUNNING,   Node) -> update_node_state1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_STOP,      Node) -> update_node_state1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RESTARTED,_Node) -> ok;
 update_node_state(start, not_found,        Node) -> update_node_state1(?STATE_ATTACHED,  Node);
@@ -389,9 +419,11 @@ delete_by_pid(ProcList, Pid0) ->
 
 %% @doc Register a remote-node's process into the monitor
 %%
--spec(register_fun_0(gateway | storage, atom()) ->
-             ok | {error, any()}).
-register_fun_0(gateway, Node) ->
+%% -spec(register_fun_0(gateway | storage, atom()) ->
+%%              ok | {error, any()}).
+
+register_fun_0(#registration{node = Node,
+                             type = gateway}) ->
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
         {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
             ok;
@@ -414,40 +446,51 @@ register_fun_0(gateway, Node) ->
             end
     end;
 
-register_fun_0(storage, Node) ->
+register_fun_0(#registration{node = Node,
+                             type = storage} = RegistrationInfo) ->
     Ret = leo_manager_mnesia:get_storage_node_by_name(Node),
-    register_fun_1(storage, Node, Ret).
+    register_fun_1(Ret, RegistrationInfo).
 
 
--spec(register_fun_1(storage, atom(), any()) ->
+-spec(register_fun_1({ok, list(#node_state{})} | not_found| {error, any()}, #registration{}) ->
              ok | {error, any()}).
-register_fun_1(storage, Node, {ok, [#node_state{state = ?STATE_DETACHED}|_]}) ->
-    case leo_manager_api:attach(Node) of
+register_fun_1({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,
+                                                                             type = storage,
+                                                                             level_1 = L1,
+                                                                             level_2 = L2,
+                                                                             num_of_vnodes = NumOfVNodes}) ->
+    case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
         ok ->
             update_node_state1(?STATE_RESTARTED, Node);
         {error, Cause} ->
-            ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+            ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
             {error, Cause}
     end;
 
-register_fun_1(storage, Node, {ok, [#node_state{state = State}|_]}) ->
+register_fun_1({ok, [#node_state{state = State}|_]}, #registration{node = Node,
+                                                                   type = storage}) ->
     update_node_state(start, State, Node);
 
-register_fun_1(storage, Node, not_found = State) ->
+register_fun_1(not_found = State, #registration{node = Node,
+                                                type = storage,
+                                                level_1 = L1,
+                                                level_2 = L2,
+                                                num_of_vnodes = NumOfVNodes}) ->
     case update_node_state(start, State, Node) of
         ok ->
-            case leo_manager_api:attach(Node) of
+            case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
                 ok ->
                     ok;
                 {error, Cause} ->
-                    ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+                    ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
                     {error, Cause}
             end;
         {error, Cause} ->
-            ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+            ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
             {error, Cause}
     end;
 
-register_fun_1(storage, Node, {error, Cause}) ->
-    ?error("register_fun_1/3", "node:~w, cause:~p", [Node, Cause]),
+register_fun_1({error, Cause}, #registration{node = Node,
+                                             type = storage}) ->
+    ?error("register_fun_1/2", "node:~w, cause:~p", [Node, Cause]),
     {error, Cause}.
