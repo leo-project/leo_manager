@@ -105,46 +105,51 @@
 -define(USER_ID,              <<"_user_id_\r\n">>).
 -define(PASSWORD,             <<"_password_\r\n">>).
 
--define(COMMANDS, [{?CMD_HELP,          "help"},
-                   {?CMD_QUIT,          "quit"},
-                   {?CMD_VERSION,       "version"},
-                   {?CMD_STATUS,        "status [${storage-node}|${gateway-node}]"},
-                   {?CMD_HISTORY,       "history"},
-                   {?CMD_WHEREIS,       "whereis ${path}"},
-                   {?CMD_RECOVER,       lists:append(
-                                          ["recover file ${path}", ?CRLF,
-                                           "recover node ${storage-node}", ?CRLF,
-                                           "recover ring ${storage-node}"
-                                          ])},
-                   {?CMD_DETACH,        "detach ${storage-node}"},
-                   {?CMD_SUSPEND,       "suspend ${storage-node}"},
-                   {?CMD_RESUME,        "resume ${storage-node}"},
-                   {?CMD_DETACH,        "detach ${storage-node}"},
-                   {?CMD_START,         "start"},
-                   {?CMD_REBALANCE,     "rebalance"},
-                   {?CMD_COMPACT,       lists:append(
-                                          ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
-                                           "compact suspend ${storage-node}", ?CRLF,
-                                           "compact resume  ${storage-node}", ?CRLF,
-                                           "compact status  ${storage-node}"
-                                          ])},
-                   {?CMD_DU,            "du ${storage-node}"},
-                   {?CMD_PURGE,         "purge ${path}"},
-                   {?CMD_REMOVE,        "remove ${gateway-node}"},
-                   {?CMD_CREATE_USER,   "create-user ${user-id} [${password}]"},
-                   {?CMD_DELETE_USER,   "delete-user ${user-id}"},
+-define(COMMANDS, [{?CMD_HELP,      "help"},
+                   {?CMD_QUIT,      "quit"},
+                   {?CMD_VERSION,   "version"},
+                   {?CMD_STATUS,    "status [${storage-node}|${gateway-node}]"},
+                   {?CMD_HISTORY,   "history"},
+                   %% for Cluster
+                   {?CMD_WHEREIS,   "whereis ${path}"},
+                   {?CMD_RECOVER,   lists:append(
+                                      ["recover file ${path}", ?CRLF,
+                                       "recover node ${storage-node}", ?CRLF,
+                                       "recover ring ${storage-node}"
+                                      ])},
+                   {?CMD_DETACH,    "detach ${storage-node}"},
+                   {?CMD_SUSPEND,   "suspend ${storage-node}"},
+                   {?CMD_RESUME,    "resume ${storage-node}"},
+                   {?CMD_DETACH,    "detach ${storage-node}"},
+                   {?CMD_START,     "start"},
+                   {?CMD_REBALANCE, "rebalance"},
+                   %% for Storage
+                   {?CMD_COMPACT,   lists:append(
+                                      ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
+                                       "compact suspend ${storage-node}", ?CRLF,
+                                       "compact resume  ${storage-node}", ?CRLF,
+                                       "compact status  ${storage-node}"
+                                      ])},
+                   {?CMD_DU,              "du ${storage-node}"},
+                   %% for Gateway
+                   {?CMD_PURGE,           "purge ${path}"},
+                   {?CMD_REMOVE,          "remove ${gateway-node}"},
+                   %% for HTTP_API
+                   {?CMD_CREATE_USER,     "create-user ${user-id} [${password}]"},
+                   {?CMD_DELETE_USER,     "delete-user ${user-id}"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
                    {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
+                   {?CMD_GET_USERS,        "get-users"},
+                   {?CMD_SET_ENDPOINT,     "set-endpoint ${endpoint}"},
+                   {?CMD_DEL_ENDPOINT,     "delete-endpoint ${endpoint}"},
+                   {?CMD_GET_ENDPOINTS,    "get-endpoints"},
+                   {?CMD_GET_BUCKETS,      "get-buckets"},
+                   {?CMD_DELETE_BUCKET,    "delete-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_ADD_BUCKET,       "add-bucket ${bucket} ${access-key-id}"},
+                   %% for Manager
                    {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
-                   {?CMD_GET_USERS,     "get-users"},
-                   {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
-                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
-                   {?CMD_GET_ENDPOINTS, "get-endpoints"},
-                   {?CMD_BACKUP_MNESIA, "backup-mnesia ${backupfilepath}"},
-                   {?CMD_RESTORE_MNESIA,"restore-mnesia ${backupfilepath}"},
-                   {?CMD_GET_BUCKETS,   "get-buckets"},
-                   {?CMD_DELETE_BUCKET, "delete-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"}
+                   {?CMD_BACKUP_MNESIA,    "backup-mnesia ${backupfilepath}"},
+                   {?CMD_RESTORE_MNESIA,   "restore-mnesia ${backupfilepath}"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),
