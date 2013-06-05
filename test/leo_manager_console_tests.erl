@@ -248,8 +248,7 @@ detach_0_({Node0,_, Sock}) ->
                              {ok, [#member{state = ?STATE_RUNNING,
                                            node =  Node0}]}
                      end),
-
-    ok = meck:expect(leo_redundant_manager_api, reserve, 4, ok),
+    ok = meck:expect(leo_redundant_manager_api, reserve, 3, ok),
 
     Command = "detach " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),

@@ -853,17 +853,17 @@ resume(CmdBody, Option) ->
 rebalance(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-        {ok, {CurRingHash, PrevRingHash}} when CurRingHash =/= PrevRingHash ->
-            case leo_manager_api:rebalance() of
-                ok ->
-                    ok;
-                _Other ->
-                    {error, "Fail rebalance"}
-            end;
+    %% case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+    %%     {ok, {CurRingHash, PrevRingHash}} when CurRingHash =/= PrevRingHash ->
+    case leo_manager_api:rebalance() of
+        ok ->
+            ok;
         _Other ->
-            {error, "Could not launch the storage"}
+            {error, "Fail rebalance"}
     end.
+    %%     _Other ->
+    %%         {error, "Could not launch the storage"}
+    %% end.
 
 
 %% @doc Purge an object from the cache
