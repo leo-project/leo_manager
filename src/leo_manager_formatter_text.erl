@@ -315,6 +315,8 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
     Version      = leo_misc:get_value('version',       State, []),
+    NumOfVNodes  = leo_misc:get_value('num_of_vnodes', State, []),
+    GrpLevel2    = leo_misc:get_value('grp_level_2',   State, []),
     Directories  = leo_misc:get_value('dirs',          State, []),
     RingHashes   = leo_misc:get_value('ring_checksum', State, []),
     Statistics   = leo_misc:get_value('statistics',    State, []),
@@ -323,6 +325,9 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
 
     io_lib:format(lists:append(["[config]\r\n",
                                 "            version : ~s\r\n",
+                                "        # of vnodes : ~w\r\n",
+                                "      group level-1 :   \r\n",
+                                "      group level-2 : ~s\r\n",
                                 "      obj-container : ~p\r\n",
                                 "            log dir : ~s\r\n",
                                 "\r\n[status-1: ring]\r\n",
@@ -343,6 +348,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 "     rebalance msgs : ~w\r\n",
                                 "\r\n"]),
                   [Version,
+                   NumOfVNodes,
+                   GrpLevel2,
                    ObjContainer,
                    leo_misc:get_value('log', Directories, []),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
