@@ -603,8 +603,15 @@ insert_available_command(Command, Help) ->
 %% DELETE
 %%-----------------------------------------------------------------------
 %% @doc Remove storage-node by name
--spec(delete_storage_node(atom()) ->
+-spec(delete_storage_node(#node_state{}) ->
              ok | {error, any()}).
+delete_storage_node(Node) when is_atom(Node) ->
+    case get_storage_node_by_name(Node) of
+        {ok, [NodeInfo|_]} ->
+            delete_storage_node(NodeInfo);
+        Error ->
+            Error
+    end;
 delete_storage_node(Node) ->
     Tbl = ?TBL_STORAGE_NODES,
 
@@ -620,8 +627,15 @@ delete_storage_node(Node) ->
 
 
 %% @doc Remove gateway-node by name
--spec(delete_gateway_node(atom()) ->
+-spec(delete_gateway_node(atom() | #node_state{}) ->
              ok | {error, any()}).
+delete_gateway_node(Node) when is_atom(Node) ->
+    case get_gateway_node_by_name(Node) of
+        {ok, [NodeInfo|_]} ->
+            delete_gateway_node(NodeInfo);
+        Error ->
+            Error
+    end;
 delete_gateway_node(Node) ->
     Tbl = ?TBL_GATEWAY_NODES,
 

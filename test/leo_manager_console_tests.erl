@@ -1,4 +1,4 @@
-%======================================================================
+%%======================================================================
 %%
 %% LeoFS Manager
 %%
@@ -133,7 +133,6 @@ status_0_({Node0, Node1, Sock}) ->
 
     timer:sleep(100),
 
-
     ?assertNotEqual([], meck:history(leo_manager_mnesia)),
     ?assertNotEqual([], meck:history(leo_redundant_manager_api)),
 
@@ -141,7 +140,6 @@ status_0_({Node0, Node1, Sock}) ->
     ok.
 
 status_1_({Node0, _, Sock}) ->
-    ?debugVal(Sock),
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->

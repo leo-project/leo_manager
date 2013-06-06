@@ -861,9 +861,9 @@ rebalance(CmdBody) ->
         _Other ->
             {error, "Fail rebalance"}
     end.
-    %%     _Other ->
-    %%         {error, "Could not launch the storage"}
-    %% end.
+%%     _Other ->
+%%         {error, "Could not launch the storage"}
+%% end.
 
 
 %% @doc Purge an object from the cache
