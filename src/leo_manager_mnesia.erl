@@ -136,7 +136,9 @@ create_system_config(Mode, Nodes) ->
          {r,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
          {w,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
          {d,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {bit_of_ring, {integer,   undefined},  false, undefined, undefined, undefined, integer}
+         {bit_of_ring, {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {level_1,     {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {level_2,     {integer,   undefined},  false, undefined, undefined, undefined, integer}
         ]}
       ]).
 

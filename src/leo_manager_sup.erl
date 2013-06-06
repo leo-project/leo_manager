@@ -101,7 +101,10 @@ start_link() ->
                              {r,           SystemConf#system_conf.r},
                              {w,           SystemConf#system_conf.w},
                              {d,           SystemConf#system_conf.d},
-                             {bit_of_ring, SystemConf#system_conf.bit_of_ring}]]},
+                             {bit_of_ring, SystemConf#system_conf.bit_of_ring},
+                             {level_1,     SystemConf#system_conf.level_1},
+                             {level_2,     SystemConf#system_conf.level_2}
+                            ]]},
                           permanent, 2000, supervisor, [leo_redundant_manager_sup]},
             {ok, _} = supervisor:start_child(Pid, ChildSpec),
 
@@ -333,7 +336,10 @@ load_system_config() ->
                               w = leo_misc:get_value(w, Props, 1),
                               r = leo_misc:get_value(r, Props, 1),
                               d = leo_misc:get_value(d, Props, 1),
-                              bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128)},
+                              bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
+                              level_1 = leo_misc:get_value(level_1, Props, 0),
+                              level_2 = leo_misc:get_value(level_2, Props, 0)
+                             },
     SystemConf.
 
 %% @doc load a system config file. a system config file store to mnesia.
