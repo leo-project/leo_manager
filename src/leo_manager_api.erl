@@ -1234,7 +1234,10 @@ synchronize(Type, Node, Members) when Type == ?CHECKSUM_RING;
                {r, SystemConf#system_conf.r},
                {w, SystemConf#system_conf.w},
                {d, SystemConf#system_conf.d},
-               {bit_of_ring, SystemConf#system_conf.bit_of_ring}],
+               {bit_of_ring, SystemConf#system_conf.bit_of_ring},
+               {level_1, SystemConf#system_conf.level_1},
+               {level_2, SystemConf#system_conf.level_2}
+              ],
 
     case rpc:call(Node, leo_redundant_manager_api, synchronize,
                   [?SYNC_MODE_BOTH, Members, Options], ?DEF_TIMEOUT) of
