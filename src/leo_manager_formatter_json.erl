@@ -162,6 +162,8 @@ system_info_and_nodes_stat(Props) ->
                   {<<"r">>,              list_to_binary(integer_to_list(SystemConf#system_conf.r))},
                   {<<"w">>,              list_to_binary(integer_to_list(SystemConf#system_conf.w))},
                   {<<"d">>,              list_to_binary(integer_to_list(SystemConf#system_conf.d))},
+                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#system_conf.level_1))},
+                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#system_conf.level_2))},
                   {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))},
                   {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
                   {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
