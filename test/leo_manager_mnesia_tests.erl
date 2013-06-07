@@ -10,6 +10,7 @@
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_libs.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %%--------------------------------------------------------------------
@@ -39,6 +40,14 @@ all_(_) ->
     {atomic,ok} = leo_manager_mnesia:create_gateway_nodes(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_system_config(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
+    {atomic,ok} = leo_manager_mnesia:create_histories(ram_copies, [node()]),
+    {atomic,ok} = leo_manager_mnesia:create_available_commands(ram_copies, [node()]),
+    ok = leo_s3_auth:create_credential_table(ram_copies, [node()]),
+    ok = leo_s3_bucket:create_bucket_table(ram_copies, [node()]),
+    ok = leo_s3_endpoint:create_endpoint_table(ram_copies, [node()]),
+    ok = leo_s3_user:create_user_table(ram_copies, [node()]),
+    ok = leo_s3_user:create_user_credential_table(ram_copies, [node()]),
+
     ?assertEqual(true, length(mnesia:system_info(tables)) > 1),
 
     %% get-1 > not_found
@@ -77,7 +86,7 @@ all_(_) ->
     ?assertEqual(true, length(Res2) == 1),
 
     ok = leo_manager_mnesia:update_storage_node_status(update_chksum, NodeState0#node_state{ring_hash_new = "12345",
-                                                                                              ring_hash_old = "67890"}),
+                                                                                            ring_hash_old = "67890"}),
     {ok, Res3} = leo_manager_mnesia:get_storage_nodes_all(),
     ?assertEqual(true, length(Res3) == 1),
 
@@ -98,7 +107,7 @@ all_(_) ->
     Node1  = 'test1@127.0.0.1',
     State1 = 'running',
     NodeState1 = #node_state{node = Node1,
-                            state = State1},
+                             state = State1},
     ok = leo_manager_mnesia:update_gateway_node(NodeState1),
     {ok, Res6} = leo_manager_mnesia:get_gateway_nodes_all(),
     ?assertEqual([#node_state{node  = Node1,
@@ -132,6 +141,16 @@ all_(_) ->
     %% delete
     %% (1) storage-node
     ok = leo_manager_mnesia:delete_storage_node(NewNodeState0),
+    not_found = leo_manager_mnesia:get_storage_nodes_all(),
+
+    %% backup/restore
+    BakFile = "mnesia.bak",
+    ok = leo_manager_mnesia:backup(BakFile),
+    ok = leo_manager_mnesia:delete_all(),
+    ok = leo_manager_mnesia:restore(BakFile),
+    {ok, Res6} = leo_manager_mnesia:get_gateway_nodes_all(),
+    {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, [Res7|_]} = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_storage_nodes_all(),
 
     ok.

@@ -461,6 +461,62 @@ handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command, #state{for
     {reply, Reply, State};
 
 
+%% Command: "remove ${GATEWAY_NODE}"
+%%
+handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case remove(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_REMOVE, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "backup-mnesia ${MNESIA_BACKUPFILE}"
+%%
+handle_call(_Socket, <<?CMD_BACKUP_MNESIA, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case backup_mnesia(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_BACKUP_MNESIA, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "restore-mnesia ${MNESIA_BACKUPFILE}"
+%%
+handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case restore_mnesia(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_RESTORE_MNESIA, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "update-managers ${MANAGER_MASTER} ${MANAGER_SLAVE}"
+%%
+handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case update_manager_nodes(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_MANAGERS, Formatter, Fun),
+    {reply, Reply, State};
+
 %% Command: "history"
 %%
 handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
@@ -508,6 +564,42 @@ invoke(Command, Formatter, Fun) ->
             Fun()
     end.
 
+%% @private
+-spec(backup_mnesia(binary(), binary()) ->
+             ok | {error, any()}).
+backup_mnesia(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        [BackupFile|_] ->
+            leo_manager_mnesia:backup(BackupFile)
+    end.
+
+%% @private
+-spec(restore_mnesia(binary(), binary()) ->
+             ok | {error, any()}).
+restore_mnesia(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        [BackupFile|_] ->
+            leo_manager_mnesia:restore(BackupFile)
+    end.
+
+%% @private
+-spec(update_manager_nodes(binary(), binary()) ->
+             ok | {error, any()}).
+update_manager_nodes(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Master, Slave|_] ->
+            leo_manager_api:update_manager_nodes(
+              [list_to_atom(Master), list_to_atom(Slave)]);
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
 
 %% @doc Retrieve version of the system
 %% @private
@@ -707,11 +799,17 @@ suspend(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
-            case leo_manager_api:suspend(list_to_atom(Node)) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
+            NodeAtom = list_to_atom(Node),
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                    case leo_manager_api:suspend(NodeAtom) of
+                        ok ->
+                            ok;
+                        {error, Cause} ->
+                            {error, Cause}
+                    end;
+                _ ->
+                    {error, ?ERROR_COULD_NOT_SUSPEND_NODE}
             end
     end.
 
@@ -727,11 +825,23 @@ resume(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
-            case leo_manager_api:resume(list_to_atom(Node)) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
+            NodeAtom = list_to_atom(Node),
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                {ok, [#node_state{state = ?STATE_ATTACHED}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                {ok, [#node_state{state = ?STATE_DETACHED}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                {ok, [#node_state{state = ?STATE_STOP}|_]} ->
+                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                _ ->
+                    case leo_manager_api:resume(NodeAtom) of
+                        ok ->
+                            ok;
+                        {error, Cause} ->
+                            {error, Cause}
+                    end
             end
     end.
 
@@ -743,17 +853,17 @@ resume(CmdBody, Option) ->
 rebalance(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-        {ok, {CurRingHash, PrevRingHash}} when CurRingHash =/= PrevRingHash ->
-            case leo_manager_api:rebalance() of
-                ok ->
-                    ok;
-                _Other ->
-                    {error, "Fail rebalance"}
-            end;
+    %% case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+    %%     {ok, {CurRingHash, PrevRingHash}} when CurRingHash =/= PrevRingHash ->
+    case leo_manager_api:rebalance() of
+        ok ->
+            ok;
         _Other ->
-            {error, "Could not launch the storage"}
+            {error, "Fail rebalance"}
     end.
+%%     _Other ->
+%%         {error, "Could not launch the storage"}
+%% end.
 
 
 %% @doc Purge an object from the cache
@@ -768,6 +878,26 @@ purge(CmdBody, Option) ->
             {error, ?ERROR_INVALID_PATH};
         [Key|_] ->
             case leo_manager_api:purge(Key) of
+                ok ->
+                    ok;
+                {error, Cause} ->
+                    {error, Cause}
+            end
+    end.
+
+
+%% @doc remove a gateway-node
+%% @private
+-spec(remove(binary(), binary()) ->
+             ok | {error, any()}).
+remove(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_INVALID_PATH};
+        [Node|_] ->
+            case leo_manager_api:remove(Node) of
                 ok ->
                     ok;
                 {error, Cause} ->

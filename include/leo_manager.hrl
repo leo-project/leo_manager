@@ -96,47 +96,60 @@
 -define(CMD_RECOVER,          "recover").
 -define(CMD_HISTORY,          "history").
 -define(CMD_PURGE,            "purge").
+-define(CMD_REMOVE,           "remove").
+-define(CMD_BACKUP_MNESIA,    "backup-mnesia").
+-define(CMD_RESTORE_MNESIA,   "restore-mnesia").
+-define(CMD_UPDATE_MANAGERS,  "update-managers").
 -define(LOGIN,                "login").
 -define(AUTHORIZED,           <<"_authorized_\r\n">>).
 -define(USER_ID,              <<"_user_id_\r\n">>).
 -define(PASSWORD,             <<"_password_\r\n">>).
 
--define(COMMANDS, [{?CMD_HELP,          "help"},
-                   {?CMD_QUIT,          "quit"},
-                   {?CMD_VERSION,       "version"},
-                   {?CMD_STATUS,        "status [${storage-node}|${gateway-node}]"},
-                   {?CMD_HISTORY,       "history"},
-                   {?CMD_WHEREIS,       "whereis ${path}"},
-                   {?CMD_RECOVER,       lists:append(
-                                          ["recover file ${path}", ?CRLF,
-                                           "recover node ${storage-node}", ?CRLF,
-                                           "recover ring ${storage-node}"
-                                          ])},
-                   {?CMD_DETACH,        "detach ${storage-node}"},
-                   {?CMD_SUSPEND,       "suspend ${storage-node}"},
-                   {?CMD_RESUME,        "resume ${storage-node}"},
-                   {?CMD_DETACH,        "detach ${storage-node}"},
-                   {?CMD_START,         "start"},
-                   {?CMD_REBALANCE,     "rebalance"},
-                   {?CMD_COMPACT,       lists:append(
-                                          ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
-                                           "compact suspend ${storage-node}", ?CRLF,
-                                           "compact resume  ${storage-node}", ?CRLF,
-                                           "compact status  ${storage-node}"
-                                          ])},
-                   {?CMD_DU,            "du ${storage-node}"},
-                   {?CMD_PURGE,         "purge ${path}"},
-                   {?CMD_CREATE_USER,   "create-user ${user-id} [${password}]"},
-                   {?CMD_DELETE_USER,   "delete-user ${user-id}"},
+-define(COMMANDS, [{?CMD_HELP,      "help"},
+                   {?CMD_QUIT,      "quit"},
+                   {?CMD_VERSION,   "version"},
+                   {?CMD_STATUS,    "status [${storage-node}|${gateway-node}]"},
+                   {?CMD_HISTORY,   "history"},
+                   %% for Cluster
+                   {?CMD_WHEREIS,   "whereis ${path}"},
+                   {?CMD_RECOVER,   lists:append(
+                                      ["recover file ${path}", ?CRLF,
+                                       "recover node ${storage-node}", ?CRLF,
+                                       "recover ring ${storage-node}"
+                                      ])},
+                   {?CMD_DETACH,    "detach ${storage-node}"},
+                   {?CMD_SUSPEND,   "suspend ${storage-node}"},
+                   {?CMD_RESUME,    "resume ${storage-node}"},
+                   {?CMD_DETACH,    "detach ${storage-node}"},
+                   {?CMD_START,     "start"},
+                   {?CMD_REBALANCE, "rebalance"},
+                   %% for Storage
+                   {?CMD_COMPACT,   lists:append(
+                                      ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
+                                       "compact suspend ${storage-node}", ?CRLF,
+                                       "compact resume  ${storage-node}", ?CRLF,
+                                       "compact status  ${storage-node}"
+                                      ])},
+                   {?CMD_DU,              "du ${storage-node}"},
+                   %% for Gateway
+                   {?CMD_PURGE,           "purge ${path}"},
+                   {?CMD_REMOVE,          "remove ${gateway-node}"},
+                   %% for HTTP_API
+                   {?CMD_CREATE_USER,     "create-user ${user-id} [${password}]"},
+                   {?CMD_DELETE_USER,     "delete-user ${user-id}"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
                    {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
-                   {?CMD_GET_USERS,     "get-users"},
-                   {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
-                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
-                   {?CMD_GET_ENDPOINTS, "get-endpoints"},
-                   {?CMD_GET_BUCKETS,   "get-buckets"},
-                   {?CMD_DELETE_BUCKET, "delete-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"}
+                   {?CMD_GET_USERS,        "get-users"},
+                   {?CMD_SET_ENDPOINT,     "set-endpoint ${endpoint}"},
+                   {?CMD_DEL_ENDPOINT,     "delete-endpoint ${endpoint}"},
+                   {?CMD_GET_ENDPOINTS,    "get-endpoints"},
+                   {?CMD_GET_BUCKETS,      "get-buckets"},
+                   {?CMD_DELETE_BUCKET,    "delete-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_ADD_BUCKET,       "add-bucket ${bucket} ${access-key-id}"},
+                   %% for Manager
+                   {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
+                   {?CMD_BACKUP_MNESIA,    "backup-mnesia ${backupfilepath}"},
+                   {?CMD_RESTORE_MNESIA,   "restore-mnesia ${backupfilepath}"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),
@@ -169,8 +182,10 @@
 -define(ERROR_FAILED_COMPACTION,        "Failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS, "Failed to get storage stats").
 -define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").
--define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach a node").
--define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach a node").
+-define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach the node").
+-define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach the node").
+-define(ERROR_COULD_NOT_SUSPEND_NODE,   "Could not suspend the node").
+-define(ERROR_COULD_NOT_RESUME_NODE,    "Could not resume the node").
 -define(ERROR_NOT_SPECIFIED_COMMAND,    "Command not exist").
 -define(ERROR_NOT_SPECIFIED_NODE,       "Not specified node").
 -define(ERROR_NO_CMODE_SPECIFIED,       "Not specified compaction mode").
@@ -180,12 +195,14 @@
 -define(ERROR_INVALID_BUCKET_FORMAT,    "Invalid bucket format").
 -define(ERROR_NOT_STARTED,              "Storage-cluster does not started, yet").
 -define(ERROR_ALREADY_STARTED,          "Storage-cluster already started").
+-define(ERROR_STILL_RUNNING,            "still running").
 -define(ERROR_MNESIA_NOT_START,         "Mnesia does not start, yet").
 -define(ERROR_DURING_REBALANCE,         "During rebalance").
 -define(ERROR_NOT_SATISFY_CONDITION,    "Not satisfy conditions").
 -define(ERROR_TARGET_NODE_NOT_RUNNING,  "Target node does not running").
-
-
+-define(ERROR_FAILED_BACKUP_MNESIA,     "Failed to backup the mnesia backup file").
+-define(ERROR_FAILED_RESTORE_MNESIA,    "Failed to restore the mnesia backup file").
+-define(ERROR_FAILED_UPDATE_MANAGERS,   "Failed to update the manager nodes").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').

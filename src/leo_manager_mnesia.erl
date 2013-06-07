@@ -31,6 +31,7 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_libs.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% API
@@ -61,7 +62,13 @@
          insert_history/1,
          insert_available_command/2,
 
-         delete_storage_node/1
+         delete_storage_node/1,
+         delete_gateway_node/1,
+
+         delete_all/0,
+         backup/1,
+         restore/1
+
         ]).
 
 
@@ -129,7 +136,9 @@ create_system_config(Mode, Nodes) ->
          {r,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
          {w,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
          {d,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {bit_of_ring, {integer,   undefined},  false, undefined, undefined, undefined, integer}
+         {bit_of_ring, {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {level_1,     {integer,   undefined},  false, undefined, undefined, undefined, integer},
+         {level_2,     {integer,   undefined},  false, undefined, undefined, undefined, integer}
         ]}
       ]).
 
@@ -425,7 +434,8 @@ get_available_command_by_name(Name) ->
 update_storage_node_status(NodeState) ->
     update_storage_node_status(update_state, NodeState).
 
--spec(update_storage_node_status(update | update_state | keep_state | update_chksum | increment_error | init_error, atom()) ->
+-spec(update_storage_node_status(
+        update|update_state|keep_state|update_chksum|increment_error|init_error, atom()) ->
              ok | {error, any()}).
 update_storage_node_status(update, NodeState) ->
     Tbl = ?TBL_STORAGE_NODES,
@@ -595,8 +605,15 @@ insert_available_command(Command, Help) ->
 %% DELETE
 %%-----------------------------------------------------------------------
 %% @doc Remove storage-node by name
--spec(delete_storage_node(atom()) ->
+-spec(delete_storage_node(#node_state{}) ->
              ok | {error, any()}).
+delete_storage_node(Node) when is_atom(Node) ->
+    case get_storage_node_by_name(Node) of
+        {ok, [NodeInfo|_]} ->
+            delete_storage_node(NodeInfo);
+        Error ->
+            Error
+    end;
 delete_storage_node(Node) ->
     Tbl = ?TBL_STORAGE_NODES,
 
@@ -609,4 +626,101 @@ delete_storage_node(Node) ->
                 end,
             leo_mnesia:delete(F)
     end.
+
+
+%% @doc Remove gateway-node by name
+-spec(delete_gateway_node(atom() | #node_state{}) ->
+             ok | {error, any()}).
+delete_gateway_node(Node) when is_atom(Node) ->
+    case get_gateway_node_by_name(Node) of
+        {ok, [NodeInfo|_]} ->
+            delete_gateway_node(NodeInfo);
+        Error ->
+            Error
+    end;
+delete_gateway_node(Node) ->
+    Tbl = ?TBL_GATEWAY_NODES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        mnesia:delete_object(Tbl, Node, write)
+                end,
+            leo_mnesia:delete(F)
+    end.
+
+%% @doc Delete all tables
+-spec(delete_all() ->
+             ok | {error, any()}).
+delete_all() ->
+    {atomic, ok} = mnesia:delete_table(?TBL_HISTORIES),
+    {atomic, ok} = mnesia:delete_table(?TBL_SYSTEM_CONF),
+    {atomic, ok} = mnesia:delete_table(?TBL_GATEWAY_NODES),
+    {atomic, ok} = mnesia:delete_table(?TBL_STORAGE_NODES),
+    {atomic, ok} = mnesia:delete_table(?TBL_AVAILABLE_CMDS),
+    {atomic, ok} = mnesia:delete_table(?TBL_REBALANCE_INFO),
+    ok.
+
+%% @doc Backup mnesia tables
+-spec(backup(file:filename()) ->
+             ok | {error, any()}).
+backup(DstFilePath) ->
+    {ok, Name, _Nodes} = mnesia:activate_checkpoint(
+                           [{ram_overrides_dump, true},
+                            {name, "backup"},
+                            {max,[?TBL_HISTORIES,
+                                  ?TBL_SYSTEM_CONF,
+                                  ?TBL_GATEWAY_NODES,
+                                  ?TBL_STORAGE_NODES,
+                                  ?TBL_AVAILABLE_CMDS,
+                                  ?TBL_REBALANCE_INFO,
+                                  ?ENDPOINT_TABLE,
+                                  ?AUTH_TABLE,
+                                  ?BUCKET_TABLE,
+                                  ?USERS_TABLE,
+                                  ?USER_CREDENTIAL_TABLE]}]),
+    try
+        mnesia:backup_checkpoint(Name, DstFilePath)
+    after
+        mnesia:deactivate_checkpoint(Name)
+    end.
+
+%% @doc Restore mnesia tables
+-spec(restore(file:filename()) ->
+             ok | {error, any()}).
+restore(DstFilePath) ->
+    case mnesia:restore(DstFilePath, [{default_op, recreate_tables}]) of
+        {atomic, RestoredTabs} ->
+            validate_restored_tables(RestoredTabs);
+        {aborted, Reason} ->
+            {error, Reason}
+    end.
+
+%% @private validate restored tables
+validate_restored_tables(RestoredTabs) ->
+    TableSet = sets:new(),
+    TableSet2 = sets:add_element(?TBL_HISTORIES, TableSet),
+    TableSet3 = sets:add_element(?TBL_SYSTEM_CONF, TableSet2),
+    TableSet4 = sets:add_element(?TBL_GATEWAY_NODES, TableSet3),
+    TableSet5 = sets:add_element(?TBL_STORAGE_NODES, TableSet4),
+    TableSet6 = sets:add_element(?TBL_AVAILABLE_CMDS, TableSet5),
+    TableSet7 = sets:add_element(?TBL_REBALANCE_INFO, TableSet6),
+    TableSet8 = sets:add_element(?ENDPOINT_TABLE, TableSet7),
+    TableSet9 = sets:add_element(?AUTH_TABLE, TableSet8),
+    TableSet10 = sets:add_element(?BUCKET_TABLE, TableSet9),
+    TableSet11 = sets:add_element(?USERS_TABLE, TableSet10),
+    TableSet12 = sets:add_element(?USER_CREDENTIAL_TABLE, TableSet11),
+    validate_restored_tables(RestoredTabs, TableSet12).
+
+validate_restored_tables([], ExpectedTableSet) ->
+    case sets:size(ExpectedTableSet) of
+        0 ->
+            ok;
+        _ ->
+            {error, {missing_tables, ExpectedTableSet}}
+    end;
+validate_restored_tables([T|Rest], ExpectedTableSet) ->
+    validate_restored_tables(Rest, sets:del_element(T, ExpectedTableSet)).
 

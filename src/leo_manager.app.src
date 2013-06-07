@@ -1,3 +1,4 @@
+%% -*- mode: erlang;erlang-indent-level: 4;indent-tabs-mode: nil -*-
 %%======================================================================
 %%
 %% Leo Manager
@@ -20,21 +21,21 @@
 %%
 %%======================================================================
 {application, leo_manager,
-  [
-    {description, "LeoFS Manager"},
-    {vsn, "0.14.1-1"},
-    {id,  "leo_manager"},
-    {registered,   []},
-    {applications, [kernel, stdlib, crypto]},
-    {mod, {leo_manager_app, []}},
-    {env, [{system, [{n, 2},
-                     {w, 1},
-                     {r, 1},
-                     {d, 1},
-                     {bit_of_ring, 128}
-                     ]},
-           {log_level,    0},
-           {log_appender, [file]}
-          ]}
-  ]
+ [
+  {description, "LeoFS Manager"},
+  {vsn, "0.14.2"},
+  {id,  "leo_manager"},
+  {registered,   []},
+  {applications, [kernel, stdlib, crypto]},
+  {mod, {leo_manager_app, []}},
+  {env, [{system, [{n, 2},
+                   {w, 1},
+                   {r, 1},
+                   {d, 1},
+                   {bit_of_ring, 128}
+                  ]},
+         {log_level,    0},
+         {log_appender, [file]}
+        ]}
+ ]
 }.

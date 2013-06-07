@@ -162,6 +162,8 @@ system_info_and_nodes_stat(Props) ->
                   {<<"r">>,              list_to_binary(integer_to_list(SystemConf#system_conf.r))},
                   {<<"w">>,              list_to_binary(integer_to_list(SystemConf#system_conf.w))},
                   {<<"d">>,              list_to_binary(integer_to_list(SystemConf#system_conf.d))},
+                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#system_conf.level_1))},
+                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#system_conf.level_2))},
                   {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))},
                   {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
                   {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
@@ -221,6 +223,8 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
     Version     = leo_misc:get_value('version',       State, []),
+    NumOfVNodes = leo_misc:get_value('num_of_vnodes', State, -1),
+    GrpLevel2   = leo_misc:get_value('grp_level_2',   State, []),
     Directories = leo_misc:get_value('dirs',          State, []),
     RingHashes  = leo_misc:get_value('ring_checksum', State, []),
     Statistics  = leo_misc:get_value('statistics',    State, []),
@@ -228,6 +232,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
 
     gen_json({[{<<"node_stat">>,
                 {[{<<"version">>,          list_to_binary(Version)},
+                  {<<"num_of_vnodes">>,    NumOfVNodes},
+                  {<<"grp_level_2">>,      list_to_binary(GrpLevel2)},
                   {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
                   {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
                   {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
