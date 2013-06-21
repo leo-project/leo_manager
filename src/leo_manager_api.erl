@@ -580,19 +580,10 @@ rebalance_1_1(DetachedNode, AttachedNode) ->
         ok ->
             case leo_manager_mnesia:delete_storage_node(DetachedNode) of
                 ok ->
-                    rebalance_1_2(AttachedNode);
+                    {ok, {takeover, AttachedNode}};
                 Error ->
                     Error
             end;
-        Error ->
-            Error
-    end.
-
-rebalance_1_2(AttachedNode) ->
-    {ok, CurRing} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
-    case leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, CurRing) of
-        {ok, _Checksum} ->
-            {ok, {takeover, AttachedNode}};
         Error ->
             Error
     end.
@@ -616,7 +607,14 @@ rebalance_2(Tbl, [Item|T]) ->
     rebalance_2(Tbl, T).
 
 rebalance_3(Type, ?STATE_ATTACHED, [], Members) ->
-    rebalance_4(Type, Members, Members, []);
+    {ok, RingCur} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
+    case leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, RingCur) of
+        {ok, _} ->
+            rebalance_4(Type, RingCur, Members, Members, []);
+        {error, Cause} ->
+            ?error("rebalance_3/4", "cause:~p", [Cause]),
+            {error, Cause}
+    end;
 
 rebalance_3(Type, ?STATE_ATTACHED, [Node|Rest], Members) ->
     %% New Attached-node change Ring.cur, Ring.prev and Members
@@ -650,26 +648,30 @@ rebalance_3(Type, ?STATE_ATTACHED, [Node|Rest], Members) ->
     end;
 
 rebalance_3(Type, ?STATE_DETACHED, [Node|_Rest], Members) ->
-    {ok, Ring} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
+    {ok, RingCur} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
     ok = leo_redundant_manager_api:update_member_by_node(Node, leo_date:clock(), ?STATE_STOP),
 
     case leo_manager_mnesia:get_storage_node_by_name(Node) of
         {ok, [NodeInfo|_]} ->
-            leo_manager_mnesia:delete_storage_node(NodeInfo),
-            _ = leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, Ring),
-            rebalance_4(Type, Members, Members, []);
+            _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
+
+            case leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, RingCur) of
+                {ok, _Checksum} ->
+                    rebalance_4(Type, RingCur, Members, Members, []);
+                {error, Cause} ->
+                    ?error("rebalance_3/4", "cause:~p", [Cause]),
+                    {error, Cause}
+            end;
         Error ->
             Error
     end.
 
-rebalance_4(_Type,_Members, [], []) ->
+rebalance_4(_Type,_Ring,_Members, [], []) ->
     ok;
-rebalance_4(_Type,_Members, [], Errors) ->
+rebalance_4(_Type,_Ring,_Members, [], Errors) ->
     {error, Errors};
-rebalance_4(Type, Members, [#member{node  = Node,
+rebalance_4( Type, Ring, Members, [#member{node  = Node,
                                     state = ?STATE_RUNNING}|T], Errors0) ->
-    %% already-started node >> ring(cur) + member
-    {ok, Ring}    = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
     ObjectOfRings = lists:foldl(
                       fun(#member{state = ?STATE_ATTACHED}, null)
                             when Type == ?TYPE_REBALANCE_REGULAR ->
@@ -682,6 +684,7 @@ rebalance_4(Type, Members, [#member{node  = Node,
                          (_, Acc) ->
                               Acc
                       end, null, Members),
+
     Errors1 =
         case rpc:call(Node, leo_redundant_manager_api, synchronize,
                       [ObjectOfRings, Ring], ?DEF_TIMEOUT) of
@@ -696,10 +699,10 @@ rebalance_4(Type, Members, [#member{node  = Node,
             timeout = Cause ->
                 [{Node, Cause}|Errors0]
         end,
-    rebalance_4(Type, Members, T, Errors1);
+    rebalance_4(Type, Ring, Members, T, Errors1);
 
-rebalance_4(Type, Members, [_|T], Errors0) ->
-    rebalance_4(Type, Members, T, Errors0).
+rebalance_4(Type, Ring, Members, [_|T], Errors0) ->
+    rebalance_4(Type, Ring, Members, T, Errors0).
 
 
 rebalance_5({takeover, Node},_) ->
@@ -766,8 +769,7 @@ register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
 
 %% @doc Notified "Synchronized" from cluster-nods.
 %%
-notify(synchronized, VNodeId, Node) ->
-    ok = leo_redundant_manager_api:adjust(VNodeId),
+notify(synchronized,_VNodeId, Node) ->
     synchronize1(?SYNC_MODE_PREV_RING, Node);
 notify(_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
