@@ -55,6 +55,7 @@ all_(Node) ->
                 end),
     meck:expect(leo_manager_api, attach, 4, ok),
     meck:expect(leo_manager_api, distribute_members, 2, ok),
+    meck:expect(leo_manager_api, synchronize, 2, ok),
 
     meck:new(leo_storage_api),
     meck:expect(leo_storage_api, register_in_monitor, fun(again) ->
