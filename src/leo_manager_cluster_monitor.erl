@@ -286,7 +286,7 @@ code_change(_OldVsn, State, _Extra) ->
 update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;
 update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state_1(?STATE_RESTARTED, Node);
-update_node_state(start, ?STATE_RUNNING,   Node) -> update_node_state_1(?STATE_RESTARTED, Node);
+update_node_state(start, ?STATE_RUNNING,  _Node) -> ok;
 update_node_state(start, ?STATE_STOP,      Node) -> update_node_state_1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RESTARTED,_Node) -> ok;
 update_node_state(start, not_found,        Node) -> update_node_state_1(?STATE_ATTACHED,  Node);
@@ -451,6 +451,14 @@ register_fun_1(#registration{node = Node,
 
 -spec(register_fun_2({ok, list(#node_state{})} | not_found| {error, any()}, #registration{}) ->
              ok | {error, any()}).
+
+register_fun_2({ok, [#node_state{state = ?STATE_RUNNING}|_]}, #registration{node = Node,
+                                                                            type = storage}) ->
+    %% synchronize member and ring
+    leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
+    leo_manager_api:synchronize(?CHECKSUM_RING, Node),
+    ok;
+
 register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,
                                                                              type = storage,
                                                                              level_1 = L1,
