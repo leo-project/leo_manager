@@ -429,34 +429,48 @@ start() ->
     case leo_redundant_manager_api:create() of
         {ok, Members, _Chksums} ->
             %% Distribute members-list to all storage nodes.
-            Nodes = lists:map(fun(#member{node = Node}) ->
-                                      Node
+            Nodes = lists:map(fun(#member{node = Node}) -> Node
                               end, Members),
-            {ok, SystemConf}   = leo_manager_mnesia:get_system_config(),
-            {ResL0, BadNodes0} = rpc:multicall(
-                                   Nodes, ?API_STORAGE, start, [Members, SystemConf], ?DEF_TIMEOUT),
-
-            %% Update an object of node-status.
-            case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
-                                     {[{Node, Chksum}|Acc0], Acc1};
-                                ({error, {ErrorNode, _Cause}}, {Acc0,Acc1}) ->
-                                     {Acc0, [ErrorNode|Acc1]}
-                             end, {[],[]}, ResL0) of
-                {ResL1, BadNodes1} ->
-                    lists:foreach(
-                      fun({Node, {RingHash0, RingHash1}}) ->
-                              leo_manager_mnesia:update_storage_node_status(
-                                update, #node_state{node          = Node,
-                                                    state         = ?STATE_RUNNING,
-                                                    ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
-                                                    ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
-                                                    when_is       = leo_date:now()})
-                      end, ResL1),
-                    {ResL1, BadNodes0 ++ BadNodes1}
+            case leo_manager_mnesia:get_system_config() of
+                {ok, SystemConf} ->
+                    Res = rpc:multicall(Nodes, ?API_STORAGE, start,
+                                        [Members, SystemConf], ?DEF_TIMEOUT),
+                    start_1(Res);
+                {error, Cause} ->
+                    {error, Cause}
             end;
         {error, Cause} ->
             ?error("start/0", "cause:~p", [Cause]),
             {error, Cause}
+    end.
+
+%% @doc Check results and update an object of node-status
+%% @private
+start_1({ResL0, BadNodes0}) ->
+    case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
+                             {[{Node, Chksum}|Acc0], Acc1};
+                        ({error, {ErrorNode, _Cause}}, {Acc0,Acc1}) ->
+                             {Acc0, [ErrorNode|Acc1]}
+                     end, {[],[]}, ResL0) of
+        {ResL1, []} ->
+            case BadNodes0 of
+                [] ->
+                    lists:foreach(
+                      fun({Node, {RingHash0, RingHash1}}) ->
+                              leo_manager_mnesia:update_storage_node_status(
+                                update,
+                                #node_state{node          = Node,
+                                            state         = ?STATE_RUNNING,
+                                            ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
+                                            ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
+                                            when_is       = leo_date:now()})
+                      end, ResL1),
+                    {ResL1, []};
+                _ ->
+                    {ResL1, BadNodes0}
+            end;
+        {ResL1, BadNodes1} ->
+            {ResL1, BadNodes0 ++ BadNodes1}
     end.
 
 
@@ -671,7 +685,7 @@ rebalance_4(_Type,_Ring,_Members, [], []) ->
 rebalance_4(_Type,_Ring,_Members, [], Errors) ->
     {error, Errors};
 rebalance_4( Type, Ring, Members, [#member{node  = Node,
-                                    state = ?STATE_RUNNING}|T], Errors0) ->
+                                           state = ?STATE_RUNNING}|T], Errors0) ->
     ObjectOfRings = lists:foldl(
                       fun(#member{state = ?STATE_ATTACHED}, null)
                             when Type == ?TYPE_REBALANCE_REGULAR ->
