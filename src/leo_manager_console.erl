@@ -769,6 +769,7 @@ detach(CmdBody, Option) ->
                 {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
                     ok = leo_manager_mnesia:delete_storage_node(NodeState),
                     ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
+                    ok = leo_redundant_manager_api:delete_member_by_node(NodeAtom),
                     ok;
                 _ ->
                     case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
