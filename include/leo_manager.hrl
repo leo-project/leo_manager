@@ -210,6 +210,16 @@
 -define(MOD_TEXT_FORMATTER, 'leo_manager_formatter_text').
 -define(MOD_JSON_FORMATTER, 'leo_manager_formatter_json').
 
+
+%% test values and default values
+-define(TEST_USER_ID, "_test_leofs").
+-define(TEST_ACCESS_KEY, <<"05236">>).
+-define(TEST_SECRET_KEY, <<"802562235">>).
+
+-define(DEF_ENDPOINT_1, <<"localhost">>).
+-define(DEF_ENDPOINT_2, <<"s3.amazonaws.com">>).
+
+
 %% records
 %%
 -define(AUTH_NOT_YET, 0).
@@ -246,9 +256,9 @@
          }).
 
 -record(history, {
-          id                     :: integer(),
-          command = []           :: string(), %% Command
-          created = -1           :: integer() %% Created
+          id           :: integer(),
+          command = [] :: string(), %% Command
+          created = -1 :: integer() %% Created At
          }).
 
 
@@ -319,5 +329,12 @@
             true  -> 0;
             false ->
                 erlang:round((_ActiveSize / _TotalSize) * 10000)/100
+        end).
+
+-define(env_use_s3_api(),
+        %% default is true
+        case application:get_env(leo_manager, use_s3_api) of
+            {ok, EnvUseS3API} -> EnvUseS3API;
+            _ -> true
         end).
 

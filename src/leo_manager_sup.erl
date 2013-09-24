@@ -109,7 +109,10 @@ start_link() ->
             {ok, _} = supervisor:start_child(Pid, ChildSpec),
 
             %% Launch S3Libs:Auth/Bucket/EndPoint
-            ok = leo_s3_libs:start(master, []),
+            case ?env_use_s3_api() of
+                true  -> ok = leo_s3_libs:start(master, []);
+                false -> void
+            end,
 
             %% Launch Mnesia and create that tables
             {ok, Dir} = application:get_env(mnesia, dir),
@@ -201,12 +204,12 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
     case mnesia:create_schema(Nodes1) of
         ok ->
             try
-                %% create mnesia's schema.
+                %% create mnesia's schema
                 mnesia:create_schema(Nodes1),
                 rpc:multicall(Nodes1, application, stop,  [mnesia], ?DEF_TIMEOUT),
                 rpc:multicall(Nodes1, application, start, [mnesia], ?DEF_TIMEOUT),
 
-                %% create table into the mnesia.
+                %% create table into the mnesia
                 leo_manager_mnesia:create_system_config(disc_copies, Nodes1),
                 leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes1),
                 leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes1),
@@ -218,17 +221,11 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes1),
                 leo_redundant_manager_table_member:create_members(disc_copies, Nodes1),
 
-                leo_s3_auth:create_credential_table(disc_copies, Nodes1),
-                leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes1),
-                leo_s3_bucket:create_bucket_table(disc_copies, Nodes1),
-                leo_s3_user:create_user_table(disc_copies, Nodes1),
-                leo_s3_user:create_user_credential_table(disc_copies, Nodes1),
-
+                %% Load from system-config and store it into the mnesia
                 {ok, _} = load_system_config_with_store_data(),
 
-                %% Clear and Insert available-commands:
+                %% Clear and Insert available-commands
                 {atomic,ok} = mnesia:clear_table(?TBL_AVAILABLE_CMDS),
-
                 case ?env_available_commands() of
                     all ->
                         lists:foreach(
@@ -250,28 +247,35 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                           end, ?COMMANDS)
                 end,
 
-                %% Insert test-credential-related values:
-                TestUserId    = "_test_leofs",
-                TestAccessKey = <<"05236">>,
-                TestSecretKey = <<"802562235">>,
-                CreatedAt     = leo_date:now(),
+                case ?env_use_s3_api() of
+                    true ->
+                        %% Create S3-related tables
+                        leo_s3_auth:create_credential_table(disc_copies, Nodes1),
+                        leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes1),
+                        leo_s3_bucket:create_bucket_table(disc_copies, Nodes1),
+                        leo_s3_user:create_user_table(disc_copies, Nodes1),
+                        leo_s3_user:create_user_credential_table(disc_copies, Nodes1),
 
-                leo_s3_libs_data_handler:insert(
-                  {mnesia, leo_s3_users}, {[], #user{id         = TestUserId,
-                                                     role_id    = 9,
-                                                     created_at = CreatedAt}}),
-                leo_s3_libs_data_handler:insert(
-                  {mnesia, leo_s3_user_credential}, {[], #user_credential{user_id       = TestUserId,
-                                                                          access_key_id = TestAccessKey,
-                                                                          created_at    = CreatedAt}}),
-                leo_s3_libs_data_handler:insert(
-                  {mnesia, leo_s3_credentials}, {[], #credential{access_key_id     = TestAccessKey,
-                                                                 secret_access_key = TestSecretKey,
-                                                                 created_at        = CreatedAt}}),
-
-                %% Insert default s3-endpoint values:
-                leo_s3_endpoint:set_endpoint(<<"localhost">>),
-                leo_s3_endpoint:set_endpoint(<<"s3.amazonaws.com">>),
+                        %% Insert test-related values
+                        CreatedAt     = leo_date:now(),
+                        leo_s3_libs_data_handler:insert({mnesia, leo_s3_users},
+                                                        {[], #user{id         = ?TEST_USER_ID,
+                                                                   role_id    = 9,
+                                                                   created_at = CreatedAt}}),
+                        leo_s3_libs_data_handler:insert({mnesia, leo_s3_user_credential},
+                                                        {[], #user_credential{user_id       = ?TEST_USER_ID,
+                                                                              access_key_id = ?TEST_ACCESS_KEY,
+                                                                              created_at    = CreatedAt}}),
+                        leo_s3_libs_data_handler:insert({mnesia, leo_s3_credentials},
+                                                        {[], #credential{access_key_id     = ?TEST_ACCESS_KEY,
+                                                                         secret_access_key = ?TEST_SECRET_KEY,
+                                                                         created_at        = CreatedAt}}),
+                        %% Insert default s3-endpoint values
+                        leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_1),
+                        leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2);
+                    false ->
+                        void
+                end,
                 ok
             catch _:Reason ->
                     ?error("create_mnesia_tables1/3", "cause:~p", [Reason])
