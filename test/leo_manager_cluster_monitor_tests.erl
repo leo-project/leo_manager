@@ -115,6 +115,8 @@ all_(Node) ->
     ?debugVal(Res9),
 
     ?assertEqual({ok,ok,ok,ok,ok,ok,ok,ok,ok}, {Res0,Res1,Res2,Res3,Res4,Res5,Res6,Res7,Res8}),
+    leo_manager_cluster_monitor:stop(),
+    meck:unload(),
     ok.
 
 -endif.

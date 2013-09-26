@@ -77,6 +77,7 @@ setup() ->
     {Node0, Node1, Sock}.
 
 teardown({_, Node1, _}) ->
+    leo_manager_console:stop(),
     meck:unload(),
     net_kernel:stop(),
     slave:stop(Node1),
