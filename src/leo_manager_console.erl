@@ -33,6 +33,7 @@
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -413,6 +414,34 @@ handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command, #state{formatter = F
                   end
           end,
     Reply = invoke(?CMD_GET_BUCKETS, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "get-acl ${bucket}"
+%%
+handle_call(_Socket, <<?CMD_GET_ACL, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case get_acl(Command, Option) of
+                      {ok, ACLs}->
+                          Formatter:acls(ACLs);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_GET_ACL, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "update-acl ${bucket} ${canned_acl}"
+%%
+handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case update_acl(Command, Option) of
+                      ok ->
+                    Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_ACL, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -1306,3 +1335,75 @@ get_buckets(CmdBody) ->
             {error, Cause}
     end.
 
+%% @doc Get ACLs of the specified bucket in the manager
+%% @private
+-spec(get_acl(binary(), binary()) ->
+        {ok, acls()} | {error, any()}).
+get_acl(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, AccessKey] ->
+            case leo_s3_bucket:get_acls(
+                    list_to_binary(AccessKey),
+                    list_to_binary(Bucket)) of
+                {ok, ACLs} ->
+                    {ok, ACLs};
+                not_found ->
+                    {ok, []};
+                {error, badarg} ->
+                    {error, ?ERROR_INVALID_BUCKET_FORMAT};
+                {error, _Cause} ->
+                    {error, ?ERROR_COULD_NOT_STORE}
+            end;
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+%% @doc Update ACLs of the specified bucket with the Canned ACL in the manager
+%% @private
+-spec(update_acl(binary(), binary()) ->
+        ok | {error, any()}).
+update_acl(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, AccessKey, ?CANNED_ACL_PRIVATE] ->
+            case leo_s3_bucket:update_acls2private(
+                    list_to_binary(AccessKey),
+                    list_to_binary(Bucket)) of
+                ok ->
+                    ok;
+                {error, _Cause} ->
+                    {error, ?ERROR_COULD_NOT_STORE}
+            end;
+        [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ] ->
+            case leo_s3_bucket:update_acls2public_read(
+                    list_to_binary(AccessKey),
+                    list_to_binary(Bucket)) of
+                ok ->
+                    ok;
+                {error, _Cause} ->
+                    {error, ?ERROR_COULD_NOT_STORE}
+            end;
+        [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ_WRITE] ->
+            case leo_s3_bucket:update_acls2public_read_write(
+                    list_to_binary(AccessKey),
+                    list_to_binary(Bucket)) of
+                ok ->
+                    ok;
+                {error, _Cause} ->
+                    {error, ?ERROR_COULD_NOT_STORE}
+            end;
+        [Bucket, AccessKey, ?CANNED_ACL_AUTHENTICATED_READ] ->
+            case leo_s3_bucket:update_acls2authenticated_read(
+                    list_to_binary(AccessKey),
+                    list_to_binary(Bucket)) of
+                ok ->
+                    ok;
+                {error, _Cause} ->
+                    {error, ?ERROR_COULD_NOT_STORE}
+            end;
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.

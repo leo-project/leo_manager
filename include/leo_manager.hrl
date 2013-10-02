@@ -91,6 +91,8 @@
 -define(CMD_ADD_BUCKET,       "add-bucket").
 -define(CMD_GET_BUCKETS,      "get-buckets").
 -define(CMD_DELETE_BUCKET,    "delete-bucket").
+-define(CMD_UPDATE_ACL,       "update-acl").
+-define(CMD_GET_ACL,          "get-acl").
 -define(CMD_DU,               "du").
 -define(CMD_WHEREIS,          "whereis").
 -define(CMD_RECOVER,          "recover").
@@ -104,6 +106,10 @@
 -define(AUTHORIZED,           <<"_authorized_\r\n">>).
 -define(USER_ID,              <<"_user_id_\r\n">>).
 -define(PASSWORD,             <<"_password_\r\n">>).
+-define(CANNED_ACL_PRIVATE,            "private").
+-define(CANNED_ACL_PUBLIC_READ,        "public-read").
+-define(CANNED_ACL_PUBLIC_READ_WRITE,  "public-read-write").
+-define(CANNED_ACL_AUTHENTICATED_READ, "authenticated-read").
 
 -define(COMMANDS, [{?CMD_HELP,      "help"},
                    {?CMD_QUIT,      "quit"},
@@ -146,6 +152,8 @@
                    {?CMD_GET_BUCKETS,      "get-buckets"},
                    {?CMD_DELETE_BUCKET,    "delete-bucket ${bucket} ${access-key-id}"},
                    {?CMD_ADD_BUCKET,       "add-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_UPDATE_ACL,       "update-acl ${bucket} ${access-key-id} ${canned_acl}"},
+                   {?CMD_GET_ACL,          "get-acl ${bucket} ${access-key-id}"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
                    {?CMD_BACKUP_MNESIA,    "backup-mnesia ${backupfilepath}"},
