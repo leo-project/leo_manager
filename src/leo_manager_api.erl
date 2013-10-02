@@ -605,19 +605,22 @@ rebalance_1_1(DetachedNode, AttachedNode) ->
 
 rebalance_2(Tbl, []) ->
     Ret = case leo_hashtable:all(Tbl) of
-              [] ->
-                  {error, no_entry};
-              List ->
-                  {ok, List}
+              []   -> {error, no_entry};
+              List -> {ok, List}
           end,
-    leo_hashtable:destroy(Tbl),
+    catch leo_hashtable:destroy(Tbl),
     Ret;
 rebalance_2(Tbl, [Item|T]) ->
     %% Item: [{vnode_id, VNodeId0}, {src, SrcNode}, {dest, DestNode}]
     VNodeId  = leo_misc:get_value('vnode_id', Item),
     SrcNode  = leo_misc:get_value('src',      Item),
     DestNode = leo_misc:get_value('dest',     Item),
-    ok = leo_hashtable:append(Tbl, SrcNode, {VNodeId, DestNode}),
+    case SrcNode of
+        {error, no_entry} ->
+            void;
+        _ ->
+            ok = leo_hashtable:append(Tbl, SrcNode, {VNodeId, DestNode})
+    end,
     rebalance_2(Tbl, T).
 
 rebalance_3(Type, ?STATE_ATTACHED, [], Members) ->
@@ -661,14 +664,9 @@ rebalance_3(Type, ?STATE_ATTACHED, [Node|Rest], Members) ->
             {error, Cause}
     end;
 
-rebalance_3(Type, ?STATE_DETACHED, [Node|_Rest], Members) ->
-    {ok, RingCur} = leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING),
-    ok = leo_redundant_manager_api:update_member_by_node(Node, leo_date:clock(), ?STATE_STOP),
-
-    case leo_manager_mnesia:get_storage_node_by_name(Node) of
-        {ok, [NodeInfo|_]} ->
-            _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
-
+rebalance_3(Type, ?STATE_DETACHED, [], Members) ->
+    case leo_redundant_manager_api:get_ring(?SYNC_MODE_CUR_RING) of
+        {ok, RingCur} ->
             case leo_redundant_manager_api:synchronize(?SYNC_MODE_PREV_RING, RingCur) of
                 {ok, _Checksum} ->
                     rebalance_4(Type, RingCur, Members, Members, []);
@@ -676,6 +674,19 @@ rebalance_3(Type, ?STATE_DETACHED, [Node|_Rest], Members) ->
                     ?error("rebalance_3/4", "cause:~p", [Cause]),
                     {error, Cause}
             end;
+        {error, Cause} ->
+            ?error("rebalance_3/4", "cause:~p", [Cause]),
+            {error, Cause}
+    end;
+
+rebalance_3(Type, ?STATE_DETACHED, [Node|Rest], Members) ->
+    ok = leo_redundant_manager_api:update_member_by_node(
+           Node, leo_date:clock(), ?STATE_STOP),
+
+    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+        {ok, [NodeInfo|_]} ->
+            _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
+            rebalance_3(Type, ?STATE_DETACHED, Rest, Members);
         Error ->
             Error
     end.
