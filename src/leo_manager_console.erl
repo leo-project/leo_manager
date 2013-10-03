@@ -1354,7 +1354,7 @@ get_acl(CmdBody, Option) ->
                 {error, badarg} ->
                     {error, ?ERROR_INVALID_BUCKET_FORMAT};
                 {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
+                    {error, ?ERROR_INVALID_ARGS}
             end;
         _ ->
             {error, ?ERROR_INVALID_ARGS}

@@ -64,6 +64,10 @@ accept(ListenSocket, State, Module, Option) ->
             try
                 recv(leo_misc:get_value(active, Option#tcp_server_params.listen),
                      Socket, State, Module, Option)
+            catch
+                Type:Reason ->
+                    io:format("[error] ~p:~p - ~p,~p,~p~n",
+                              [?MODULE, "accept/5a", Module, Type, Reason])
             after
                 gen_tcp:close(Socket)
             end;
