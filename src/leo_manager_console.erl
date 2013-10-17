@@ -1343,10 +1343,9 @@ get_acl(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket, AccessKey] ->
-            case leo_s3_bucket:get_acls(
-                    list_to_binary(AccessKey),
-                    list_to_binary(Bucket)) of
+        % @todo maybe need to check if this access key is valid
+        [Bucket, _AccessKey] ->
+            case leo_s3_bucket:get_acls(list_to_binary(Bucket)) of
                 {ok, ACLs} ->
                     {ok, ACLs};
                 not_found ->
