@@ -635,12 +635,12 @@ whereis(AssignedInfo) ->
                                  lists:append([" ",
                                                string:left(DelStr,                              lists:nth(1,LenPerCol)),
                                                string:left(Node,                                lists:nth(2,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(VNodeId, 8), lists:nth(3,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(VNodeId, 8),  lists:nth(3,LenPerCol)),
                                                string:left(leo_file:dsize(DSize),               lists:nth(4,LenPerCol)),
                                                string:left(string:sub_string(leo_hex:integer_to_hex(Checksum, 8), 1, 10),
                                                            lists:nth(5,LenPerCol)),
                                                string:left(integer_to_list(ChunkedObjs),        lists:nth(6,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(Clock, 8),   lists:nth(7,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(Clock, 8),    lists:nth(7,LenPerCol)),
                                                FormattedDate,
                                                ?CRLF])
                          end,
@@ -679,30 +679,30 @@ password() ->
              string()).
 acls(ACLs) ->
     Col1Len = lists:foldl(fun(#bucket_acl_info{user_id = User} = _ACL, C1) ->
-                                             UserStr = binary_to_list(User),
-                                             Len = length(UserStr),
-                                             case (Len > C1) of
-                                                  true  -> Len;
-                                                  false -> C1
-                                             end
-                                     end, 8, ACLs),
+                                  UserStr = binary_to_list(User),
+                                  Len = length(UserStr),
+                                  case (Len > C1) of
+                                      true  -> Len;
+                                      false -> C1
+                                  end
+                          end, 14, ACLs),
     Col2Len = 24, % @todo to be calcurated
     Header = lists:append(
-               [string:left("user_id",     Col1Len), " | ",
-                string:left("permissions", Col2Len), "\r\n",
+               [string:left("access_key_id", Col1Len), " | ",
+                string:left("permissions",   Col2Len), "\r\n",
                 lists:duplicate(Col1Len, "-"), "-+-",
                 lists:duplicate(Col2Len, "-"), "\r\n"]),
 
     Fun = fun(#bucket_acl_info{user_id = User, permissions = Permissions} = _ACL, Acc) ->
                   UserStr = binary_to_list(User),
-                  FormatStr = case length(Permissions) of 
-                      0 ->
-                        "~s | private\r\n";
-                      1 ->
-                        "~s | ~s\r\n";
-                      N ->
-                        lists:flatten(lists:append(["~s | ~s", lists:duplicate(N-1, ", ~s"), "\r\n"]))
-                  end,
+                  FormatStr = case length(Permissions) of
+                                  0 ->
+                                      "~s | private\r\n";
+                                  1 ->
+                                      "~s | ~s\r\n";
+                                  N ->
+                                      lists:flatten(lists:append(["~s | ~s", lists:duplicate(N-1, ", ~s"), "\r\n"]))
+                              end,
                   Acc ++ io_lib:format(FormatStr,
                                        [string:left(UserStr, Col1Len)] ++ Permissions)
           end,

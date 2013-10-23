@@ -152,7 +152,7 @@
                    {?CMD_GET_BUCKETS,      "get-buckets"},
                    {?CMD_DELETE_BUCKET,    "delete-bucket ${bucket} ${access-key-id}"},
                    {?CMD_ADD_BUCKET,       "add-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_UPDATE_ACL,       "update-acl ${bucket} ${access-key-id} ${canned_acl}"},
+                   {?CMD_UPDATE_ACL,       "update-acl ${bucket} ${access-key-id} private|public-read|public-read-write"},
                    {?CMD_GET_ACL,          "get-acl ${bucket} ${access-key-id}"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
