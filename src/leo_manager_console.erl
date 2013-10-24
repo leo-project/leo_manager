@@ -807,7 +807,7 @@ detach(CmdBody, Option) ->
                     N = SystemConf#system_conf.n,
                     case allow_to_detach_node_1(N) of
                         ok ->
-                            case allow_to_detach_node_2(N) of
+                            case allow_to_detach_node_2(N, NodeAtom) of
                                 ok ->
                                     case leo_manager_api:detach(NodeAtom) of
                                         ok ->
@@ -833,20 +833,40 @@ allow_to_detach_node_1(N) ->
             ok;
         {ok,_Nodes} ->
             {error, "Detached nodes greater than or equal # of replicas"};
+        not_found ->
+            ok;
         Error ->
             Error
     end.
 
--spec(allow_to_detach_node_2(pos_integer()) ->
+-spec(allow_to_detach_node_2(pos_integer(), atom()) ->
              ok | {error, any()}).
-allow_to_detach_node_2(N) ->
-    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-        {ok, Nodes} when length(Nodes) >= N ->
-            ok;
-        {ok,_Nodes} ->
-            {error, "Running nodes less than # of replicas"};
-        _Error ->
-            {error, "Could not get node-status"}
+allow_to_detach_node_2(N, NodeAtom) ->
+    IsRunning = case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                    {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                        1;
+                    {ok, [#node_state{state = _}|_]} ->
+                        0;
+                    _ ->
+                        {error, "Could not get node-status"}
+                end,
+
+    case IsRunning of
+        {error, Cause} ->
+            {error, Cause};
+        _ ->
+            case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
+                {ok, Nodes} when IsRunning == 0 andalso length(Nodes) >= N ->
+                    ok;
+                {ok, Nodes} when IsRunning == 1 andalso length(Nodes) > N ->
+                    ok;
+                {ok,_Nodes} ->
+                    {error, "Running nodes less than # of replicas"};
+                not_found ->
+                    {error, "Could not get node-status"};
+                _Error ->
+                    {error, "Could not get node-status"}
+            end
     end.
 
 
