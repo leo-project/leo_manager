@@ -436,7 +436,7 @@ handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>> = Command, #stat
     Fun = fun() ->
                   case update_acl(Command, Option) of
                       ok ->
-                    Formatter:ok();
+                          Formatter:ok();
                       {error, Cause} ->
                           Formatter:error(Cause)
                   end
@@ -795,26 +795,58 @@ detach(CmdBody, Option) ->
             NodeAtom = list_to_atom(Node),
 
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                %% target-node is 'attached', then removed it from 'member-table'
                 {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
                     ok = leo_manager_mnesia:delete_storage_node(NodeState),
                     ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
                     ok = leo_redundant_manager_api:delete_member_by_node(NodeAtom),
                     ok;
                 _ ->
-                    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-                        {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
-                            case leo_manager_api:detach(NodeAtom) of
+                    %% allow to detach the node?
+                    %% if it's ok then execute to detach it
+                    N = SystemConf#system_conf.n,
+                    case allow_to_detach_node_1(N) of
+                        ok ->
+                            case allow_to_detach_node_2(N) of
                                 ok ->
-                                    ok;
-                                {error, _} ->
-                                    {error, {Node, ?ERROR_COULD_NOT_DETACH_NODE}}
+                                    case leo_manager_api:detach(NodeAtom) of
+                                        ok ->
+                                            ok;
+                                        {error, _} ->
+                                            {error, {Node, ?ERROR_COULD_NOT_DETACH_NODE}}
+                                    end;
+                                Error ->
+                                    Error
                             end;
-                        {ok, Nodes} when length(Nodes) =< SystemConf#system_conf.n ->
-                            {error, "Attached nodes less than # of replicas"};
-                        _Error ->
-                            {error, "Could not get node-status"}
+                        Error ->
+                            Error
                     end
             end
+    end.
+
+%% @private
+-spec(allow_to_detach_node_1(pos_integer()) ->
+             ok | {error, any()}).
+allow_to_detach_node_1(N) ->
+    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_DETACHED) of
+        {ok, Nodes} when length(Nodes) < N ->
+            ok;
+        {ok,_Nodes} ->
+            {error, "Detached nodes greater than or equal # of replicas"};
+        Error ->
+            Error
+    end.
+
+-spec(allow_to_detach_node_2(pos_integer()) ->
+             ok | {error, any()}).
+allow_to_detach_node_2(N) ->
+    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
+        {ok, Nodes} when length(Nodes) >= N ->
+            ok;
+        {ok,_Nodes} ->
+            {error, "Running nodes less than # of replicas"};
+        _Error ->
+            {error, "Could not get node-status"}
     end.
 
 
@@ -882,18 +914,12 @@ resume(CmdBody, Option) ->
              ok | {error, any()}).
 rebalance(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-
-    %% case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-    %%     {ok, {CurRingHash, PrevRingHash}} when CurRingHash =/= PrevRingHash ->
     case leo_manager_api:rebalance() of
         ok ->
             ok;
         _Other ->
             {error, "Fail rebalance"}
     end.
-%%     _Other ->
-%%         {error, "Could not launch the storage"}
-%% end.
 
 
 %% @doc Purge an object from the cache
@@ -1338,12 +1364,12 @@ get_buckets(CmdBody) ->
 %% @doc Get ACLs of the specified bucket in the manager
 %% @private
 -spec(get_acl(binary(), binary()) ->
-        {ok, acls()} | {error, any()}).
+             {ok, acls()} | {error, any()}).
 get_acl(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        % @todo maybe need to check if this access key is valid
+                                                % @todo maybe need to check if this access key is valid
         [Bucket, _AccessKey] ->
             case leo_s3_bucket:get_acls(list_to_binary(Bucket)) of
                 {ok, ACLs} ->
@@ -1362,15 +1388,15 @@ get_acl(CmdBody, Option) ->
 %% @doc Update ACLs of the specified bucket with the Canned ACL in the manager
 %% @private
 -spec(update_acl(binary(), binary()) ->
-        ok | {error, any()}).
+             ok | {error, any()}).
 update_acl(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, AccessKey, ?CANNED_ACL_PRIVATE] ->
             case leo_s3_bucket:update_acls2private(
-                    list_to_binary(AccessKey),
-                    list_to_binary(Bucket)) of
+                   list_to_binary(AccessKey),
+                   list_to_binary(Bucket)) of
                 ok ->
                     ok;
                 {error, _Cause} ->
@@ -1378,8 +1404,8 @@ update_acl(CmdBody, Option) ->
             end;
         [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ] ->
             case leo_s3_bucket:update_acls2public_read(
-                    list_to_binary(AccessKey),
-                    list_to_binary(Bucket)) of
+                   list_to_binary(AccessKey),
+                   list_to_binary(Bucket)) of
                 ok ->
                     ok;
                 {error, _Cause} ->
@@ -1387,8 +1413,8 @@ update_acl(CmdBody, Option) ->
             end;
         [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ_WRITE] ->
             case leo_s3_bucket:update_acls2public_read_write(
-                    list_to_binary(AccessKey),
-                    list_to_binary(Bucket)) of
+                   list_to_binary(AccessKey),
+                   list_to_binary(Bucket)) of
                 ok ->
                     ok;
                 {error, _Cause} ->
@@ -1396,8 +1422,8 @@ update_acl(CmdBody, Option) ->
             end;
         [Bucket, AccessKey, ?CANNED_ACL_AUTHENTICATED_READ] ->
             case leo_s3_bucket:update_acls2authenticated_read(
-                    list_to_binary(AccessKey),
-                    list_to_binary(Bucket)) of
+                   list_to_binary(AccessKey),
+                   list_to_binary(Bucket)) of
                 ok ->
                     ok;
                 {error, _Cause} ->

@@ -256,7 +256,7 @@ detach_0_({Node0,_, Sock}) ->
     ?assertNotEqual([], meck:history(leo_manager_mnesia)),
 
     {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
-    ?assertEqual(<<"OK\r\n">>, Res),
+    ?assertNotEqual(<<"OK\r\n">>, Res), %% ERROR
 
     catch gen_tcp:close(Sock),
     ok.
@@ -269,14 +269,16 @@ detach_1_({Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_system_config,
                      fun() ->
-                             {ok, #system_conf{}}
+                             {ok, #system_conf{n = 2}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
                              {ok, [#node_state{state=?STATE_RUNNING}]}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
-                     fun(_State) ->
+                     fun(?STATE_DETACHED) ->
+                             {ok, [#node_state{}]};
+                        (?STATE_RUNNING) ->
                              {ok, [#node_state{}, #node_state{}]}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
