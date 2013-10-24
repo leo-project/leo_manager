@@ -56,12 +56,20 @@
 %% @end
 start_link() ->
     Mode = ?env_mode_of_manager(),
-    [RedundantNodes0|_] = ?env_partner_of_manager_node(),
-    RedundantNodes1     = [{Mode, node()},
-                           {'partner', case is_atom(RedundantNodes0) of
-                                           true  -> RedundantNodes0;
-                                           false -> list_to_atom(RedundantNodes0)
-                                       end}],
+    Me = node(),
+
+    {RedundantNodes0, RedundantNodes1} =
+        case ?env_partner_of_manager_node() of
+            [] ->
+                {[Me] ,[{Mode, Me}]};
+            [RedundantNode|_] ->
+                RedundantNodeAtom = case is_atom(RedundantNode) of
+                                        true  -> RedundantNode;
+                                        false -> list_to_atom(RedundantNode)
+                                    end,
+                {[Me, RedundantNodeAtom] , [{Mode, Me},
+                                            {'partner', RedundantNodeAtom}]}
+        end,
 
     CUI_Console  = #tcp_server_params{prefix_of_name  = "tcp_server_cui_",
                                       port = ?env_listening_port_cui(),
@@ -96,7 +104,7 @@ start_link() ->
             SystemConf = load_system_config(),
             ChildSpec  = {leo_redundant_manager_sup,
                           {leo_redundant_manager_sup, start_link,
-                           [Mode, [list_to_atom(RedundantNodes0), node()], ?env_queue_dir(leo_manager),
+                           [Mode, RedundantNodes0, ?env_queue_dir(leo_manager),
                             [{n,           SystemConf#system_conf.n},
                              {r,           SystemConf#system_conf.r},
                              {w,           SystemConf#system_conf.w},
