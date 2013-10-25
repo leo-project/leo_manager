@@ -218,7 +218,6 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
         ok ->
             try
                 %% create mnesia's schema
-                mnesia:create_schema(Nodes1),
                 rpc:multicall(Nodes1, application, stop,  [mnesia], ?DEF_TIMEOUT),
                 rpc:multicall(Nodes1, application, start, [mnesia], ?DEF_TIMEOUT),
 
