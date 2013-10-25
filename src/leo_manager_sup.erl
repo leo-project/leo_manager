@@ -56,12 +56,21 @@
 %% @end
 start_link() ->
     Mode = ?env_mode_of_manager(),
-    [RedundantNodes0|_] = ?env_partner_of_manager_node(),
-    RedundantNodes1     = [{Mode, node()},
-                           {'partner', case is_atom(RedundantNodes0) of
-                                           true  -> RedundantNodes0;
-                                           false -> list_to_atom(RedundantNodes0)
-                                       end}],
+    Me = node(),
+
+    {RedundantNodes0, RedundantNodes1} =
+        case ?env_partner_of_manager_node() of
+            [] ->
+                {[Me] ,[{Mode, Me}]};
+            RedundantNodes ->
+                RedundantNodesAtom = lists:map(fun(N) when is_atom(N) ->
+                                                       N;
+                                                  (N) ->
+                                                       list_to_atom(N)
+                                               end, RedundantNodes),
+                {[Me|RedundantNodesAtom], [{Mode, Me},
+                                           {'partner', RedundantNodesAtom}]}
+        end,
 
     CUI_Console  = #tcp_server_params{prefix_of_name  = "tcp_server_cui_",
                                       port = ?env_listening_port_cui(),
@@ -96,7 +105,7 @@ start_link() ->
             SystemConf = load_system_config(),
             ChildSpec  = {leo_redundant_manager_sup,
                           {leo_redundant_manager_sup, start_link,
-                           [Mode, [list_to_atom(RedundantNodes0), node()], ?env_queue_dir(leo_manager),
+                           [Mode, RedundantNodes0, ?env_queue_dir(leo_manager),
                             [{n,           SystemConf#system_conf.n},
                              {r,           SystemConf#system_conf.r},
                              {w,           SystemConf#system_conf.w},
@@ -142,11 +151,16 @@ create_mnesia_tables(Mode, RedundantNodes) ->
     case leo_misc:get_value('partner', RedundantNodes) of
         undefined ->
             create_mnesia_tables1(Mode, RedundantNodes);
-        PartnerNode ->
-            case net_adm:ping(PartnerNode) of
-                pong ->
+        PartnerNodes ->
+            case lists:foldl(fun(N, _) ->
+                                     case catch net_adm:ping(N) of
+                                         pong -> true;
+                                         _    -> false
+                                     end
+                             end, false, PartnerNodes) of
+                true ->
                     create_mnesia_tables1(Mode, RedundantNodes);
-                pang ->
+                false ->
                     timer:apply_after(?CHECK_INTERVAL, ?MODULE,
                                       create_mnesia_tables, [Mode, RedundantNodes])
             end
@@ -199,13 +213,11 @@ init([]) ->
 -spec(create_mnesia_tables1(master | slave, list()) ->
              ok | {error, any()}).
 create_mnesia_tables1(master = Mode, Nodes0) ->
-    Nodes1 = lists:map(fun({_, N}) -> N end, Nodes0),
-
+    Nodes1 = lists:flatten(lists:map(fun({_, N}) -> N end, Nodes0)),
     case mnesia:create_schema(Nodes1) of
         ok ->
             try
                 %% create mnesia's schema
-                mnesia:create_schema(Nodes1),
                 rpc:multicall(Nodes1, application, stop,  [mnesia], ?DEF_TIMEOUT),
                 rpc:multicall(Nodes1, application, start, [mnesia], ?DEF_TIMEOUT),
 

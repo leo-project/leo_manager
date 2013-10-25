@@ -31,12 +31,13 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
-         whereis/1, histories/1
+         acls/1, whereis/1, histories/1
         ]).
 
 -define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
@@ -432,6 +433,17 @@ whereis(AssignedInfo) ->
 histories(_) ->
     [].
 
+%% @doc Format a acl list
+%%
+-spec(acls(acls()) ->
+             string()).
+acls(ACLs) ->
+    JSON = lists:map(fun(#bucket_acl_info{user_id = UserId, permissions = Permissions}) ->
+                             {[{<<"user_id">>,   UserId},
+                               {<<"permissions">>, Permissions}
+                              ]}
+                     end, ACLs),
+    gen_json({[{<<"acls">>, JSON}]}).
 
 %%----------------------------------------------------------------------
 %% Inner function(s)

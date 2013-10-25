@@ -31,12 +31,13 @@
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
-         whereis/1, histories/1,
+         acls/1, whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
 
@@ -97,7 +98,9 @@ help() ->
                         ?CMD_GET_ENDPOINTS,
                         ?CMD_ADD_BUCKET,
                         ?CMD_DELETE_BUCKET,
-                        ?CMD_GET_BUCKETS], []),
+                        ?CMD_GET_BUCKETS,
+                        ?CMD_UPDATE_ACL,
+                        ?CMD_GET_ACL], []),
                   help("[Misc]\r\n",
                        [?CMD_VERSION,
                         ?CMD_STATUS,
@@ -632,12 +635,12 @@ whereis(AssignedInfo) ->
                                  lists:append([" ",
                                                string:left(DelStr,                              lists:nth(1,LenPerCol)),
                                                string:left(Node,                                lists:nth(2,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(VNodeId, 8), lists:nth(3,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(VNodeId, 8),  lists:nth(3,LenPerCol)),
                                                string:left(leo_file:dsize(DSize),               lists:nth(4,LenPerCol)),
                                                string:left(string:sub_string(leo_hex:integer_to_hex(Checksum, 8), 1, 10),
                                                            lists:nth(5,LenPerCol)),
                                                string:left(integer_to_list(ChunkedObjs),        lists:nth(6,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(Clock, 8),   lists:nth(7,LenPerCol)),
+                                               string:left(leo_hex:integer_to_hex(Clock, 8),    lists:nth(7,LenPerCol)),
                                                FormattedDate,
                                                ?CRLF])
                          end,
@@ -669,6 +672,41 @@ user_id() ->
 
 password() ->
     io_lib:format("~s\r\n",["password:"]).
+
+%% @doc Format a acl list
+%%
+-spec(acls(acls()) ->
+             string()).
+acls(ACLs) ->
+    Col1Len = lists:foldl(fun(#bucket_acl_info{user_id = User} = _ACL, C1) ->
+                                  UserStr = binary_to_list(User),
+                                  Len = length(UserStr),
+                                  case (Len > C1) of
+                                      true  -> Len;
+                                      false -> C1
+                                  end
+                          end, 14, ACLs),
+    Col2Len = 24, % @todo to be calcurated
+    Header = lists:append(
+               [string:left("access_key_id", Col1Len), " | ",
+                string:left("permissions",   Col2Len), "\r\n",
+                lists:duplicate(Col1Len, "-"), "-+-",
+                lists:duplicate(Col2Len, "-"), "\r\n"]),
+
+    Fun = fun(#bucket_acl_info{user_id = User, permissions = Permissions} = _ACL, Acc) ->
+                  UserStr = binary_to_list(User),
+                  FormatStr = case length(Permissions) of
+                                  0 ->
+                                      "~s | private\r\n";
+                                  1 ->
+                                      "~s | ~s\r\n";
+                                  N ->
+                                      lists:flatten(lists:append(["~s | ~s", lists:duplicate(N-1, ", ~s"), "\r\n"]))
+                              end,
+                  Acc ++ io_lib:format(FormatStr,
+                                       [string:left(UserStr, Col1Len)] ++ Permissions)
+          end,
+    lists:append([lists:foldl(Fun, Header, ACLs), "\r\n"]).
 
 
 %%----------------------------------------------------------------------

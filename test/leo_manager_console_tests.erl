@@ -157,22 +157,22 @@ status_1_({Node0, _, Sock}) ->
                      end),
 
     ok = meck:new(leo_storage_api, [non_strict]),
-    ok = meck:expect(leo_storage_api, get_node_status,
-                     fun() ->
-                             {ok, #cluster_node_status{avs           = [{{'dir',"/var/leofs/vol0/"}, {'num',64}}],
-                                                       dirs          = [{'log',             "/var/leofs/logs/"},
-                                                                        {'mnesia',          "/var/leofs/mnesia/"}],
-                                                       ring_checksum = [{'ring_cur',        "12345"},
-                                                                        {'ring_cur',        "67890"}],
-                                                       statistics    = [{'total_mem_usage',  0},
-                                                                        {'system_mem_usage', 1},
-                                                                        {'proc_mem_usage',   3},
-                                                                        {'ets_mem_usage',    5},
-                                                                        {'num_of_procs',     7}],
-                                                       version       = "0.0.0"
-                                                      }}
-                     end),
-
+    ok = meck:expect(
+           leo_storage_api, get_node_status,
+           fun() ->
+                   {ok, #cluster_node_status{avs           = [{{'dir',"/var/leofs/vol0/"}, {'num',64}}],
+                                             dirs          = [{'log',             "/var/leofs/logs/"},
+                                                              {'mnesia',          "/var/leofs/mnesia/"}],
+                                             ring_checksum = [{'ring_cur',        "12345"},
+                                                              {'ring_cur',        "67890"}],
+                                             statistics    = [{'total_mem_usage',  0},
+                                                              {'system_mem_usage', 1},
+                                                              {'proc_mem_usage',   3},
+                                                              {'ets_mem_usage',    5},
+                                                              {'num_of_procs',     7}],
+                                             version       = "0.0.0"
+                                            }}
+           end),
     ok = meck:new(leo_hex, [non_strict]),
     ok = meck:expect(leo_hex, integer_to_hex,
                      fun(_) ->
@@ -215,10 +215,6 @@ detach_0_({Node0,_, Sock}) ->
                      fun(_State) ->
                              ok
                      end),
-    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
-                     fun(_Node) ->
-                             {ok, [#node_state{}]}
-                     end),
     ok = meck:expect(leo_manager_mnesia, delete_storage_node,
                      fun(_Node) ->
                              ok
@@ -256,7 +252,7 @@ detach_0_({Node0,_, Sock}) ->
     ?assertNotEqual([], meck:history(leo_manager_mnesia)),
 
     {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
-    ?assertEqual(<<"OK\r\n">>, Res),
+    ?assertNotEqual(<<"OK\r\n">>, Res), %% ERROR
 
     catch gen_tcp:close(Sock),
     ok.
@@ -269,19 +265,17 @@ detach_1_({Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_system_config,
                      fun() ->
-                             {ok, #system_conf{}}
+                             {ok, #system_conf{n = 2}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
                              {ok, [#node_state{state=?STATE_RUNNING}]}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
-                     fun(_State) ->
-                             {ok, [#node_state{}, #node_state{}]}
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
-                     fun(_Node) ->
-                             {ok, [#node_state{}]}
+                     fun(?STATE_DETACHED) ->
+                             {ok, [#node_state{}]};
+                        (?STATE_RUNNING) ->
+                             {ok, [#node_state{}, #node_state{}, #node_state{}]}
                      end),
     ok = meck:expect(leo_manager_mnesia, delete_storage_node,
                      fun(_Node) ->
