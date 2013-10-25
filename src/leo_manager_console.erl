@@ -844,9 +844,9 @@ allow_to_detach_node_1(N) ->
 allow_to_detach_node_2(N, NodeAtom) ->
     IsRunning = case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
                     {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
-                        1;
+                        true;
                     {ok, [#node_state{state = _}|_]} ->
-                        0;
+                        false;
                     _ ->
                         {error, "Could not get node-status"}
                 end,
@@ -856,9 +856,9 @@ allow_to_detach_node_2(N, NodeAtom) ->
             {error, Cause};
         _ ->
             case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-                {ok, Nodes} when IsRunning == 0 andalso length(Nodes) >= N ->
+                {ok, Nodes} when IsRunning == false andalso length(Nodes) >= N ->
                     ok;
-                {ok, Nodes} when IsRunning == 1 andalso length(Nodes) > N ->
+                {ok, Nodes} when IsRunning == true  andalso length(Nodes) > N ->
                     ok;
                 {ok,_Nodes} ->
                     {error, "Running nodes less than # of replicas"};
