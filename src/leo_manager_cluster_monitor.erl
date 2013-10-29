@@ -296,7 +296,7 @@ update_node_state(down,  ?STATE_DETACHED, _Node) -> ok;
 update_node_state(down,  ?STATE_SUSPEND,  _Node) -> ok;
 update_node_state(down,  ?STATE_RUNNING,   Node) -> update_node_state_1(?STATE_STOP, Node);
 update_node_state(down,  ?STATE_STOP,     _Node) -> ok;
-update_node_state(down,  ?STATE_RESTARTED,_Node) -> delete;
+update_node_state(down,  ?STATE_RESTARTED, Node) -> update_node_state_1(?STATE_STOP, Node);
 update_node_state(down,  not_found,       _Node) -> ok.
 
 update_node_state_1(State, Node) ->
