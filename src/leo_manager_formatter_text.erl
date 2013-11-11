@@ -92,6 +92,8 @@ help() ->
                   help("[S3-related Maintenance]\r\n",
                        [?CMD_CREATE_USER,
                         ?CMD_DELETE_USER,
+                        ?CMD_UPDATE_USER_ROLE,
+                        ?CMD_UPDATE_USER_PW,
                         ?CMD_GET_USERS,
                         ?CMD_SET_ENDPOINT,
                         ?CMD_DEL_ENDPOINT,

@@ -296,7 +296,9 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
             end,
             ok;
         {error,{_,{already_exists, _}}} ->
-            create_mnesia_tables2();
+            create_mnesia_tables2(),
+            % data migration
+            leo_s3_bucket_transform_handler:transform();
         {_, Cause} ->
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes0]),
             ?error("create_mnesia_tables1/3", "cause:~p", [Cause]),

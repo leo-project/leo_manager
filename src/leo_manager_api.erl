@@ -1472,7 +1472,7 @@ delete_bucket(AccessKey, Bucket) ->
                         ok ->
                             delete_bucket_1(AccessKeyBin, BucketBin);
                         not_found ->
-                            {error, "Bucket not found"};
+                            {error, not_found};
                         {error, _} ->
                             {error, ?ERROR_INVALID_ARGS}
                     end;
