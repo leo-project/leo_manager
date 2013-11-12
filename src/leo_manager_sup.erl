@@ -33,6 +33,7 @@
 -include("tcp_server.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
+-include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_statistics/include/leo_statistics.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
@@ -231,7 +232,8 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
 
                 leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes1),
                 leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes1),
-                leo_redundant_manager_table_member:create_members(disc_copies, Nodes1),
+                leo_redundant_manager_table_member:create_members(disc_copies, Nodes1, ?MEMBER_TBL_CUR),
+                leo_redundant_manager_table_member:create_members(disc_copies, Nodes1, ?MEMBER_TBL_PREV),
 
                 %% Load from system-config and store it into the mnesia
                 {ok, _} = load_system_config_with_store_data(),
@@ -294,7 +296,9 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
             end,
             ok;
         {error,{_,{already_exists, _}}} ->
-            create_mnesia_tables2();
+            create_mnesia_tables2(),
+            % data migration
+            leo_s3_bucket_transform_handler:transform();
         {_, Cause} ->
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes0]),
             ?error("create_mnesia_tables1/3", "cause:~p", [Cause]),

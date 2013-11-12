@@ -456,7 +456,7 @@ register_fun_2({ok, [#node_state{state = ?STATE_RUNNING}|_]}, #registration{node
                                                                             type = storage}) ->
     %% synchronize member and ring
     leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
-    leo_manager_api:synchronize(?CHECKSUM_RING, Node),
+    leo_manager_api:synchronize(?CHECKSUM_RING,   Node),
     ok;
 
 register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,

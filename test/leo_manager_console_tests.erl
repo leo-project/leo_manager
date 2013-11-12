@@ -524,7 +524,7 @@ suspend_2_({Node0, _, Sock}) ->
     ok.
 
 
-resume_0_({Node0, _, Sock}) ->
+resume_0_({Node0, _Node1, Sock}) ->
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -571,9 +571,31 @@ resume_0_({Node0, _, Sock}) ->
                              {ok, [#member{node  = Node0,
                                            state = ?STATE_RUNNING}]}
                      end),
+    ok = meck:expect(leo_redundant_manager_api, get_members,
+                     fun(_) ->
+                             {ok, [#member{node  = Node0,
+                                           state = ?STATE_RUNNING}]}
+                     end),
     ok = meck:expect(leo_redundant_manager_api, synchronize,
-                     fun(_Mode, _Members, _Options) ->
-                             {ok, _Members, [{?CHECKSUM_RING, {12345,12345}}]}
+                     fun(?SYNC_TARGET_BOTH,_,_) ->
+                             {ok, [{?CHECKSUM_MEMBER, {51234567890,51234567890}},
+                                   {?CHECKSUM_RING,   {71234567890,71234567890}}
+                                  ]}
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, synchronize,
+                     fun(Target, _) ->
+                             case Target of
+                                 ?SYNC_TARGET_RING_CUR ->
+                                     {ok, [{?CHECKSUM_MEMBER, {51234567890,51234567890}},
+                                           {?CHECKSUM_RING,   {71234567890,71234567890}}
+                                          ]};
+                                 ?SYNC_TARGET_RING_PREV ->
+                                     {ok, [{?CHECKSUM_MEMBER, {51234567890,51234567890}},
+                                           {?CHECKSUM_RING,   {71234567890,71234567890}}
+                                          ]};
+                                 ?SYNC_TARGET_MEMBER ->
+                                     {ok, {51234567890,51234567890}}
+                             end
                      end),
     ok = meck:expect(leo_redundant_manager_api, update_members,
                      fun(_Members) ->
@@ -637,8 +659,25 @@ resume_1_({Node0,_, Sock}) ->
                                            state = ?STATE_RUNNING}]}
                      end),
     ok = meck:expect(leo_redundant_manager_api, synchronize,
-                     fun(_Mode, _Members, _Options) ->
-                             {ok, _Members, [{?CHECKSUM_RING, {12345,12345}}]}
+                     fun(?SYNC_TARGET_BOTH,_,_) ->
+                             {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                   {?CHECKSUM_RING,   {456,456}}
+                                  ]}
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, synchronize,
+                     fun(Target, _) ->
+                             case Target of
+                                 ?SYNC_TARGET_RING_CUR ->
+                                     {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                           {?CHECKSUM_RING,   {456,456}}
+                                          ]};
+                                 ?SYNC_TARGET_RING_PREV ->
+                                     {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                           {?CHECKSUM_RING,   {456,456}}
+                                          ]};
+                                 ?SYNC_TARGET_MEMBER ->
+                                     {ok, {123,123}}
+                             end
                      end),
     ok = meck:expect(leo_redundant_manager_api, update_members,
                      fun(_Members) ->
@@ -918,19 +957,52 @@ rebalance_2_({Node0, Node1, Sock}) ->
                              {ok, [[{vnode_id, 255}, {src, Node0}, {dest, Node1}]]}
                      end),
     ok = meck:expect(leo_redundant_manager_api, synchronize,
-                     fun(_,_) ->
-                             {ok, {12345, 12345}}
+                     fun(?SYNC_TARGET_BOTH,_,_) ->
+                             {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                   {?CHECKSUM_RING,   {456,456}}
+                                  ]}
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, synchronize,
+                     fun(Target, _) ->
+                             case Target of
+                                 ?SYNC_TARGET_RING_CUR ->
+                                     {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                           {?CHECKSUM_RING,   {456,456}}
+                                          ]};
+                                 ?SYNC_TARGET_RING_PREV ->
+                                     {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                           {?CHECKSUM_RING,   {456,456}}
+                                          ]};
+                                 ?SYNC_TARGET_MEMBER ->
+                                     {ok, {123,123}}
+                             end
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_ring,
                      fun(_) ->
                              {ok, []}
                      end),
 
-
     ok = rpc:call(Node1, meck, new,    [leo_redundant_manager_api, [no_link, non_strict]]),
     ok = rpc:call(Node1, meck, expect, [leo_redundant_manager_api, synchronize,
-                                        fun(_, _) ->
-                                                {ok, {12345, 12345}}
+                                        fun(?SYNC_TARGET_BOTH,_,_) ->
+                                                {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                                      {?CHECKSUM_RING,   {456,456}}
+                                                     ]}
+                                        end]),
+    ok = rpc:call(Node1, meck, expect, [leo_redundant_manager_api, synchronize,
+                                        fun(Target, _) ->
+                                                case Target of
+                                                    ?SYNC_TARGET_RING_CUR ->
+                                                        {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                                              {?CHECKSUM_RING,   {456,456}}
+                                                             ]};
+                                                    ?SYNC_TARGET_RING_PREV ->
+                                                        {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                                              {?CHECKSUM_RING,   {456,456}}
+                                                             ]};
+                                                    ?SYNC_TARGET_MEMBER ->
+                                                        {ok, {123,123}}
+                                                end
                                         end]),
 
     Command = "rebalance\r\n",
@@ -1236,9 +1308,26 @@ recover_({Node0, _Node1, Sock}) ->
                      end),
 
     ok = rpc:call(Node0, meck, new,    [leo_storage_api, [no_link, non_strict]]),
-    ok = rpc:call(Node0, meck, expect, [leo_storage_api, synchronize,
-                                        fun(_, _) ->
-                                                ok
+    ok = rpc:call(Node0, meck, expect, [leo_redundant_manager_api, synchronize,
+                                        fun(?SYNC_TARGET_BOTH,_,_) ->
+                                                {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                                      {?CHECKSUM_RING,   {456,456}}
+                                                     ]}
+                                        end]),
+    ok = rpc:call(Node0, meck, expect, [leo_redundant_manager_api, synchronize,
+                                        fun(Target, _) ->
+                                                case Target of
+                                                    ?SYNC_TARGET_RING_CUR ->
+                                                        {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                                              {?CHECKSUM_RING,   {456,456}}
+                                                             ]};
+                                                    ?SYNC_TARGET_RING_PREV ->
+                                                        {ok, [{?CHECKSUM_MEMBER, {123,123}},
+                                                              {?CHECKSUM_RING,   {456,456}}
+                                                             ]};
+                                                    ?SYNC_TARGET_MEMBER ->
+                                                        {ok, {123,123}}
+                                                end
                                         end]),
 
     Command1 = "recover file air/on/g/string\r\n",
