@@ -835,8 +835,8 @@ notify(_,_,_) ->
 %% @doc Notified "Server Error" from cluster-nods.
 %%
 notify(error, DownedNode, NotifyNode, ?ERR_TYPE_NODE_DOWN) ->
-    Ret1 = notify1(DownedNode),
-    Ret2 = notify1(NotifyNode),
+    Ret1 = notify_1(DownedNode),
+    Ret2 = notify_1(NotifyNode),
     {ok, {Ret1, Ret2}};
 
 %% @doc Notified "Rebalance Progress" from cluster-nods.
@@ -869,7 +869,7 @@ notify(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
-notify1(TargetNode) ->
+notify_1(TargetNode) ->
     case leo_manager_mnesia:get_storage_node_by_name(TargetNode) of
         {ok, [#node_state{state = State,
                           error = NumOfErrors}|_]} ->
@@ -885,9 +885,9 @@ notify1(TargetNode) ->
                         true when State == ?STATE_RUNNING ->
                             ok;
                         true when State /= ?STATE_RUNNING ->
-                            notify2(?STATE_RUNNING, TargetNode);
+                            notify_2(?STATE_RUNNING, TargetNode);
                         false ->
-                            notify1(?STATE_STOP, TargetNode, NumOfErrors)
+                            notify_1(?STATE_STOP, TargetNode, NumOfErrors)
                     end;
                 _ ->
                     {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
@@ -897,10 +897,10 @@ notify1(TargetNode) ->
     end.
 
 
-notify1(?STATE_STOP = State, Node, NumOfErrors) when NumOfErrors >= ?DEF_NUM_OF_ERROR_COUNT ->
-    notify2(State, Node);
+notify_1(?STATE_STOP = State, Node, NumOfErrors) when NumOfErrors >= ?DEF_NUM_OF_ERROR_COUNT ->
+    notify_2(State, Node);
 
-notify1(?STATE_STOP, Node,_NumOfErrors) ->
+notify_1(?STATE_STOP, Node,_NumOfErrors) ->
     case leo_manager_mnesia:update_storage_node_status(
            increment_error, #node_state{node = Node}) of
         ok ->
@@ -910,7 +910,7 @@ notify1(?STATE_STOP, Node,_NumOfErrors) ->
     end.
 
 
-notify2(?STATE_RUNNING = State, Node) ->
+notify_2(?STATE_RUNNING = State, Node) ->
     Ret = case rpc:call(Node, ?API_STORAGE, get_routing_table_chksum, [], ?DEF_TIMEOUT) of
               {ok, {RingHashCur, RingHashPrev}} ->
                   case rpc:call(Node, ?API_STORAGE, register_in_monitor, [again], ?DEF_TIMEOUT) of
@@ -927,18 +927,17 @@ notify2(?STATE_RUNNING = State, Node) ->
               {_, Cause} ->
                   {error, Cause}
           end,
-    notify3(Ret, ?STATE_RUNNING, Node);
+    notify_3(Ret, ?STATE_RUNNING, Node);
 
-notify2(State, Node) ->
+notify_2(State, Node) ->
     Ret = leo_manager_mnesia:update_storage_node_status(
             update_state, #node_state{node  = Node,
                                       state = State}),
-    notify3(Ret, State, Node).
+    notify_3(Ret, State, Node).
 
 
-notify3(ok, State, Node) ->
+notify_3(ok, State, Node) ->
     Clock = leo_date:clock(),
-
     case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
         ok ->
             case get_nodes() of
@@ -954,7 +953,7 @@ notify3(ok, State, Node) ->
             {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
     end;
 
-notify3({error,_Cause},_State,_Node) ->
+notify_3({error,_Cause},_State,_Node) ->
     {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}.
 
 
@@ -1354,13 +1353,15 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
               true ->
                   case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
                       {ok, [#node_state{state = ?STATE_STOP}|_]} ->
-                          notify1(Node_2);
+                          notify_1(Node_2);
                       _ ->
                           not_match
                   end;
               false ->
                   not_match
           end,
+    ?debugVal({Ret, [{Node_1, Checksum_1},
+                     {Node_2, Checksum_2}]}),
 
     case Ret of
         not_match ->
@@ -1378,7 +1379,8 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
     end;
 
 synchronize(?CHECKSUM_RING = Type, [{Node_1, {RingHashCur_1, RingHashPrev_1}},
-                                    {Node_2, {RingHashCur_2, RingHashPrev_2}}]) ->
+                                    {Node_2, {RingHashCur_2, RingHashPrev_2}}] = Arg) ->
+    ?debugVal(Arg),
     case leo_redundant_manager_api:checksum(Type) of
         {ok, {LocalRingHashCur, LocalRingHashPrev}} ->
             %% copare manager-cur-ring-hash with remote cur-ring-hash
@@ -1389,9 +1391,9 @@ synchronize(?CHECKSUM_RING = Type, [{Node_1, {RingHashCur_1, RingHashPrev_1}},
 
             %% copare manager-cur/prev-ring-hash/ with remote prev-ring-hash
             _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_PREV, Node_1, LocalRingHashCur, LocalRingHashPrev, RingHashPrev_1),
+                  ?SYNC_TARGET_RING_PREV, Node_1, LocalRingHashPrev, RingHashPrev_1),
             _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashCur, LocalRingHashPrev, RingHashPrev_2);
+                  ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashPrev, RingHashPrev_2);
         Error ->
             Error
     end.
@@ -1478,21 +1480,12 @@ synchronize_2(Node, Hashes) ->
     ok.
 
 
-
 %% @doc Compare local-checksum with remote-checksum
 %% @private
-compare_local_chksum_with_remote_chksum(_,_, Checksum_1, Checksum_2)
+compare_local_chksum_with_remote_chksum(_Type,_Node, Checksum_1, Checksum_2)
   when Checksum_1 =:= Checksum_2 -> ok;
-compare_local_chksum_with_remote_chksum(Type, Node, Checksum_1, Checksum_2)
+compare_local_chksum_with_remote_chksum( Type, Node, Checksum_1, Checksum_2)
   when Checksum_1 =/= Checksum_2 -> synchronize_1(Type, Node).
-
-%% @private
-compare_local_chksum_with_remote_chksum(_,_,RemoteChecksum,_,RemoteChecksum) ->
-    ok;
-compare_local_chksum_with_remote_chksum(_,_,_,RemoteChecksum,RemoteChecksum) ->
-    ok;
-compare_local_chksum_with_remote_chksum(Type, Node,_,_,_) ->
-    synchronize_1(Type, Node).
 
 
 %% @doc Insert an endpoint
