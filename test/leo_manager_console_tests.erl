@@ -1225,7 +1225,8 @@ whereis_({Node0, _Node1, Sock}) ->
     ok = meck:expect(leo_redundant_manager_api, get_redundancies_by_key,
                      fun(_Key) ->
                              {ok, #redundancies{id    = 1,
-                                                nodes = [{Node0, true}]}}
+                                                nodes = [#redundant_node{node      = Node0,
+                                                                         available = true}]}}
                      end),
 
     ok = meck:new(leo_utils, [non_strict]),
@@ -1281,10 +1282,12 @@ recover_({Node0, _Node1, Sock}) ->
                      fun(ring) ->
                              1
                      end),
+
     ok = meck:expect(leo_redundant_manager_api, get_redundancies_by_key,
                      fun(_Key) ->
                              {ok, #redundancies{id    = 1,
-                                                nodes = [{Node0, true}]}}
+                                                nodes = [#redundant_node{node      = Node0,
+                                                                         available = true}]}}
                      end),
     ok = meck:expect(leo_redundant_manager_api, checksum,
                      fun(_) ->

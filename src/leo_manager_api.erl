@@ -323,9 +323,13 @@ resume(sync, ok, Node) ->
                       {ok, MembersPrev} ->
                           synchronize(?CHECKSUM_RING, Node, [{?VER_CUR,  MembersCur },
                                                              {?VER_PREV, MembersPrev}]);
+                      not_found ->
+                          {error, not_found};
                       Error ->
                           Error
                   end;
+              not_found ->
+                  {error, not_found};
               Error ->
                   Error
           end,
@@ -378,6 +382,8 @@ distribute_members([_|_]= Nodes) ->
                     ?error("distribute_members/2", "bad-nodes:~p", [BadNodes])
             end,
             ok;
+        not_found ->
+            {error, not_found};
         Error ->
             Error
     end;
@@ -557,12 +563,16 @@ rebalance() ->
                                     ?error("rebalance/0", "cause:~p", [Cause]),
                                     {error, Cause}
                             end;
+                        not_found ->
+                            {error, not_found};
                         Error ->
                             Error
                     end;
                 Error ->
                     Error
             end;
+        not_found ->
+            {error, not_found};
         Error ->
             Error
     end.
@@ -1037,7 +1047,8 @@ whereis(_Key, _HasRoutingTable) ->
 whereis_1(_, _, [],Acc) ->
     {ok, lists:reverse(Acc)};
 
-whereis_1(AddrId, Key, [{Node, true }|T], Acc) ->
+whereis_1(AddrId, Key, [#redundant_node{node      = Node,
+                                        available = true }|T], Acc) ->
     NodeStr = atom_to_list(Node),
     RPCKey  = rpc:async_call(Node, leo_storage_handler_object,
                              head, [AddrId, Key]),
@@ -1055,7 +1066,8 @@ whereis_1(AddrId, Key, [{Node, true }|T], Acc) ->
               end,
     whereis_1(AddrId, Key, T, [Reply | Acc]);
 
-whereis_1(AddrId, Key, [{Node, false}|T], Acc) ->
+whereis_1(AddrId, Key, [#redundant_node{node      = Node,
+                                        available = false}|T], Acc) ->
     whereis_1(AddrId, Key, T, [{atom_to_list(Node), not_found} | Acc]).
 
 
@@ -1067,7 +1079,7 @@ recover(?RECOVER_BY_FILE, Key, true) ->
     Key1 = list_to_binary(Key),
     case leo_redundant_manager_api:get_redundancies_by_key(Key1) of
         {ok, #redundancies{nodes = Redundancies}} ->
-            Nodes = [N || {N, _} <- Redundancies],
+            Nodes = [N || #redundant_node{node = N} <- Redundancies],
             case rpc:multicall(Nodes, ?API_STORAGE, synchronize,
                                [Key1, 'error_msg_replicate_data'], ?DEF_TIMEOUT) of
                 {_, []} ->
@@ -1109,6 +1121,8 @@ recover(?RECOVER_BY_RING, Node, true) ->
                     case leo_redundant_manager_api:get_members() of
                         {ok, Members} ->
                             synchronize(?CHECKSUM_RING, Node_1, Members);
+                        not_found ->
+                            {error, not_found};
                         Error ->
                             Error
                     end;
@@ -1278,9 +1292,13 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
                          (_) ->
                               ok
                       end, MembersCur);
+                not_found ->
+                    {error, not_found};
                 Error ->
                     Error
             end;
+        not_found ->
+            {error, not_found};
         Error ->
             Error
     end.
@@ -1399,9 +1417,13 @@ synchronize_1(?SYNC_TARGET_MEMBER = Type, Node) ->
                         Error ->
                             Error
                     end;
+                not_found ->
+                    {error, not_found};
                 Error ->
                     Error
             end;
+        not_found ->
+            {error, not_found};
         Error ->
             Error
     end;
@@ -1424,6 +1446,8 @@ synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
                 timeout = Cause ->
                     {error, Cause}
             end;
+        not_found ->
+            {error, not_found};
         Error ->
             Error
     end;
