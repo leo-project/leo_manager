@@ -259,7 +259,7 @@ detach(Node) ->
     case leo_redundant_manager_api:has_member(Node) of
         true ->
             case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {CurRingHash, PrevRingHash}} when CurRingHash =:= PrevRingHash ->
+                {ok, {RingHashCur, RingHashPrev}} when RingHashCur =:= RingHashPrev ->
                     detach_1(Node);
                 {ok, _Checksums} ->
                     {error, on_rebalances};
@@ -472,13 +472,13 @@ start_1({ResL0, BadNodes0}) ->
             case BadNodes0 of
                 [] ->
                     lists:foreach(
-                      fun({Node, {RingHash0, RingHash1}}) ->
+                      fun({Node, {RingHashCur, RingHashPrev}}) ->
                               leo_manager_mnesia:update_storage_node_status(
                                 update,
                                 #node_state{node          = Node,
                                             state         = ?STATE_RUNNING,
-                                            ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
-                                            ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
+                                            ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                            ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
                                             when_is       = leo_date:now()})
                       end, ResL1),
                     {ResL1, []};
@@ -658,12 +658,12 @@ rebalance_3(?STATE_ATTACHED, [Node|Rest],
     %% send a launch-message to a remote storage node
     Ret = case rpc:call(Node, ?API_STORAGE, start,
                         [Members, SystemConf], ?DEF_TIMEOUT) of
-              {ok, {_Node, {RingHash0, RingHash1}}} ->
+              {ok, {_Node, {RingHashCur, RingHashPrev}}} ->
                   case leo_manager_mnesia:update_storage_node_status(
                          update, #node_state{node          = Node,
                                              state         = ?STATE_RUNNING,
-                                             ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
-                                             ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
+                                             ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                             ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
                                              when_is       = leo_date:now()}) of
                       ok ->
                           case leo_redundant_manager_api:update_member_by_node(
@@ -843,12 +843,12 @@ notify(rebalance, VNodeId, Node, TotalOfObjects) ->
 notify(launched, gateway, Node, Checksums0) ->
     case get_routing_table_chksum() of
         {ok, Checksums1} when Checksums0 == Checksums1 ->
-            {RingHash0, RingHash1} = Checksums1,
+            {RingHashCur, RingHashPrev} = Checksums1,
             leo_manager_mnesia:update_gateway_node(
               #node_state{node          = Node,
                           state         = ?STATE_RUNNING,
-                          ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
-                          ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
+                          ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                          ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
                           when_is       = leo_date:now()});
         {ok, _} ->
             {error, ?ERR_TYPE_INCONSISTENT_HASH};
@@ -902,14 +902,14 @@ notify1(?STATE_STOP, Node,_NumOfErrors) ->
 
 notify2(?STATE_RUNNING = State, Node) ->
     Ret = case rpc:call(Node, ?API_STORAGE, get_routing_table_chksum, [], ?DEF_TIMEOUT) of
-              {ok, {RingHash0, RingHash1}} ->
+              {ok, {RingHashCur, RingHashPrev}} ->
                   case rpc:call(Node, ?API_STORAGE, register_in_monitor, [again], ?DEF_TIMEOUT) of
                       ok ->
                           leo_manager_mnesia:update_storage_node_status(
                             update, #node_state{node          = Node,
                                                 state         = State,
-                                                ring_hash_new = leo_hex:integer_to_hex(RingHash0, 8),
-                                                ring_hash_old = leo_hex:integer_to_hex(RingHash1, 8),
+                                                ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                                ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
                                                 when_is       = leo_date:now()});
                       {_, Cause} ->
                           {error, Cause}
@@ -1104,7 +1104,7 @@ recover(?RECOVER_BY_RING, Node, true) ->
         true ->
             %% Check during-rebalance?
             case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+                {ok, {RingHashCur, RingHashPrev}} when RingHashCur == RingHashPrev ->
                     %% Sync target-node's member/ring with manager
                     case leo_redundant_manager_api:get_members() of
                         {ok, Members} ->
@@ -1359,21 +1359,21 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
             Ret
     end;
 
-synchronize(?CHECKSUM_RING = Type, [{Node_1, {CurRingHash_1, PrevRingHash_1}},
-                                    {Node_2, {CurRingHash_2, PrevRingHash_2}}]) ->
+synchronize(?CHECKSUM_RING = Type, [{Node_1, {RingHashCur_1, RingHashPrev_1}},
+                                    {Node_2, {RingHashCur_2, RingHashPrev_2}}]) ->
     case leo_redundant_manager_api:checksum(Type) of
-        {ok, {LocalCurRingHash, LocalPrevRingHash}} ->
+        {ok, {LocalRingHashCur, LocalRingHashPrev}} ->
             %% copare manager-cur-ring-hash with remote cur-ring-hash
             _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_CUR,  Node_1, LocalCurRingHash,  CurRingHash_1),
+                  ?SYNC_TARGET_RING_CUR,  Node_1, LocalRingHashCur,  RingHashCur_1),
             _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_CUR,  Node_2, LocalCurRingHash,  CurRingHash_2),
+                  ?SYNC_TARGET_RING_CUR,  Node_2, LocalRingHashCur,  RingHashCur_2),
 
             %% copare manager-cur/prev-ring-hash/ with remote prev-ring-hash
             _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_PREV, Node_1, LocalCurRingHash, LocalPrevRingHash, PrevRingHash_1),
+                  ?SYNC_TARGET_RING_PREV, Node_1, LocalRingHashCur, LocalRingHashPrev, RingHashPrev_1),
             _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_PREV, Node_2, LocalCurRingHash, LocalPrevRingHash, PrevRingHash_2);
+                  ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashCur, LocalRingHashPrev, RingHashPrev_2);
         Error ->
             Error
     end.
@@ -1518,7 +1518,7 @@ delete_bucket(AccessKey, Bucket) ->
 
     %% Check during-rebalance
     case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-        {ok, {CurRingHash, PrevRingHash}} when CurRingHash == PrevRingHash ->
+        {ok, {RingHashCur, RingHashPrev}} when RingHashCur == RingHashPrev ->
             %% Check preconditions
             case is_allow_to_distribute_command() of
                 {true, _}->
