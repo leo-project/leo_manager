@@ -95,7 +95,7 @@ help() ->
                         ?CMD_UPDATE_USER_ROLE,
                         ?CMD_UPDATE_USER_PW,
                         ?CMD_GET_USERS,
-                        ?CMD_SET_ENDPOINT,
+                        ?CMD_ADD_ENDPOINT,
                         ?CMD_DEL_ENDPOINT,
                         ?CMD_GET_ENDPOINTS,
                         ?CMD_ADD_BUCKET,

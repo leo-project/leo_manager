@@ -328,9 +328,9 @@ handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command, #state{formatter = For
     {reply, Reply, State};
 
 
-%% Command: "set-endpoint ${END_POINT}"
+%% Command: "end-endpoint ${END_POINT}"
 %%
-handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_ADD_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case set_endpoint(Command, Option) of
                       ok ->
@@ -339,7 +339,7 @@ handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #st
                           Formatter:error(Cause)
                   end
           end,
-    Reply = invoke(?CMD_SET_ENDPOINT, Formatter, Fun),
+    Reply = invoke(?CMD_ADD_ENDPOINT, Formatter, Fun),
     {reply, Reply, State};
 
 

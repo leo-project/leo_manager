@@ -85,7 +85,7 @@
 -define(CMD_UPDATE_USER_PW,   "update-user-password").
 -define(CMD_DELETE_USER,      "delete-user").
 -define(CMD_GET_USERS,        "get-users").
--define(CMD_SET_ENDPOINT,     "set-endpoint").
+-define(CMD_ADD_ENDPOINT,     "add-endpoint").
 -define(CMD_DEL_ENDPOINT,     "delete-endpoint").
 -define(CMD_GET_ENDPOINTS,    "get-endpoints").
 -define(CMD_ADD_BUCKET,       "add-bucket").
@@ -141,12 +141,12 @@
                    {?CMD_PURGE,           "purge ${path}"},
                    {?CMD_REMOVE,          "remove ${gateway-node}"},
                    %% for HTTP_API
-                   {?CMD_CREATE_USER,     "create-user ${user-id} [${password}]"},
-                   {?CMD_DELETE_USER,     "delete-user ${user-id}"},
+                   {?CMD_CREATE_USER,      "create-user ${user-id} [${password}]"},
+                   {?CMD_DELETE_USER,      "delete-user ${user-id}"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
                    {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
                    {?CMD_GET_USERS,        "get-users"},
-                   {?CMD_SET_ENDPOINT,     "set-endpoint ${endpoint}"},
+                   {?CMD_ADD_ENDPOINT,     "add-endpoint ${endpoint}"},
                    {?CMD_DEL_ENDPOINT,     "delete-endpoint ${endpoint}"},
                    {?CMD_GET_ENDPOINTS,    "get-endpoints"},
                    {?CMD_GET_BUCKETS,      "get-buckets"},
