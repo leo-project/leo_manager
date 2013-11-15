@@ -256,15 +256,12 @@ suspend(Node) ->
 -spec(detach(string()) ->
              ok | {error, any()}).
 detach(Node) ->
-    ?debugVal(Node),
     case leo_redundant_manager_api:has_member(Node) of
         true ->
             case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {RingHashCur, RingHashPrev}} ->
-                    ?debugVal({RingHashCur, RingHashPrev}),
+                {ok, {_RingHashCur,_RingHashPrev}} ->
                     detach_1(Node);
                 Error ->
-                    ?debugVal(Error),
                     Error
             end;
         false ->
@@ -275,7 +272,6 @@ detach_1(Node) ->
     State = ?STATE_DETACHED,
     case leo_redundant_manager_api:reserve(Node, State, leo_date:clock()) of
         ok ->
-            ?debugVal(Node),
             leo_manager_mnesia:update_storage_node_status(
               #node_state{node    = Node,
                           state   = State,
