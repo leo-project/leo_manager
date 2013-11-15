@@ -286,6 +286,10 @@ detach_1_({Node0, _, Sock}) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
                      end),
+    ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
+                     fun(_) ->
+                             ok
+                     end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
     ok = meck:expect(leo_redundant_manager_api, has_member,
@@ -300,6 +304,11 @@ detach_1_({Node0, _, Sock}) ->
                      fun(_) ->
                              ok
                      end),
+    ok = meck:expect(leo_redundant_manager_api, reserve,
+                     fun(_,_,_) ->
+                             ok
+                     end),
+
 
     Command = "detach " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
@@ -309,7 +318,7 @@ detach_1_({Node0, _, Sock}) ->
     ?assertNotEqual([], meck:history(leo_redundant_manager_api)),
 
     {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
-    ?assertEqual(true, string:str(binary_to_list(Res), "[ERROR]") > 0),
+    ?assertEqual(true, string:str(binary_to_list(Res), "OK") > 0),
 
     catch gen_tcp:close(Sock),
     ok.

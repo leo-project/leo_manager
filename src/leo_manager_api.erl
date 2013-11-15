@@ -256,14 +256,15 @@ suspend(Node) ->
 -spec(detach(string()) ->
              ok | {error, any()}).
 detach(Node) ->
+    ?debugVal(Node),
     case leo_redundant_manager_api:has_member(Node) of
         true ->
             case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {RingHashCur, RingHashPrev}} when RingHashCur =:= RingHashPrev ->
+                {ok, {RingHashCur, RingHashPrev}} ->
+                    ?debugVal({RingHashCur, RingHashPrev}),
                     detach_1(Node);
-                {ok, _Checksums} ->
-                    {error, on_rebalances};
                 Error ->
+                    ?debugVal(Error),
                     Error
             end;
         false ->
@@ -274,6 +275,7 @@ detach_1(Node) ->
     State = ?STATE_DETACHED,
     case leo_redundant_manager_api:reserve(Node, State, leo_date:clock()) of
         ok ->
+            ?debugVal(Node),
             leo_manager_mnesia:update_storage_node_status(
               #node_state{node    = Node,
                           state   = State,
@@ -1041,28 +1043,28 @@ whereis(_Key, _HasRoutingTable) ->
 whereis_1(_, _, [],Acc) ->
     {ok, lists:reverse(Acc)};
 
-whereis_1(AddrId, Key, [#redundant_node{node      = Node,
-                                        available = true }|T], Acc) ->
-    NodeStr = atom_to_list(Node),
-    RPCKey  = rpc:async_call(Node, leo_storage_handler_object,
-                             head, [AddrId, Key]),
-    Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
-                  {value, {ok, #metadata{addr_id   = AddrId,
-                                         dsize     = DSize,
-                                         cnumber   = ChunkedObjs,
-                                         clock     = Clock,
-                                         timestamp = Timestamp,
-                                         checksum  = Checksum,
-                                         del       = DelFlag}}} ->
-                      {NodeStr, AddrId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag};
-                  _ ->
-                      {NodeStr, not_found}
-              end,
-    whereis_1(AddrId, Key, T, [Reply | Acc]);
-
-whereis_1(AddrId, Key, [#redundant_node{node      = Node,
-                                        available = false}|T], Acc) ->
-    whereis_1(AddrId, Key, T, [{atom_to_list(Node), not_found} | Acc]).
+whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
+    Node = RedundantNode#redundant_node.node,
+    case RedundantNode#redundant_node.available of
+        true ->
+            NodeStr = atom_to_list(Node),
+            RPCKey  = rpc:async_call(Node, leo_storage_handler_object, head, [AddrId, Key]),
+            Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
+                          {value, {ok, #metadata{addr_id   = AddrId,
+                                                 dsize     = DSize,
+                                                 cnumber   = ChunkedObjs,
+                                                 clock     = Clock,
+                                                 timestamp = Timestamp,
+                                                 checksum  = Checksum,
+                                                 del       = DelFlag}}} ->
+                              {NodeStr, AddrId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag};
+                          _ ->
+                              {NodeStr, not_found}
+                      end,
+            whereis_1(AddrId, Key, T, [Reply | Acc]);
+        false ->
+            whereis_1(AddrId, Key, T, [{atom_to_list(Node), not_found} | Acc])
+    end.
 
 
 %% @doc Recover key/node

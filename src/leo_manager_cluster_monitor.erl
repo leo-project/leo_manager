@@ -430,7 +430,8 @@ register_fun_1(#registration{node = Node,
             ?error("register_fun_1/2", "cause:~p", [Cause]),
             {error, Cause};
         _Other ->
-            case rpc:call(Node, leo_redundant_manager_api, checksum, [?CHECKSUM_RING], ?DEF_TIMEOUT) of
+            case rpc:call(Node, leo_redundant_manager_api,
+                          checksum, [?CHECKSUM_RING], ?DEF_TIMEOUT) of
                 {ok, {Chksum0, Chksum1}} ->
                     leo_manager_mnesia:update_gateway_node(
                       #node_state{node    = Node,
@@ -438,7 +439,7 @@ register_fun_1(#registration{node = Node,
                                   ring_hash_new = leo_hex:integer_to_hex(Chksum0, 8),
                                   ring_hash_old = leo_hex:integer_to_hex(Chksum1, 8),
                                   when_is = ?CURRENT_TIME});
-                _ ->
+                _Error ->
                     void
             end
     end;
