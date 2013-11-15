@@ -725,7 +725,6 @@ rebalance_4([#member{node  = Node,
     MemberCur  = RebalanceProcInfo#rebalance_proc_info.members_cur,
     MemberPrev = RebalanceProcInfo#rebalance_proc_info.members_prev,
     SystemConf = RebalanceProcInfo#rebalance_proc_info.system_conf,
-    %% @TODO
     Options = [{n, SystemConf#system_conf.n},
                {r, SystemConf#system_conf.r},
                {w, SystemConf#system_conf.w},
@@ -739,10 +738,6 @@ rebalance_4([#member{node  = Node,
                           [?SYNC_TARGET_BOTH, [{?VER_CUR,  MemberCur},
                                                {?VER_PREV, MemberPrev}],
                            Options], ?DEF_TIMEOUT) of
-                %% @TODO
-                %% Acc_1 = case rpc:call(Node, leo_redundant_manager_api, synchronize,
-                %%                       [?SYNC_TARGET_BOTH, [{?VER_CUR,  MemberCur},
-                %%                                            {?VER_PREV, MemberPrev}]], ?DEF_TIMEOUT) of
                 {ok, Hashes} ->
                     {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
                     _ = leo_manager_mnesia:update_storage_node_status(
@@ -1326,6 +1321,8 @@ synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                          ring_hash_new = leo_hex:integer_to_hex(RingHashCur, 8),
                                          ring_hash_old = leo_hex:integer_to_hex(RingHashPrev,8)}),
             ok;
+        not_found = Cause ->
+            {error, Cause};
         {_, Cause} ->
             ?warn("synchronize/3", "cause:~p", [Cause]),
             {error, Cause};
@@ -1360,8 +1357,6 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
               false ->
                   not_match
           end,
-    ?debugVal({Ret, [{Node_1, Checksum_1},
-                     {Node_2, Checksum_2}]}),
 
     case Ret of
         not_match ->
@@ -1379,8 +1374,7 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
     end;
 
 synchronize(?CHECKSUM_RING = Type, [{Node_1, {RingHashCur_1, RingHashPrev_1}},
-                                    {Node_2, {RingHashCur_2, RingHashPrev_2}}] = Arg) ->
-    ?debugVal(Arg),
+                                    {Node_2, {RingHashCur_2, RingHashPrev_2}}]) ->
     case leo_redundant_manager_api:checksum(Type) of
         {ok, {LocalRingHashCur, LocalRingHashPrev}} ->
             %% copare manager-cur-ring-hash with remote cur-ring-hash
