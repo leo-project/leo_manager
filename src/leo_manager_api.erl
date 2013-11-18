@@ -702,9 +702,6 @@ rebalance_3(?STATE_ATTACHED, [Node|Rest],
     rebalance_3(?STATE_ATTACHED, Rest, RebalanceProcInfo);
 
 rebalance_3(?STATE_DETACHED, [Node|Rest], RebalanceProcInfo) ->
-    ok = leo_redundant_manager_api:update_member_by_node(
-           Node, leo_date:clock(), ?STATE_STOP),
-
     case leo_manager_mnesia:get_storage_node_by_name(Node) of
         {ok, [NodeInfo|_]} ->
             _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
