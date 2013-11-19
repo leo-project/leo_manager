@@ -305,7 +305,8 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
 create_mnesia_tables_1(slave,_Nodes) ->
     create_mnesia_tables_2().
 
-
+%% @doc Create mnesia tables and execute to migrate data
+%% @private
 -spec(create_mnesia_tables_2() ->
              ok | {error, any()}).
 create_mnesia_tables_2() ->
@@ -314,15 +315,8 @@ create_mnesia_tables_2() ->
         Tbls when length(Tbls) > 1 ->
             ok = mnesia:wait_for_tables(Tbls, 60000),
 
-            %% data migration#1 - bucket
-            case ?env_use_s3_api() of
-                false -> void;
-                true  ->
-                    catch leo_s3_bucket_transform_handler:transform()
-            end,
-            %% data migration#1 - members
-            {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
-            ok = leo_members_table_transformer:transform('0.16.0', '0.16.5', ReplicaNodes),
+            %% Execute to migrate data
+            ok = leo_manager_transformer:transform(),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};
