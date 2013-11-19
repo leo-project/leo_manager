@@ -353,3 +353,12 @@
             _ -> true
         end).
 
+-define(DEF_LOG_DIR, "./log/").
+-define(env_log_dir(),
+        case application:get_env(leo_manager, log_appender) of
+            {ok, [{file, Options}|_]} ->
+                leo_misc:get_value(path, Options, ?DEF_LOG_DIR);
+            _ ->
+                ?DEF_LOG_DIR
+        end).
+
