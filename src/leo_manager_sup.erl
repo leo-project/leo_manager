@@ -59,7 +59,7 @@ start_link() ->
     Mode = ?env_mode_of_manager(),
     Me = node(),
 
-    {RedundantNodes0, RedundantNodes1} =
+    {RedundantNodes_1, RedundantNodes_2} =
         case ?env_partner_of_manager_node() of
             [] ->
                 {[Me] ,[{Mode, Me}]};
@@ -71,6 +71,8 @@ start_link() ->
                 {[Me|RedundantNodesAtom], [{Mode, Me},
                                            {'partner', RedundantNodesAtom}]}
         end,
+    leo_misc:init_env(),
+    leo_misc:set_env(leo_redundant_manager, ?PROP_MNESIA_NODES, RedundantNodes_1),
 
     CUI_Console  = #tcp_server_params{prefix_of_name  = "tcp_server_cui_",
                                       port = ?env_listening_port_cui(),
@@ -105,7 +107,7 @@ start_link() ->
             SystemConf = load_system_config(),
             ChildSpec  = {leo_redundant_manager_sup,
                           {leo_redundant_manager_sup, start_link,
-                           [Mode, RedundantNodes0, ?env_queue_dir(leo_manager),
+                           [Mode, RedundantNodes_1, ?env_queue_dir(leo_manager),
                             [{n,           SystemConf#system_conf.n},
                              {r,           SystemConf#system_conf.r},
                              {w,           SystemConf#system_conf.w},
@@ -131,7 +133,7 @@ start_link() ->
                                     end, []) of
                 [] ->
                     timer:apply_after(?CHECK_INTERVAL, ?MODULE,
-                                      create_mnesia_tables, [Mode, RedundantNodes1]);
+                                      create_mnesia_tables, [Mode, RedundantNodes_2]);
                 _  ->
                     create_mnesia_tables_2()
             end,
@@ -316,13 +318,16 @@ create_mnesia_tables_2() ->
         Tbls when length(Tbls) > 1 ->
             ok = mnesia:wait_for_tables(Tbls, 30000),
 
-            %% data migration
+            %% data migration#1 - bucket
             case ?env_use_s3_api() of
                 true ->
                     catch leo_s3_bucket_transform_handler:transform();
                 false ->
                     void
             end,
+            %% data migration#1 - members
+            {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
+            ok = leo_members_table_transformer:transform('0.16.0', '0.16.5', ReplicaNodes),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};

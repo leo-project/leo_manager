@@ -233,6 +233,7 @@
 -define(DEF_ENDPOINT_1, <<"localhost">>).
 -define(DEF_ENDPOINT_2, <<"s3.amazonaws.com">>).
 
+-define(PROP_MNESIA_NODES, 'leo_manager_mnesia_nodes').
 
 %% records
 %%
