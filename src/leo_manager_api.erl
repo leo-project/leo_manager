@@ -376,7 +376,7 @@ distribute_members([_|_]= Nodes) ->
                                [Members], ?DEF_TIMEOUT) of
                 {_, []} -> void;
                 {_, BadNodes} ->
-                    %% @TODO enqueue...
+                    %% @TODO enqueue a message (fail distribution of members)
                     ?error("distribute_members/2", "bad-nodes:~p", [BadNodes])
             end,
             ok;
@@ -497,9 +497,8 @@ start_1({ResL0, BadNodes0}) ->
 %% @doc Do Rebalance which affect all storage-nodes in operation.
 %% [process flow]
 %%     1. Judge that "is exist attach-node OR detach-node" ?
-%%     2. Create RING (redundant-manager).
-%%     3. Distribute each storage node. (from manager to storages)
-%%     4. Confirm callback.
+%%     2. Distribute every storage node from manager
+%%     3. Confirm callback.
 %%
 -spec(rebalance() ->
              ok | {error, any()}).
@@ -643,7 +642,7 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
     case Ret of
         ok -> void;
         {error, _} ->
-            %% @TODO >> enqueue
+            %% @TODO enqueue a message (fail distribution of launch-info to a target-node)
             ok
     end,
     rebalance_3(Rest, RebalanceProcInfo);
@@ -700,9 +699,6 @@ rebalance_4([_|T], RebalanceProcInfo, Acc) ->
 
 
 %% @private
-rebalance_5({takeover, Node},_) ->
-    recover(?RECOVER_BY_NODE, Node, true);
-
 rebalance_5([], []) ->
     ok;
 rebalance_5([], Acc) ->
@@ -711,12 +707,14 @@ rebalance_5([{Node, Info}|T], Acc) ->
     case rpc:call(Node, ?API_STORAGE, rebalance, [Info], ?DEF_TIMEOUT) of
         ok ->
             rebalance_5(T, Acc);
-        {_, Cause}->
-            ?error("rebalance_5/2", "node:~w, cause:~p", [Node, Cause]),
-            rebalance_5(T, [{Node, Cause}|Acc]);
-        timeout = Cause ->
-            ?error("rebalance_5/2", "node:~w, cause:~p", [Node, Cause]),
-            rebalance_5(T, [{Node, Cause}|Acc])
+        Error ->
+            %% @TODO enqueue a message (fail distribution of rebalance-info)
+            Cause_1 = case Error of
+                          {_, Cause} -> Cause;
+                          timeout = Cause -> Cause
+                      end,
+            ?error("rebalance_5/2", "node:~w, cause:~p", [Node, Cause_1]),
+            rebalance_5(T, [{Node, Cause_1}|Acc])
     end.
 
 
