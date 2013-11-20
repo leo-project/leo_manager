@@ -374,9 +374,9 @@ distribute_members([_|_]= Nodes) ->
 
             case rpc:multicall(DestNodes, leo_redundant_manager_api, update_members,
                                [Members], ?DEF_TIMEOUT) of
-                {_, []} ->
-                    void;
+                {_, []} -> void;
                 {_, BadNodes} ->
+                    %% @TODO enqueue...
                     ?error("distribute_members/2", "bad-nodes:~p", [BadNodes])
             end,
             ok;
@@ -506,56 +506,39 @@ start_1({ResL0, BadNodes0}) ->
 rebalance() ->
     case leo_redundant_manager_api:get_members() of
         {ok, Members_1} ->
-            {State, PairOfTakeover, Nodes} =
+            {State, Nodes} =
                 lists:foldl(
-                  fun(#member{state = ?STATE_RUNNING },{false, AccT, AccN}) ->
-                          {true, AccT, AccN};
+                  fun(#member{state = ?STATE_RUNNING },{false, AccN}) ->
+                          {true, AccN};
                      (#member{node  = Node,
-                              state = ?STATE_ATTACHED},{SoFar, AccT, [{?STATE_DETACHED,_}] = AccN}) ->
+                              state = ?STATE_ATTACHED},{SoFar, [{?STATE_DETACHED,_}] = AccN}) ->
                           NS = {?STATE_ATTACHED, Node},
-                          {SoFar, [NS|AccT], [NS|AccN]};
+                          {SoFar, [NS|AccN]};
                      (#member{node  = Node,
-                              state = ?STATE_ATTACHED},{SoFar, AccT, AccN}) ->
+                              state = ?STATE_ATTACHED},{SoFar, AccN}) ->
                           NS = {?STATE_ATTACHED, Node},
-                          case AccT of
-                              [] -> {SoFar, [NS|AccT], [NS|AccN]};
-                              _  -> {SoFar, AccT,      [NS|AccN]}
-                          end;
+                          {SoFar, [NS|AccN]};
                      (#member{node  = Node,
-                              state = ?STATE_DETACHED},{SoFar, AccT, [{?STATE_ATTACHED,_}] = AccN}) ->
+                              state = ?STATE_DETACHED},{SoFar, [{?STATE_ATTACHED,_}] = AccN}) ->
                           NS = {?STATE_DETACHED, Node},
-                          {SoFar, [NS|AccT], [NS|AccN]};
+                          {SoFar, [NS|AccN]};
                      (#member{node  = Node,
-                              state = ?STATE_DETACHED},{SoFar, AccT, AccN}) ->
+                              state = ?STATE_DETACHED},{SoFar, AccN}) ->
                           NS = {?STATE_DETACHED, Node},
-                          case AccT of
-                              [] -> {SoFar, [NS|AccT], [NS|AccN]};
-                              _  -> {SoFar, AccT,      [NS|AccN]}
-                          end;
+                          {SoFar, [NS|AccN]};
                      (_Member, SoFar) ->
                           SoFar
-                  end, {false, [], []}, Members_1),
+                  end, {false, []}, Members_1),
 
-            Nodes_1 = case PairOfTakeover of
-                          [_,_] ->
-                              lists:delete(lists:keyfind(?STATE_DETACHED, 1, Nodes), Nodes);
-                          _ ->
-                              Nodes
-                      end,
-
-            case rebalance_1(State, PairOfTakeover, Nodes_1) of
+            case rebalance_1(State, Nodes) of
                 {ok, RetRebalance} ->
-                    [{NodeState, _}|_] = Nodes_1,
-                    Nodes_2 = [N || {_, N} <- Nodes_1],
-
                     case leo_redundant_manager_api:get_members() of
                         {ok, Members_2} ->
                             {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-                            case rebalance_3(NodeState, Nodes_2,
-                                             #rebalance_proc_info{members_cur = Members_2,
-                                                                  system_conf = SystemConf}) of
+                            case rebalance_3(Nodes, #rebalance_proc_info{members_cur = Members_2,
+                                                                         system_conf = SystemConf}) of
                                 ok ->
-                                    _ = distribute_members(Nodes_2),
+                                    _ = distribute_members([N || {_, N} <- Nodes]),
                                     rebalance_5(RetRebalance, []);
                                 {error, Cause}->
                                     ?error("rebalance/0", "cause:~p", [Cause]),
@@ -576,32 +559,11 @@ rebalance() ->
     end.
 
 %% @private
-rebalance_1(false,_PairOfTakeover,_Nodes) ->
+rebalance_1(false,_Nodes) ->
     {error, not_running};
-rebalance_1(_State, [], []) ->
+rebalance_1(_State, []) ->
     {error, not_need_to_rebalance};
-
-%% for takeover-operation
-rebalance_1(true, [_,_] = PairOfTakeover,_Nodes) ->
-    Ret1 = lists:keyfind(?STATE_DETACHED, 1, PairOfTakeover),
-    Ret2 = lists:keyfind(?STATE_ATTACHED, 1, PairOfTakeover),
-
-    case (Ret1 /= false andalso Ret2 /= false) of
-        true ->
-            case assign_nodes_to_ring([Ret1, Ret2]) of
-                ok ->
-                    {_, DetachedNode} = Ret1,
-                    {_, AttachedNode} = Ret2,
-                    rebalance_1_1(DetachedNode, AttachedNode);
-                Error ->
-                    Error
-            end;
-        false ->
-            {error, ?ERROR_NOT_SATISFY_CONDITION}
-    end;
-
-%% for regular-case
-rebalance_1(true,_PairOfTakeover, Nodes) ->
+rebalance_1(true, Nodes) ->
     case assign_nodes_to_ring(Nodes) of
         ok ->
             case is_allow_to_distribute_command() of
@@ -615,20 +577,6 @@ rebalance_1(true,_PairOfTakeover, Nodes) ->
                     end;
                 {false, _} ->
                     {error, ?ERROR_NOT_SATISFY_CONDITION}
-            end;
-        Error ->
-            Error
-    end.
-
-%% @private
-rebalance_1_1(DetachedNode, AttachedNode) ->
-    case leo_redundant_manager_api:delete_member_by_node(DetachedNode) of
-        ok ->
-            case leo_manager_mnesia:delete_storage_node(DetachedNode) of
-                ok ->
-                    {ok, {takeover, AttachedNode}};
-                Error ->
-                    Error
             end;
         Error ->
             Error
@@ -656,11 +604,10 @@ rebalance_2(Tbl, [Item|T]) ->
     rebalance_2(Tbl, T).
 
 %% @private
-rebalance_3(_, [],
-            #rebalance_proc_info{members_cur = Members} = RebalanceProcInfo) ->
+rebalance_3([], #rebalance_proc_info{members_cur = Members} = RebalanceProcInfo) ->
     rebalance_4(Members, RebalanceProcInfo, []);
 
-rebalance_3(?STATE_ATTACHED, [Node|Rest],
+rebalance_3([{?STATE_ATTACHED, Node}|Rest],
             #rebalance_proc_info{members_cur = Members,
                                  system_conf = SystemConf} = RebalanceProcInfo) ->
     %% send a launch-message to a remote storage node
@@ -692,20 +639,20 @@ rebalance_3(?STATE_ATTACHED, [Node|Rest],
                   {error, Cause}
           end,
 
-    %% check that fail sending message
+    %% Check that fail sending message
     case Ret of
         ok -> void;
         {error, _} ->
             %% @TODO >> enqueue
             ok
     end,
-    rebalance_3(?STATE_ATTACHED, Rest, RebalanceProcInfo);
+    rebalance_3(Rest, RebalanceProcInfo);
 
-rebalance_3(?STATE_DETACHED, [Node|Rest], RebalanceProcInfo) ->
+rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
     case leo_manager_mnesia:get_storage_node_by_name(Node) of
         {ok, [NodeInfo|_]} ->
             _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
-            rebalance_3(?STATE_DETACHED, Rest, RebalanceProcInfo);
+            rebalance_3(Rest, RebalanceProcInfo);
         Error ->
             Error
     end.
