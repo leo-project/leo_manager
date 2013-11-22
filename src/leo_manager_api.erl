@@ -503,7 +503,7 @@ start_1({ResL0, BadNodes0}) ->
 -spec(rebalance() ->
              ok | {error, any()}).
 rebalance() ->
-    case leo_redundant_manager_api:get_members() of
+    case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, Members_1} ->
             {State, Nodes} =
                 lists:foldl(
@@ -531,11 +531,12 @@ rebalance() ->
 
             case rebalance_1(State, Nodes) of
                 {ok, RetRebalance} ->
-                    case leo_redundant_manager_api:get_members() of
-                        {ok, Members_2} ->
+                    case get_members_of_all_versions() of
+                        {ok, {MembersCur, MembersPrev}} ->
                             {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-                            case rebalance_3(Nodes, #rebalance_proc_info{members_cur = Members_2,
-                                                                         system_conf = SystemConf}) of
+                            case rebalance_3(Nodes, #rebalance_proc_info{members_cur  = MembersCur,
+                                                                         members_prev = MembersPrev,
+                                                                         system_conf  = SystemConf}) of
                                 ok ->
                                     _ = distribute_members([N || {_, N} <- Nodes]),
                                     rebalance_5(RetRebalance, []);
@@ -543,8 +544,6 @@ rebalance() ->
                                     ?error("rebalance/0", "cause:~p", [Cause]),
                                     {error, Cause}
                             end;
-                        not_found ->
-                            {error, not_found};
                         Error ->
                             Error
                     end;
@@ -594,6 +593,7 @@ rebalance_2(Tbl, [Item|T]) ->
     VNodeId  = leo_misc:get_value('vnode_id', Item),
     SrcNode  = leo_misc:get_value('src',      Item),
     DestNode = leo_misc:get_value('dest',     Item),
+
     case SrcNode of
         {error, no_entry} ->
             void;
@@ -610,6 +610,7 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
             #rebalance_proc_info{members_cur = Members,
                                  system_conf = SystemConf} = RebalanceProcInfo) ->
     %% send a launch-message to a remote storage node
+    %% @TODO send both members-prev and members-cur
     Ret = case rpc:call(Node, ?API_STORAGE, start,
                         [Members, SystemConf], ?DEF_TIMEOUT) of
               {ok, {_Node, {RingHashCur, RingHashPrev}}} ->
@@ -739,6 +740,25 @@ assign_nodes_to_ring([{?STATE_DETACHED, Node}|Rest]) ->
     case leo_redundant_manager_api:detach(Node) of
         ok ->
             assign_nodes_to_ring(Rest);
+        Error ->
+            Error
+    end.
+
+
+%% @private
+get_members_of_all_versions() ->
+    case leo_redundant_manager_api:get_members(?VER_CUR) of
+        {ok, MembersCur} ->
+            case leo_redundant_manager_api:get_members(?VER_PREV) of
+                {ok, MembersPrev} ->
+                    {ok, {MembersCur, MembersPrev}};
+                not_found ->
+                    {error, not_found};
+                Error ->
+                    Error
+            end;
+        not_found ->
+            {error, not_found};
         Error ->
             Error
     end.
