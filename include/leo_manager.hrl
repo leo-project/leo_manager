@@ -151,6 +151,7 @@
                    {?CMD_GET_USERS,        "get-users"},
                    %% - endpoint-related
                    {?CMD_ADD_ENDPOINT,  "add-endpoint ${endpoint}"},
+                   {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
                    {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
                    %% - bucket-related
