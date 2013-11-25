@@ -48,7 +48,8 @@
         end).
 
 %% API
--export([get_system_config/0, get_system_status/0, get_members/0,
+-export([get_system_config/0, get_system_status/0,
+         get_members/0, get_members_of_all_versions/0,
          update_manager_nodes/1,
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
 
@@ -110,6 +111,25 @@ get_system_status() ->
              {ok, list()}).
 get_members() ->
     leo_redundant_manager_api:get_members().
+
+-spec(get_members_of_all_versions() ->
+             {ok, list()}).
+get_members_of_all_versions() ->
+    case leo_redundant_manager_api:get_members(?VER_CUR) of
+        {ok, MembersCur} ->
+            case leo_redundant_manager_api:get_members(?VER_PREV) of
+                {ok, MembersPrev} ->
+                    {ok, {MembersCur, MembersPrev}};
+                not_found ->
+                    {error, not_found};
+                Error ->
+                    Error
+            end;
+        not_found ->
+            {error, not_found};
+        Error ->
+            Error
+    end.
 
 
 %% @doc Retrieve cluster-node-status from each server.
@@ -712,25 +732,6 @@ assign_nodes_to_ring([{?STATE_DETACHED, Node}|Rest]) ->
     case leo_redundant_manager_api:detach(Node) of
         ok ->
             assign_nodes_to_ring(Rest);
-        Error ->
-            Error
-    end.
-
-
-%% @private
-get_members_of_all_versions() ->
-    case leo_redundant_manager_api:get_members(?VER_CUR) of
-        {ok, MembersCur} ->
-            case leo_redundant_manager_api:get_members(?VER_PREV) of
-                {ok, MembersPrev} ->
-                    {ok, {MembersCur, MembersPrev}};
-                not_found ->
-                    {error, not_found};
-                Error ->
-                    Error
-            end;
-        not_found ->
-            {error, not_found};
         Error ->
             Error
     end.
