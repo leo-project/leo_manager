@@ -1008,7 +1008,7 @@ recover(?RECOVER_BY_FILE, Key, true) ->
             Nodes = [N || #redundant_node{node = N} <- Redundancies],
             case rpc:multicall(Nodes, ?API_STORAGE, synchronize,
                                [Key1, 'error_msg_replicate_data'], ?DEF_TIMEOUT) of
-                {_, []} ->
+                {_ResL, []} ->
                     ok;
                 {_, BadNodes} ->
                     {error, BadNodes}
@@ -1044,9 +1044,10 @@ recover(?RECOVER_BY_RING, Node, true) ->
             case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
                 {ok, {RingHashCur, RingHashPrev}} when RingHashCur == RingHashPrev ->
                     %% Sync target-node's member/ring with manager
-                    case leo_redundant_manager_api:get_members() of
-                        {ok, Members} ->
-                            synchronize(?CHECKSUM_RING, Node_1, Members);
+                    case get_members_of_all_versions() of
+                        {ok, {MembersCur, MembersPrev}} ->
+                            synchronize(?CHECKSUM_RING, Node_1, [{?VER_CUR,  MembersCur },
+                                                                 {?VER_PREV, MembersPrev}]);
                         not_found ->
                             {error, not_found};
                         Error ->
@@ -1068,7 +1069,7 @@ recover(_,_,false) ->
 %%      Check conditions
 %% @private
 recover_node_1(true, Node) ->
-    {Ret, Members}= is_allow_to_distribute_command(Node),
+    {Ret, Members} = is_allow_to_distribute_command(Node),
     recover_node_2(Ret, Members, Node);
 recover_node_1(false, _) ->
     {error, ?ERROR_TARGET_NODE_NOT_RUNNING}.
@@ -1078,7 +1079,7 @@ recover_node_1(false, _) ->
 recover_node_2(true, Members, Node) ->
     case rpc:multicall(Members, ?API_STORAGE, synchronize,
                        [Node], ?DEF_TIMEOUT) of
-        {_, []} ->
+        {_RetL, []} ->
             ok;
         {_, BadNodes} ->
             ?warn("recover_node_3/3", "bad_nodes:~p", [BadNodes]),
