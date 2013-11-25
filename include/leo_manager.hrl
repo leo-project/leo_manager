@@ -86,6 +86,7 @@
 -define(CMD_DELETE_USER,         "delete-user").
 -define(CMD_GET_USERS,           "get-users").
 -define(CMD_ADD_ENDPOINT,        "add-endpoint").
+-define(CMD_SET_ENDPOINT,        "set-endpoint").
 -define(CMD_DEL_ENDPOINT,        "delete-endpoint").
 -define(CMD_GET_ENDPOINTS,       "get-endpoints").
 -define(CMD_ADD_BUCKET,          "add-bucket").
