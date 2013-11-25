@@ -849,7 +849,7 @@ start_2_({Node0, _, Sock}) ->
     ok.
 
 
-rebalance_0_({Node0, _, Sock}) ->
+rebalance_0_({_Node0, _, Sock}) ->
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -871,19 +871,16 @@ rebalance_0_({Node0, _, Sock}) ->
                              {ok, {12345, 67890}}
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_members,
-                     fun() ->
-                             {ok, [#member{node  = Node0,
-                                           state = ?STATE_RUNNING}]} %% 1-node
+                     fun(_) ->
+                             not_found
                      end),
 
     Command = "rebalance\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
     timer:sleep(100),
 
-    ?assertNotEqual([], meck:history(leo_redundant_manager_api)),
-
-    %% {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
-    %% ?assertEqual(true, string:str(binary_to_list(Res), "[ERROR]") > 0),
+    {ok, Res} = gen_tcp:recv(Sock, 0, 1000),
+    ?assertMatch(true, string:str(binary_to_list(Res), "[ERROR]") > 0),
 
     catch gen_tcp:close(Sock),
     ok.
@@ -910,7 +907,7 @@ rebalance_1_({Node0, _, Sock}) ->
                              {ok, {12345, 67890}}
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_members,
-                     fun() ->
+                     fun(_) ->
                              {ok, [#member{node  = Node0,
                                            state = ?STATE_ATTACHED}]} %% 1-node
                      end),
@@ -953,7 +950,7 @@ rebalance_2_({Node0, Node1, Sock}) ->
                              {ok, {12345, 67890}}
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_members,
-                     fun() ->
+                     fun(_) ->
                              {ok, [#member{node  = Node0, state = ?STATE_ATTACHED},
                                    #member{node  = Node1, state = ?STATE_RUNNING }]} %% 2-node
                      end),

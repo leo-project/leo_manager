@@ -359,6 +359,19 @@ handle_call(_Socket, <<?CMD_ADD_ENDPOINT, ?SPACE, Option/binary>> = Command,
     Reply = invoke(?CMD_ADD_ENDPOINT, Formatter, Fun),
     {reply, Reply, State};
 
+handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case set_endpoint(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_SET_ENDPOINT, Formatter, Fun),
+    {reply, Reply, State};
+
 
 %% Command: "get-endpoints"
 %%

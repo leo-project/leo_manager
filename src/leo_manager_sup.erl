@@ -100,6 +100,9 @@ start_link() ->
             ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_S),
             ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_L),
 
+            %% Launch MQ
+            ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
+
             %% Launch Redundant-manager
             SystemConf = load_system_config(),
             ChildSpec  = {leo_redundant_manager_sup,
