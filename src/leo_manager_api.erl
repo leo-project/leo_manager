@@ -397,7 +397,6 @@ distribute_members([_|_]= Nodes) ->
                                [Members], ?DEF_TIMEOUT) of
                 {_, []} -> void;
                 {_, BadNodes} ->
-                    %% @TODO enqueue a message (fail distribution of members)
                     ?error("distribute_members/2", "bad-nodes:~p", [BadNodes])
             end,
             ok;
@@ -531,16 +530,8 @@ rebalance() ->
                   fun(#member{state = ?STATE_RUNNING },{false, AccN}) ->
                           {true, AccN};
                      (#member{node  = Node,
-                              state = ?STATE_ATTACHED},{SoFar, [{?STATE_DETACHED,_}] = AccN}) ->
-                          NS = {?STATE_ATTACHED, Node},
-                          {SoFar, [NS|AccN]};
-                     (#member{node  = Node,
                               state = ?STATE_ATTACHED},{SoFar, AccN}) ->
                           NS = {?STATE_ATTACHED, Node},
-                          {SoFar, [NS|AccN]};
-                     (#member{node  = Node,
-                              state = ?STATE_DETACHED},{SoFar, [{?STATE_ATTACHED,_}] = AccN}) ->
-                          NS = {?STATE_DETACHED, Node},
                           {SoFar, [NS|AccN]};
                      (#member{node  = Node,
                               state = ?STATE_DETACHED},{SoFar, AccN}) ->
@@ -561,7 +552,7 @@ rebalance() ->
                                                                      rebalance_list = RetRebalance},
                             case rebalance_3(Nodes, RebalanceProcInfo) of
                                 ok ->
-                                    rebalance_4(MembersCur, RebalanceProcInfo, []);
+                                    rebalance_4(MembersCur, RebalanceProcInfo);
                                 {error, Cause}->
                                     ?error("rebalance/0", "cause:~p", [Cause]),
                                     {error, Cause}
@@ -678,37 +669,45 @@ rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
     end.
 
 %% @private
-rebalance_4([],_,[]) ->
+rebalance_4([],_) ->
     ok;
-rebalance_4([],_,Acc) ->
-    {error, Acc};
 rebalance_4([#member{node  = Node,
-                     state = ?STATE_RUNNING}|T], RebalanceProcInfo, Acc) ->
+                     state = ?STATE_RUNNING}|T], RebalanceProcInfo) ->
     MembersCur    = RebalanceProcInfo#rebalance_proc_info.members_cur,
     MembersPrev   = RebalanceProcInfo#rebalance_proc_info.members_prev,
     RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
 
     RebalanceList_1 = leo_misc:get_value(Node, RebalanceList, []),
-    Acc_1 = case rpc:call(Node, ?API_STORAGE, rebalance,
-                          [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
-                {ok, Hashes} ->
-                    {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
-                    _ = leo_manager_mnesia:update_storage_node_status(
-                          update_chksum, #node_state{node = Node,
-                                                     ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                                     ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
-                    Acc;
-                {_, Cause} ->
-                    %% @TODO enqueue a message (fail distribution of rebalance-info)
-                    [{Node, Cause}|Acc];
-                timeout = Cause ->
-                    %% @TODO enqueue a message (fail distribution of rebalance-info)
-                    [{Node, Cause}|Acc]
-            end,
-    rebalance_4(T, RebalanceProcInfo, Acc_1);
+    Ret = case rpc:call(Node, ?API_STORAGE, rebalance,
+                        [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
+              {ok, Hashes} ->
+                  {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
+                  _ = leo_manager_mnesia:update_storage_node_status(
+                        update_chksum, #node_state{node = Node,
+                                                   ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                                   ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
+                  ok;
+              {_, Cause} ->
+                  {error, Cause};
+              timeout = Cause ->
+                  {error, Cause}
+          end,
 
-rebalance_4([_|T], RebalanceProcInfo, Acc) ->
-    rebalance_4(T, RebalanceProcInfo, Acc).
+    case Ret of
+        ok -> void;
+        {error, _Cause} ->
+            %% Enqueue a message (fail distribution of rebalance-info)
+            ok = leo_manager_mq_client:publish(
+                   ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList_1)
+    end,
+    rebalance_4(T, RebalanceProcInfo);
+
+rebalance_4([#member{node = Node}|T], RebalanceProcInfo) ->
+    %% Enqueue a message (fail distribution of rebalance-info)
+    ok = leo_manager_mq_client:publish(
+           ?QUEUE_ID_FAIL_REBALANCE, Node,
+           RebalanceProcInfo#rebalance_proc_info.rebalance_list),
+    rebalance_4(T, RebalanceProcInfo).
 
 
 %% @private
@@ -1523,7 +1522,7 @@ is_allow_to_distribute_command() ->
              boolean()).
 is_allow_to_distribute_command(Node) ->
     {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    {ok, Members_1}   = leo_redundant_manager_api:get_members(),
+    {ok, Members_1}  = leo_redundant_manager_api:get_members(),
     {Total, Active, Members_2} =
         lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
                             Acc;
@@ -1532,26 +1531,26 @@ is_allow_to_distribute_command(Node) ->
                        (#member{state = ?STATE_ATTACHED}, Acc) ->
                             Acc;
                        (#member{state = ?STATE_RUNNING,
-                                node  = N}, {Num1,Num2,M}) ->
+                                node  = N}, {Num1, Num2, M}) ->
                             {Num1+1, Num2+1, [N|M]};
-                       (_, {Num1,Num2,M}) ->
+                       (#member{}, {Num1, Num2, M}) ->
                             {Num1+1, Num2, M}
                     end, {0,0,[]}, Members_1),
 
     NVal = SystemConf#system_conf.n,
-    Diff = case (SystemConf#system_conf.n < 3) of
+    Diff = case (SystemConf#system_conf.n < 2) of
                true  -> 0;
-               false ->
-                   NVal - (NVal - 1)
+               false -> NVal - (NVal - 1)
            end,
-    Ret  = case ((Total - Active) =< Diff) of
-               true ->
-                   case rpc:multicall(Members_2, erlang, node, [], ?DEF_TIMEOUT) of
-                       {_, []} -> true;
-                       _ -> false
-                   end;
-               false ->
-                   false
-           end,
+    Ret  = ((Total - Active) =< Diff),
+    %% Ret  = case ((Total - Active) =< Diff) of
+    %%            true ->
+    %%                case rpc:multicall(Members_2, erlang, node, [], ?DEF_TIMEOUT) of
+    %%                    {_, []} -> true;
+    %%                    _ -> false
+    %%                end;
+    %%            false ->
+    %%                false
+    %%        end,
     {Ret, Members_2}.
 

@@ -236,6 +236,11 @@
 
 -define(PROP_MNESIA_NODES, 'leo_manager_mnesia_nodes').
 
+
+%% MQ related:
+-define(QUEUE_ID_FAIL_REBALANCE, 'mq_fail_rebalance').
+
+
 %% records
 %%
 -define(AUTH_NOT_YET, 0).
@@ -272,9 +277,16 @@
          }).
 
 -record(history, {
-          id           :: integer(),
+          id           :: pos_integer(),
           command = [] :: string(), %% Command
           created = -1 :: integer() %% Created At
+         }).
+
+-record(recovery_rebalance_info, {
+          id   :: pos_integer(),
+          node :: atom(),
+          rebalance_info = [] :: list(tuple()),
+          timestamp = 0       :: pos_integer()
          }).
 
 
@@ -361,5 +373,14 @@
                 leo_misc:get_value(path, Options, ?DEF_LOG_DIR);
             _ ->
                 ?DEF_LOG_DIR
+        end).
+
+-define(DEF_QUEUE_DIR, "./work/queue/").
+-define(env_queue_dir(),
+        case application:get_env(leo_manager, queue_dir) of
+            {ok, _EnvQueueDir} ->
+                _EnvQueueDir;
+            _ ->
+                ?DEF_QUEUE_DIR
         end).
 
