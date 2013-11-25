@@ -71,9 +71,10 @@
 -define(ERROR_META_NOT_FOUND,                 "Metadata not found").
 
 -record(rebalance_proc_info, {
-          members_cur  = [] :: list(#member{}),
-          members_prev = [] :: list(#member{}),
-          system_conf  = [] :: list(tuple())
+          members_cur    = [] :: list(#member{}),
+          members_prev   = [] :: list(#member{}),
+          system_conf    = [] :: list(tuple()),
+          rebalance_list = [] :: list()
          }).
 
 
@@ -454,7 +455,7 @@ start() ->
             case leo_manager_mnesia:get_system_config() of
                 {ok, SystemConf} ->
                     Res = rpc:multicall(Nodes, ?API_STORAGE, start,
-                                        [Members, SystemConf], ?DEF_TIMEOUT),
+                                        [Members, Members, SystemConf], ?DEF_TIMEOUT),
                     start_1(Res);
                 {error, Cause} ->
                     {error, Cause}
@@ -533,13 +534,14 @@ rebalance() ->
                 {ok, RetRebalance} ->
                     case get_members_of_all_versions() of
                         {ok, {MembersCur, MembersPrev}} ->
-                            {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-                            case rebalance_3(Nodes, #rebalance_proc_info{members_cur  = MembersCur,
-                                                                         members_prev = MembersPrev,
-                                                                         system_conf  = SystemConf}) of
+                            {ok, SystemConf}  = leo_manager_mnesia:get_system_config(),
+                            RebalanceProcInfo = #rebalance_proc_info{members_cur    = MembersCur,
+                                                                     members_prev   = MembersPrev,
+                                                                     system_conf    = SystemConf,
+                                                                     rebalance_list = RetRebalance},
+                            case rebalance_3(Nodes, RebalanceProcInfo) of
                                 ok ->
-                                    _ = distribute_members([N || {_, N} <- Nodes]),
-                                    rebalance_5(RetRebalance, []);
+                                    rebalance_4(MembersCur, RebalanceProcInfo, []);
                                 {error, Cause}->
                                     ?error("rebalance/0", "cause:~p", [Cause]),
                                     {error, Cause}
@@ -603,16 +605,15 @@ rebalance_2(Tbl, [Item|T]) ->
     rebalance_2(Tbl, T).
 
 %% @private
-rebalance_3([], #rebalance_proc_info{members_cur = Members} = RebalanceProcInfo) ->
-    rebalance_4(Members, RebalanceProcInfo, []);
-
+rebalance_3([], _RebalanceProcInfo) ->
+    ok;
 rebalance_3([{?STATE_ATTACHED, Node}|Rest],
-            #rebalance_proc_info{members_cur = Members,
-                                 system_conf = SystemConf} = RebalanceProcInfo) ->
-    %% send a launch-message to a remote storage node
-    %% @TODO send both members-prev and members-cur
+            #rebalance_proc_info{members_cur  = MembersCur,
+                                 members_prev = MembersPrev,
+                                 system_conf  = SystemConf} = RebalanceProcInfo) ->
+    %% Send a launch-message to new storage node
     Ret = case rpc:call(Node, ?API_STORAGE, start,
-                        [Members, SystemConf], ?DEF_TIMEOUT) of
+                        [MembersCur, MembersPrev, SystemConf], ?DEF_TIMEOUT) of
               {ok, {_Node, {RingHashCur, RingHashPrev}}} ->
                   case leo_manager_mnesia:update_storage_node_status(
                          update, #node_state{node          = Node,
@@ -639,12 +640,11 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
                   {error, Cause}
           end,
 
-    %% Check that fail sending message
+    %% %% Check that fail sending message
     case Ret of
         ok -> void;
-        {error, _} ->
-            %% @TODO enqueue a message (fail distribution of launch-info to a target-node)
-            ok
+        {error, Reason} ->
+            ?error("rebalance_3/2", "cause:~p", [Reason])
     end,
     rebalance_3(Rest, RebalanceProcInfo);
 
@@ -664,59 +664,31 @@ rebalance_4([],_,Acc) ->
     {error, Acc};
 rebalance_4([#member{node  = Node,
                      state = ?STATE_RUNNING}|T], RebalanceProcInfo, Acc) ->
-    MemberCur  = RebalanceProcInfo#rebalance_proc_info.members_cur,
-    MemberPrev = RebalanceProcInfo#rebalance_proc_info.members_prev,
-    SystemConf = RebalanceProcInfo#rebalance_proc_info.system_conf,
-    Options = [{n, SystemConf#system_conf.n},
-               {r, SystemConf#system_conf.r},
-               {w, SystemConf#system_conf.w},
-               {d, SystemConf#system_conf.d},
-               {bit_of_ring, SystemConf#system_conf.bit_of_ring},
-               {level_1, SystemConf#system_conf.level_1},
-               {level_2, SystemConf#system_conf.level_2}
-              ],
+    MembersCur    = RebalanceProcInfo#rebalance_proc_info.members_cur,
+    MembersPrev   = RebalanceProcInfo#rebalance_proc_info.members_prev,
+    RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
 
-    Acc_1 = case rpc:call(Node, leo_redundant_manager_api, synchronize,
-                          [?SYNC_TARGET_BOTH, [{?VER_CUR,  MemberCur},
-                                               {?VER_PREV, MemberPrev}],
-                           Options], ?DEF_TIMEOUT) of
+    RebalanceList_1 = leo_misc:get_value(Node, RebalanceList, []),
+    Acc_1 = case rpc:call(Node, ?API_STORAGE, rebalance,
+                          [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
                 {ok, Hashes} ->
                     {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
                     _ = leo_manager_mnesia:update_storage_node_status(
-                          update_chksum,
-                          #node_state{node = Node,
-                                      ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                      ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
+                          update_chksum, #node_state{node = Node,
+                                                     ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                                     ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
                     Acc;
                 {_, Cause} ->
+                    %% @TODO enqueue a message (fail distribution of rebalance-info)
                     [{Node, Cause}|Acc];
                 timeout = Cause ->
+                    %% @TODO enqueue a message (fail distribution of rebalance-info)
                     [{Node, Cause}|Acc]
             end,
     rebalance_4(T, RebalanceProcInfo, Acc_1);
 
 rebalance_4([_|T], RebalanceProcInfo, Acc) ->
     rebalance_4(T, RebalanceProcInfo, Acc).
-
-
-%% @private
-rebalance_5([], []) ->
-    ok;
-rebalance_5([], Acc) ->
-    {error, Acc};
-rebalance_5([{Node, Info}|T], Acc) ->
-    case rpc:call(Node, ?API_STORAGE, rebalance, [Info], ?DEF_TIMEOUT) of
-        ok ->
-            rebalance_5(T, Acc);
-        Error ->
-            %% @TODO enqueue a message (fail distribution of rebalance-info)
-            Cause_1 = case Error of
-                          {_, Cause} -> Cause;
-                          timeout = Cause -> Cause
-                      end,
-            ?error("rebalance_5/2", "node:~w, cause:~p", [Node, Cause_1]),
-            rebalance_5(T, [{Node, Cause_1}|Acc])
-    end.
 
 
 %% @private
