@@ -394,7 +394,7 @@ handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command,
 handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case del_endpoint(Command, Option) of
+                  case delete_endpoint(Command, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -1373,20 +1373,19 @@ get_endpoints(CmdBody) ->
 
 %% @doc Remove an Endpoint from the manager
 %% @private
--spec(del_endpoint(binary(), binary()) ->
+-spec(delete_endpoint(binary(), binary()) ->
              ok | {error, any()}).
-del_endpoint(CmdBody, Option) ->
+delete_endpoint(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_INVALID_ARGS};
         [EndPoint|_] ->
-            case leo_s3_endpoint:delete_endpoint(list_to_binary(EndPoint)) of
+            EndPointBin = list_to_binary(EndPoint),
+            case leo_manager_api:delete_endpoint(EndPointBin) of
                 ok ->
                     ok;
-                not_found = Cause ->
-                    {error, Cause};
                 {error, Cause} ->
                     {error, Cause}
             end

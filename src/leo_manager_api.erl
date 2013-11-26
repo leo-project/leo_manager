@@ -61,7 +61,7 @@
          notify/3, notify/4, purge/1, remove/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1, delete_bucket/2
+         set_endpoint/1, delete_endpoint/1, delete_bucket/2
         ]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
@@ -1430,6 +1430,38 @@ set_endpoint(EndPoint) ->
                             ok;
                         Nodes_1 ->
                             case rpc:multicall(Nodes_1, ?API_GATEWAY, set_endpoint,
+                                               [EndPoint], ?DEF_TIMEOUT) of
+                                {_, []} ->
+                                    ok;
+                                {_, BadNodes} ->
+                                    {error, BadNodes}
+                            end
+                    end;
+                not_found ->
+                    ok;
+                Error ->
+                    Error
+            end;
+        Error ->
+            Error
+    end.
+
+
+%% @doc Insert an endpoint
+%%
+-spec(delete_endpoint(binary()) ->
+             ok | {error, any()}).
+delete_endpoint(EndPoint) ->
+    case leo_s3_endpoint:delete_endpoint(EndPoint) of
+        ok ->
+            case catch leo_manager_mnesia:get_gateway_nodes_all() of
+                {ok, Nodes_0} ->
+                    case [Node || #node_state{node  = Node,
+                                              state = ?STATE_RUNNING} <- Nodes_0] of
+                        [] ->
+                            ok;
+                        Nodes_1 ->
+                            case rpc:multicall(Nodes_1, ?API_GATEWAY, delete_endpoint,
                                                [EndPoint], ?DEF_TIMEOUT) of
                                 {_, []} ->
                                     ok;
