@@ -38,6 +38,9 @@
 -spec(transform() ->
              ok).
 transform() ->
+    %% Update available commands
+    ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
+
     %% data migration#1 - bucket
     case ?env_use_s3_api() of
         false -> void;

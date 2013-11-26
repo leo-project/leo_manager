@@ -240,28 +240,8 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 %% Load from system-config and store it into the mnesia
                 {ok, _} = load_system_config_with_store_data(),
 
-                %% Clear and Insert available-commands
-                {atomic,ok} = mnesia:clear_table(?TBL_AVAILABLE_CMDS),
-                case ?env_available_commands() of
-                    all ->
-                        lists:foreach(
-                          fun({C, H}) ->
-                                  leo_manager_mnesia:insert_available_command(C,H)
-                          end, ?COMMANDS);
-                    CmdL ->
-                        lists:foreach(
-                          fun({C1, H}) ->
-                                  case lists:foldl(
-                                         fun(C2, false) when C1 == C2 -> true;
-                                            (_,  Ret) -> Ret
-                                         end, false, CmdL) of
-                                      true ->
-                                          leo_manager_mnesia:insert_available_command(C1,H);
-                                      false ->
-                                          void
-                                  end
-                          end, ?COMMANDS)
-                end,
+                %% Update available commands
+                ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
 
                 case ?env_use_s3_api() of
                     true ->
