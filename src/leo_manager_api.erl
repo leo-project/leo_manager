@@ -32,6 +32,7 @@
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(API_STORAGE, leo_storage_api).
@@ -61,7 +62,8 @@
          notify/3, notify/4, purge/1, remove/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1, delete_endpoint/1, delete_bucket/2
+         set_endpoint/1, delete_endpoint/1, delete_bucket/2,
+         update_acl/3
         ]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
@@ -1422,26 +1424,7 @@ compare_local_chksum_with_remote_chksum( Type, Node, Checksum_1, Checksum_2)
 set_endpoint(EndPoint) ->
     case leo_s3_endpoint:set_endpoint(EndPoint) of
         ok ->
-            case catch leo_manager_mnesia:get_gateway_nodes_all() of
-                {ok, Nodes_0} ->
-                    case [Node || #node_state{node  = Node,
-                                              state = ?STATE_RUNNING} <- Nodes_0] of
-                        [] ->
-                            ok;
-                        Nodes_1 ->
-                            case rpc:multicall(Nodes_1, ?API_GATEWAY, set_endpoint,
-                                               [EndPoint], ?DEF_TIMEOUT) of
-                                {_, []} ->
-                                    ok;
-                                {_, BadNodes} ->
-                                    {error, BadNodes}
-                            end
-                    end;
-                not_found ->
-                    ok;
-                Error ->
-                    Error
-            end;
+            rpc_call_for_gateway(set_endpoint, [EndPoint]);
         Error ->
             Error
     end.
@@ -1454,26 +1437,7 @@ set_endpoint(EndPoint) ->
 delete_endpoint(EndPoint) ->
     case leo_s3_endpoint:delete_endpoint(EndPoint) of
         ok ->
-            case catch leo_manager_mnesia:get_gateway_nodes_all() of
-                {ok, Nodes_0} ->
-                    case [Node || #node_state{node  = Node,
-                                              state = ?STATE_RUNNING} <- Nodes_0] of
-                        [] ->
-                            ok;
-                        Nodes_1 ->
-                            case rpc:multicall(Nodes_1, ?API_GATEWAY, delete_endpoint,
-                                               [EndPoint], ?DEF_TIMEOUT) of
-                                {_, []} ->
-                                    ok;
-                                {_, BadNodes} ->
-                                    {error, BadNodes}
-                            end
-                    end;
-                not_found ->
-                    ok;
-                Error ->
-                    Error
-            end;
+            rpc_call_for_gateway(delete_endpoint, [EndPoint]);
         Error ->
             Error
     end.
@@ -1541,6 +1505,69 @@ delete_bucket_2(AccessKeyBin, BucketBin) ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
             {error, ?ERROR_COULD_NOT_STORE}
+    end.
+
+
+%% @doc Update permission by access-key-id
+%%
+-spec(update_acl(string(), binary(), binary()) ->
+             ok | {error, any()}).
+update_acl(?CANNED_ACL_PRIVATE = Permission, AccessKey, Bucket) ->
+    case leo_s3_bucket:update_acls2private(AccessKey, Bucket) of
+        ok ->
+            rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
+        {error, Cause} ->
+            {error, Cause}
+    end;
+update_acl(?CANNED_ACL_PUBLIC_READ = Permission, AccessKey, Bucket) ->
+    case leo_s3_bucket:update_acls2public_read(AccessKey, Bucket) of
+        ok ->
+            rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
+        {error, Cause} ->
+            {error, Cause}
+    end;
+update_acl(?CANNED_ACL_PUBLIC_READ_WRITE = Permission, AccessKey, Bucket) ->
+    case leo_s3_bucket:update_acls2public_read_write(AccessKey, Bucket) of
+        ok ->
+            rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
+        {error, Cause} ->
+            {error, Cause}
+    end;
+update_acl(?CANNED_ACL_AUTHENTICATED_READ = Permission, AccessKey, Bucket) ->
+    case leo_s3_bucket:update_acls2authenticated_read(AccessKey, Bucket) of
+        ok ->
+            rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
+        {error, Cause} ->
+            {error, Cause}
+    end;
+update_acl(_,_,_) ->
+    {error, ?ERROR_INVALID_ARGS}.
+
+
+%% @doc RPC call for Gateway-nodes
+%% @private
+-spec(rpc_call_for_gateway(atom(), list()) ->
+             ok | {error, any()}).
+rpc_call_for_gateway(Method, Args) ->
+    case catch leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, Nodes_0} ->
+            case [Node || #node_state{node  = Node,
+                                      state = ?STATE_RUNNING} <- Nodes_0] of
+                [] ->
+                    ok;
+                Nodes_1 ->
+                    case rpc:multicall(Nodes_1, ?API_GATEWAY, Method, Args,
+                                       ?DEF_TIMEOUT) of
+                        {_, []} ->
+                            ok;
+                        {_, BadNodes} ->
+                            {error, BadNodes}
+                    end
+            end;
+        not_found ->
+            ok;
+        Error ->
+            Error
     end.
 
 

@@ -108,10 +108,6 @@
 -define(AUTHORIZED,              <<"_authorized_\r\n">>).
 -define(USER_ID,                 <<"_user_id_\r\n">>).
 -define(PASSWORD,                <<"_password_\r\n">>).
--define(CANNED_ACL_PRIVATE,            "private").
--define(CANNED_ACL_PUBLIC_READ,        "public-read").
--define(CANNED_ACL_PUBLIC_READ_WRITE,  "public-read-write").
--define(CANNED_ACL_AUTHENTICATED_READ, "authenticated-read").
 
 -define(COMMANDS, [{?CMD_HELP,      "help"},
                    {?CMD_QUIT,      "quit"},

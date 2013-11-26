@@ -1494,40 +1494,13 @@ update_acl(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket, AccessKey, ?CANNED_ACL_PRIVATE] ->
-            case leo_s3_bucket:update_acls2private(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
+        [Bucket, AccessKey, Permission] ->
+            case leo_manager_api:update_acl(Permission,
+                                            list_to_binary(AccessKey),
+                                            list_to_binary(Bucket)) of
                 ok ->
                     ok;
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
-        [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ] ->
-            case leo_s3_bucket:update_acls2public_read(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
-        [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ_WRITE] ->
-            case leo_s3_bucket:update_acls2public_read_write(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
-        [Bucket, AccessKey, ?CANNED_ACL_AUTHENTICATED_READ] ->
-            case leo_s3_bucket:update_acls2authenticated_read(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, _Cause} ->
+                _Error ->
                     {error, ?ERROR_COULD_NOT_STORE}
             end;
         _ ->
