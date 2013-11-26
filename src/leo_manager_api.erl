@@ -1419,28 +1419,29 @@ compare_local_chksum_with_remote_chksum( Type, Node, Checksum_1, Checksum_2)
 %%
 -spec(set_endpoint(binary()) ->
              ok | {error, any()}).
-set_endpoint(Endpoint) ->
-    case catch leo_manager_mnesia:get_gateway_nodes_all() of
-        {ok, Nodes_0} ->
-            case lists:flatten(lists:map(fun(#node_state{node  = Node,
-                                                         state = ?STATE_RUNNING}) ->
-                                                 Node;
-                                            (_) ->
-                                                 []
-                                         end, Nodes_0)) of
-                [] ->
-                    ok;
-                Nodes_1 ->
-                    case rpc:multicall(Nodes_1, ?API_GATEWAY, set_endpoint,
-                                       [Endpoint], ?DEF_TIMEOUT) of
-                        {_, []} ->
+set_endpoint(EndPoint) ->
+    case leo_s3_endpoint:set_endpoint(EndPoint) of
+        ok ->
+            case catch leo_manager_mnesia:get_gateway_nodes_all() of
+                {ok, Nodes_0} ->
+                    case [Node || #node_state{node  = Node,
+                                              state = ?STATE_RUNNING} <- Nodes_0] of
+                        [] ->
                             ok;
-                        {_, BadNodes} ->
-                            {error, BadNodes}
-                    end
+                        Nodes_1 ->
+                            case rpc:multicall(Nodes_1, ?API_GATEWAY, set_endpoint,
+                                               [EndPoint], ?DEF_TIMEOUT) of
+                                {_, []} ->
+                                    ok;
+                                {_, BadNodes} ->
+                                    {error, BadNodes}
+                            end
+                    end;
+                not_found ->
+                    ok;
+                Error ->
+                    Error
             end;
-        not_found ->
-            ok;
         Error ->
             Error
     end.

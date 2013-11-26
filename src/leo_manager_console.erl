@@ -1347,12 +1347,7 @@ set_endpoint(CmdBody, Option) ->
             EndPointBin = list_to_binary(EndPoint),
             case leo_manager_api:set_endpoint(EndPointBin) of
                 ok ->
-                    case leo_s3_endpoint:set_endpoint(EndPointBin) of
-                        ok ->
-                            ok;
-                        {error, Cause} ->
-                            {error, Cause}
-                    end;
+                    ok;
                 {error, Cause} ->
                     {error, Cause}
             end
