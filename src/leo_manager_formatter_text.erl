@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012 Rakuten, Inc.
+%% Copyright (c) 2012-2013 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -92,13 +92,16 @@ help() ->
                   help("[S3-related Maintenance]\r\n",
                        [?CMD_CREATE_USER,
                         ?CMD_DELETE_USER,
+                        ?CMD_UPDATE_USER_ROLE,
+                        ?CMD_UPDATE_USER_PW,
                         ?CMD_GET_USERS,
-                        ?CMD_SET_ENDPOINT,
+                        ?CMD_ADD_ENDPOINT,
                         ?CMD_DEL_ENDPOINT,
                         ?CMD_GET_ENDPOINTS,
                         ?CMD_ADD_BUCKET,
                         ?CMD_DELETE_BUCKET,
                         ?CMD_GET_BUCKETS,
+                        ?CMD_CHANGE_BUCKET_OWNER,
                         ?CMD_UPDATE_ACL,
                         ?CMD_GET_ACL], []),
                   help("[Misc]\r\n",

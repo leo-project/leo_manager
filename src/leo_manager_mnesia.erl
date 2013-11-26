@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012 Rakuten, Inc.
+%% Copyright (c) 2012-2013 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -67,8 +67,9 @@
 
          delete_all/0,
          backup/1,
-         restore/1
+         restore/1,
 
+         update_available_commands/1
         ]).
 
 
@@ -724,3 +725,31 @@ validate_restored_tables([], ExpectedTableSet) ->
 validate_restored_tables([T|Rest], ExpectedTableSet) ->
     validate_restored_tables(Rest, sets:del_element(T, ExpectedTableSet)).
 
+
+%% @doc Update available commands
+%%
+-spec(update_available_commands(atom | list()) ->
+          ok).
+update_available_commands(AvailableCommands) ->
+    {atomic,ok} = mnesia:clear_table(?TBL_AVAILABLE_CMDS),
+    case AvailableCommands of
+        all ->
+            lists:foreach(
+              fun({C, H}) ->
+                      leo_manager_mnesia:insert_available_command(C,H)
+              end, ?COMMANDS);
+        CmdL ->
+            lists:foreach(
+              fun({C1, H}) ->
+                      case lists:foldl(
+                             fun(C2, false) when C1 == C2 -> true;
+                                (_,  Ret) -> Ret
+                             end, false, CmdL) of
+                          true ->
+                              leo_manager_mnesia:insert_available_command(C1,H);
+                          false ->
+                              void
+                      end
+              end, ?COMMANDS)
+    end,
+    ok.

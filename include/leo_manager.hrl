@@ -1,8 +1,8 @@
 %%====================================================================
 %%
-%% Leo FS Manager
+%% Leo Manager
 %%
-%% Copyright (c) 2012
+%% Copyright (c) 2012-2013 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -69,47 +69,45 @@
 -define(SERVER_ERROR,         "SERVER_ERROR").
 -define(BYE,                  "BYE\r\n").
 
--define(CMD_HELP,             "help").
--define(CMD_QUIT,             "quit").
--define(CMD_VERSION,          "version").
--define(CMD_STATUS,           "status").
--define(CMD_ATTACH,           "attach").
--define(CMD_DETACH,           "detach").
--define(CMD_SUSPEND,          "suspend").
--define(CMD_RESUME,           "resume").
--define(CMD_START,            "start").
--define(CMD_REBALANCE,        "rebalance").
--define(CMD_COMPACT,          "compact").
--define(CMD_CREATE_USER,      "create-user").
--define(CMD_UPDATE_USER_ROLE, "update-user-role").
--define(CMD_UPDATE_USER_PW,   "update-user-password").
--define(CMD_DELETE_USER,      "delete-user").
--define(CMD_GET_USERS,        "get-users").
--define(CMD_SET_ENDPOINT,     "set-endpoint").
--define(CMD_DEL_ENDPOINT,     "delete-endpoint").
--define(CMD_GET_ENDPOINTS,    "get-endpoints").
--define(CMD_ADD_BUCKET,       "add-bucket").
--define(CMD_GET_BUCKETS,      "get-buckets").
--define(CMD_DELETE_BUCKET,    "delete-bucket").
--define(CMD_UPDATE_ACL,       "update-acl").
--define(CMD_GET_ACL,          "get-acl").
--define(CMD_DU,               "du").
--define(CMD_WHEREIS,          "whereis").
--define(CMD_RECOVER,          "recover").
--define(CMD_HISTORY,          "history").
--define(CMD_PURGE,            "purge").
--define(CMD_REMOVE,           "remove").
--define(CMD_BACKUP_MNESIA,    "backup-mnesia").
--define(CMD_RESTORE_MNESIA,   "restore-mnesia").
--define(CMD_UPDATE_MANAGERS,  "update-managers").
--define(LOGIN,                "login").
--define(AUTHORIZED,           <<"_authorized_\r\n">>).
--define(USER_ID,              <<"_user_id_\r\n">>).
--define(PASSWORD,             <<"_password_\r\n">>).
--define(CANNED_ACL_PRIVATE,            "private").
--define(CANNED_ACL_PUBLIC_READ,        "public-read").
--define(CANNED_ACL_PUBLIC_READ_WRITE,  "public-read-write").
--define(CANNED_ACL_AUTHENTICATED_READ, "authenticated-read").
+-define(CMD_HELP,                "help").
+-define(CMD_QUIT,                "quit").
+-define(CMD_VERSION,             "version").
+-define(CMD_STATUS,              "status").
+-define(CMD_ATTACH,              "attach").
+-define(CMD_DETACH,              "detach").
+-define(CMD_SUSPEND,             "suspend").
+-define(CMD_RESUME,              "resume").
+-define(CMD_START,               "start").
+-define(CMD_REBALANCE,           "rebalance").
+-define(CMD_COMPACT,             "compact").
+-define(CMD_CREATE_USER,         "create-user").
+-define(CMD_UPDATE_USER_ROLE,    "update-user-role").
+-define(CMD_UPDATE_USER_PW,      "update-user-password").
+-define(CMD_DELETE_USER,         "delete-user").
+-define(CMD_GET_USERS,           "get-users").
+-define(CMD_ADD_ENDPOINT,        "add-endpoint").
+-define(CMD_SET_ENDPOINT,        "set-endpoint").
+-define(CMD_DEL_ENDPOINT,        "delete-endpoint").
+-define(CMD_GET_ENDPOINTS,       "get-endpoints").
+-define(CMD_ADD_BUCKET,          "add-bucket").
+-define(CMD_GET_BUCKETS,         "get-buckets").
+-define(CMD_DELETE_BUCKET,       "delete-bucket").
+-define(CMD_CHANGE_BUCKET_OWNER, "chown-bucket").
+-define(CMD_UPDATE_ACL,          "update-acl").
+-define(CMD_GET_ACL,             "get-acl").
+-define(CMD_DU,                  "du").
+-define(CMD_WHEREIS,             "whereis").
+-define(CMD_RECOVER,             "recover").
+-define(CMD_HISTORY,             "history").
+-define(CMD_PURGE,               "purge").
+-define(CMD_REMOVE,              "remove").
+-define(CMD_BACKUP_MNESIA,       "backup-mnesia").
+-define(CMD_RESTORE_MNESIA,      "restore-mnesia").
+-define(CMD_UPDATE_MANAGERS,     "update-managers").
+-define(LOGIN,                   "login").
+-define(AUTHORIZED,              <<"_authorized_\r\n">>).
+-define(USER_ID,                 <<"_user_id_\r\n">>).
+-define(PASSWORD,                <<"_password_\r\n">>).
 
 -define(COMMANDS, [{?CMD_HELP,      "help"},
                    {?CMD_QUIT,      "quit"},
@@ -136,24 +134,30 @@
                                        "compact resume  ${storage-node}", ?CRLF,
                                        "compact status  ${storage-node}"
                                       ])},
-                   {?CMD_DU,              "du ${storage-node}"},
+                   {?CMD_DU, "du ${storage-node}"},
                    %% for Gateway
-                   {?CMD_PURGE,           "purge ${path}"},
-                   {?CMD_REMOVE,          "remove ${gateway-node}"},
-                   %% for HTTP_API
-                   {?CMD_CREATE_USER,     "create-user ${user-id} [${password}]"},
-                   {?CMD_DELETE_USER,     "delete-user ${user-id}"},
+                   {?CMD_PURGE,  "purge ${path}"},
+                   {?CMD_REMOVE, "remove ${gateway-node}"},
+                   %% for S3-API
+                   %% - user-related
+                   {?CMD_CREATE_USER,      "create-user ${user-id} [${password}]"},
+                   {?CMD_DELETE_USER,      "delete-user ${user-id}"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
                    {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
                    {?CMD_GET_USERS,        "get-users"},
-                   {?CMD_SET_ENDPOINT,     "set-endpoint ${endpoint}"},
-                   {?CMD_DEL_ENDPOINT,     "delete-endpoint ${endpoint}"},
-                   {?CMD_GET_ENDPOINTS,    "get-endpoints"},
-                   {?CMD_GET_BUCKETS,      "get-buckets"},
-                   {?CMD_DELETE_BUCKET,    "delete-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_ADD_BUCKET,       "add-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_UPDATE_ACL,       "update-acl ${bucket} ${access-key-id} private|public-read|public-read-write"},
-                   {?CMD_GET_ACL,          "get-acl ${bucket} ${access-key-id}"},
+                   %% - endpoint-related
+                   {?CMD_ADD_ENDPOINT,  "add-endpoint ${endpoint}"},
+                   {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
+                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
+                   {?CMD_GET_ENDPOINTS, "get-endpoints"},
+                   %% - bucket-related
+                   {?CMD_ADD_BUCKET,          "add-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_DELETE_BUCKET,       "delete-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_GET_BUCKETS,         "get-buckets"},
+                   {?CMD_CHANGE_BUCKET_OWNER, "chown-bucket ${bucket} ${new-access-key-id}"},
+                   %% - acl-related
+                   {?CMD_UPDATE_ACL, "update-acl ${bucket} ${access-key-id} private|public-read|public-read-write"},
+                   {?CMD_GET_ACL,    "get-acl ${bucket}"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
                    {?CMD_BACKUP_MNESIA,    "backup-mnesia ${backupfilepath}"},
@@ -227,6 +231,12 @@
 -define(DEF_ENDPOINT_1, <<"localhost">>).
 -define(DEF_ENDPOINT_2, <<"s3.amazonaws.com">>).
 
+-define(PROP_MNESIA_NODES, 'leo_manager_mnesia_nodes').
+
+
+%% MQ related:
+-define(QUEUE_ID_FAIL_REBALANCE, 'mq_fail_rebalance').
+
 
 %% records
 %%
@@ -264,9 +274,16 @@
          }).
 
 -record(history, {
-          id           :: integer(),
+          id           :: pos_integer(),
           command = [] :: string(), %% Command
           created = -1 :: integer() %% Created At
+         }).
+
+-record(recovery_rebalance_info, {
+          id   :: pos_integer(),
+          node :: atom(),
+          rebalance_info = [] :: list(tuple()),
+          timestamp = 0       :: pos_integer()
          }).
 
 
@@ -344,5 +361,23 @@
         case application:get_env(leo_manager, use_s3_api) of
             {ok, EnvUseS3API} -> EnvUseS3API;
             _ -> true
+        end).
+
+-define(DEF_LOG_DIR, "./log/").
+-define(env_log_dir(),
+        case application:get_env(leo_manager, log_appender) of
+            {ok, [{file, Options}|_]} ->
+                leo_misc:get_value(path, Options, ?DEF_LOG_DIR);
+            _ ->
+                ?DEF_LOG_DIR
+        end).
+
+-define(DEF_QUEUE_DIR, "./work/queue/").
+-define(env_queue_dir(),
+        case application:get_env(leo_manager, queue_dir) of
+            {ok, _EnvQueueDir} ->
+                _EnvQueueDir;
+            _ ->
+                ?DEF_QUEUE_DIR
         end).
 

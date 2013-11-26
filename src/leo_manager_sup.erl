@@ -2,7 +2,7 @@
 %%
 %% Leo Manaegr
 %%
-%% Copyright (c) 2012 Rakuten, Inc.
+%% Copyright (c) 2012-2013 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -33,6 +33,7 @@
 -include("tcp_server.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
+-include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_statistics/include/leo_statistics.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
@@ -47,6 +48,8 @@
 -export([init/1]).
 
 -define(CHECK_INTERVAL, 250).
+-define(ENV_REPLICA_PARTNER, 'partner').
+
 
 %%-----------------------------------------------------------------------
 %% External API
@@ -58,20 +61,22 @@ start_link() ->
     Mode = ?env_mode_of_manager(),
     Me = node(),
 
-    {RedundantNodes0, RedundantNodes1} =
+    {ReplicaNodes_1, ReplicaNodes_2} =
         case ?env_partner_of_manager_node() of
             [] ->
                 {[Me] ,[{Mode, Me}]};
-            RedundantNodes ->
-                RedundantNodesAtom = lists:map(fun(N) when is_atom(N) ->
-                                                       N;
-                                                  (N) ->
-                                                       list_to_atom(N)
-                                               end, RedundantNodes),
-                {[Me|RedundantNodesAtom], [{Mode, Me},
-                                           {'partner', RedundantNodesAtom}]}
+            Nodes_1 ->
+                Nodes_2 = lists:map(fun(N) when is_atom(N) -> N;
+                                       (N) -> list_to_atom(N)
+                                    end, Nodes_1),
+                {[Me|Nodes_2], [{Mode, Me},{?ENV_REPLICA_PARTNER, Nodes_2}]}
         end,
 
+    %% Set mnesia's replica nodes in app-env
+    leo_misc:init_env(),
+    leo_misc:set_env(leo_redundant_manager, ?PROP_MNESIA_NODES, ReplicaNodes_1),
+
+    %% Set every console
     CUI_Console  = #tcp_server_params{prefix_of_name  = "tcp_server_cui_",
                                       port = ?env_listening_port_cui(),
                                       num_of_listeners = ?env_num_of_acceptors_cui()},
@@ -86,14 +91,8 @@ start_link() ->
             ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console),
 
             %% Launch Logger
-            DefLogDir = "./log/",
-            LogDir    = case application:get_env(log_appender) of
-                            {ok, [{file, Options}|_]} ->
-                                leo_misc:get_value(path, Options, DefLogDir);
-                            _ ->
-                                DefLogDir
-                        end,
-            ok = leo_logger_client_message:new(LogDir, ?env_log_level(leo_manager), log_file_appender()),
+            ok = leo_logger_client_message:new(
+                   ?env_log_dir(), ?env_log_level(leo_manager), log_file_appender()),
 
             %% Launch Statistics
             ok = leo_statistics_api:start_link(leo_manager),
@@ -101,11 +100,14 @@ start_link() ->
             ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_S),
             ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_L),
 
+            %% Launch MQ
+            ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
+
             %% Launch Redundant-manager
             SystemConf = load_system_config(),
             ChildSpec  = {leo_redundant_manager_sup,
                           {leo_redundant_manager_sup, start_link,
-                           [Mode, RedundantNodes0, ?env_queue_dir(leo_manager),
+                           [Mode, ReplicaNodes_1, ?env_queue_dir(leo_manager),
                             [{n,           SystemConf#system_conf.n},
                              {r,           SystemConf#system_conf.r},
                              {w,           SystemConf#system_conf.w},
@@ -119,8 +121,9 @@ start_link() ->
 
             %% Launch S3Libs:Auth/Bucket/EndPoint
             case ?env_use_s3_api() of
-                true  -> ok = leo_s3_libs:start(master, []);
-                false -> void
+                false -> void;
+                true  ->
+                    ok = leo_s3_libs:start(master, [])
             end,
 
             %% Launch Mnesia and create that tables
@@ -131,9 +134,9 @@ start_link() ->
                                     end, []) of
                 [] ->
                     timer:apply_after(?CHECK_INTERVAL, ?MODULE,
-                                      create_mnesia_tables, [Mode, RedundantNodes1]);
-                _  ->
-                    create_mnesia_tables2()
+                                      create_mnesia_tables, [Mode, ReplicaNodes_2]);
+                _ ->
+                    create_mnesia_tables_2()
             end,
             {ok, Pid};
         Error ->
@@ -147,10 +150,10 @@ start_link() ->
              ok | {error, any()}).
 create_mnesia_tables(_, []) ->
     {error, badarg};
-create_mnesia_tables(Mode, RedundantNodes) ->
-    case leo_misc:get_value('partner', RedundantNodes) of
+create_mnesia_tables(Mode, ReplicaNodes) ->
+    case leo_misc:get_value(?ENV_REPLICA_PARTNER, ReplicaNodes) of
         undefined ->
-            create_mnesia_tables1(Mode, RedundantNodes);
+            create_mnesia_tables_1(Mode, ReplicaNodes);
         PartnerNodes ->
             case lists:foldl(fun(N, _) ->
                                      case catch net_adm:ping(N) of
@@ -159,10 +162,10 @@ create_mnesia_tables(Mode, RedundantNodes) ->
                                      end
                              end, false, PartnerNodes) of
                 true ->
-                    create_mnesia_tables1(Mode, RedundantNodes);
+                    create_mnesia_tables_1(Mode, ReplicaNodes);
                 false ->
                     timer:apply_after(?CHECK_INTERVAL, ?MODULE,
-                                      create_mnesia_tables, [Mode, RedundantNodes])
+                                      create_mnesia_tables, [Mode, ReplicaNodes])
             end
     end.
 
@@ -210,63 +213,44 @@ init([]) ->
 %% ---------------------------------------------------------------------
 %% @doc Create mnesia tables
 %% @private
--spec(create_mnesia_tables1(master | slave, list()) ->
+-spec(create_mnesia_tables_1(master | slave, list()) ->
              ok | {error, any()}).
-create_mnesia_tables1(master = Mode, Nodes0) ->
-    Nodes1 = lists:flatten(lists:map(fun({_, N}) -> N end, Nodes0)),
-    case mnesia:create_schema(Nodes1) of
+create_mnesia_tables_1(master = Mode, Nodes) ->
+    Nodes_1 = lists:flatten(lists:map(fun({_, N}) -> N end, Nodes)),
+    case mnesia:create_schema(Nodes_1) of
         ok ->
             try
                 %% create mnesia's schema
-                rpc:multicall(Nodes1, application, stop,  [mnesia], ?DEF_TIMEOUT),
-                rpc:multicall(Nodes1, application, start, [mnesia], ?DEF_TIMEOUT),
+                rpc:multicall(Nodes_1, application, stop,  [mnesia], ?DEF_TIMEOUT),
+                rpc:multicall(Nodes_1, application, start, [mnesia], ?DEF_TIMEOUT),
 
                 %% create table into the mnesia
-                leo_manager_mnesia:create_system_config(disc_copies, Nodes1),
-                leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes1),
-                leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes1),
-                leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes1),
-                leo_manager_mnesia:create_histories(disc_copies, Nodes1),
-                leo_manager_mnesia:create_available_commands(disc_copies, Nodes1),
+                leo_manager_mnesia:create_system_config(disc_copies, Nodes_1),
+                leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes_1),
+                leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes_1),
+                leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes_1),
+                leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
+                leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
-                leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes1),
-                leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes1),
-                leo_redundant_manager_table_member:create_members(disc_copies, Nodes1),
+                leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes_1),
+                leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes_1),
+                leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
+                leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
 
                 %% Load from system-config and store it into the mnesia
                 {ok, _} = load_system_config_with_store_data(),
 
-                %% Clear and Insert available-commands
-                {atomic,ok} = mnesia:clear_table(?TBL_AVAILABLE_CMDS),
-                case ?env_available_commands() of
-                    all ->
-                        lists:foreach(
-                          fun({C, H}) ->
-                                  leo_manager_mnesia:insert_available_command(C,H)
-                          end, ?COMMANDS);
-                    CmdL ->
-                        lists:foreach(
-                          fun({C1, H}) ->
-                                  case lists:foldl(
-                                         fun(C2, false) when C1 == C2 -> true;
-                                            (_,  Ret) -> Ret
-                                         end, false, CmdL) of
-                                      true ->
-                                          leo_manager_mnesia:insert_available_command(C1,H);
-                                      false ->
-                                          void
-                                  end
-                          end, ?COMMANDS)
-                end,
+                %% Update available commands
+                ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
 
                 case ?env_use_s3_api() of
                     true ->
                         %% Create S3-related tables
-                        leo_s3_auth:create_credential_table(disc_copies, Nodes1),
-                        leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes1),
-                        leo_s3_bucket:create_bucket_table(disc_copies, Nodes1),
-                        leo_s3_user:create_user_table(disc_copies, Nodes1),
-                        leo_s3_user:create_user_credential_table(disc_copies, Nodes1),
+                        leo_s3_auth:create_credential_table(disc_copies, Nodes_1),
+                        leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes_1),
+                        leo_s3_bucket:create_bucket_table(disc_copies, Nodes_1),
+                        leo_s3_user:create_user_table(disc_copies, Nodes_1),
+                        leo_s3_user:create_user_credential_table(disc_copies, Nodes_1),
 
                         %% Insert test-related values
                         CreatedAt     = leo_date:now(),
@@ -290,34 +274,37 @@ create_mnesia_tables1(master = Mode, Nodes0) ->
                 end,
                 ok
             catch _:Reason ->
-                    ?error("create_mnesia_tables1/3", "cause:~p", [Reason])
+                    ?error("create_mnesia_tables_1/2", "cause:~p", [Reason])
             end,
             ok;
         {error,{_,{already_exists, _}}} ->
-            create_mnesia_tables2();
+            create_mnesia_tables_2(),
+            ok;
         {_, Cause} ->
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes0]),
-            ?error("create_mnesia_tables1/3", "cause:~p", [Cause]),
+            timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes]),
+            ?error("create_mnesia_tables_1/2", "cause:~p", [Cause]),
             {error, Cause}
     end;
-create_mnesia_tables1(slave, _Nodes) ->
-    create_mnesia_tables2().
+create_mnesia_tables_1(slave,_Nodes) ->
+    create_mnesia_tables_2().
 
-
--spec(create_mnesia_tables2() ->
+%% @doc Create mnesia tables and execute to migrate data
+%% @private
+-spec(create_mnesia_tables_2() ->
              ok | {error, any()}).
-create_mnesia_tables2() ->
+create_mnesia_tables_2() ->
     application:start(mnesia),
-    timer:sleep(1000),
-
     case catch mnesia:system_info(tables) of
         Tbls when length(Tbls) > 1 ->
-            ok = mnesia:wait_for_tables(Tbls, 30000),
+            ok = mnesia:wait_for_tables(Tbls, 60000),
+
+            %% Execute to migrate data
+            ok = leo_manager_transformer:transform(),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};
         Error ->
-            ?error("create_mnesia_tables2/2", "cause:~p", [Error]),
+            ?error("create_mnesia_tables_2/0", "cause:~p", [Error]),
             Error
     end.
 
@@ -340,7 +327,8 @@ log_file_appender([], []) ->
 log_file_appender([], Acc) ->
     lists:reverse(Acc);
 log_file_appender([{Type, _}|T], Acc) when Type == file ->
-    log_file_appender(T, [{?LOG_ID_FILE_ERROR, ?LOG_APPENDER_FILE}|[{?LOG_ID_FILE_INFO, ?LOG_APPENDER_FILE}|Acc]]).
+    log_file_appender(T, [{?LOG_ID_FILE_ERROR, ?LOG_APPENDER_FILE}|
+                          [{?LOG_ID_FILE_INFO, ?LOG_APPENDER_FILE}|Acc]]).
 
 
 %% @doc load a system config file
@@ -357,6 +345,7 @@ load_system_config() ->
                               level_2 = leo_misc:get_value(level_2, Props, 0)
                              },
     SystemConf.
+
 
 %% @doc load a system config file. a system config file store to mnesia.
 %% @end

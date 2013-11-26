@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012 Rakuten, Inc.
+%% Copyright (c) 2012-2013 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -296,7 +296,7 @@ update_node_state(down,  ?STATE_DETACHED, _Node) -> ok;
 update_node_state(down,  ?STATE_SUSPEND,  _Node) -> ok;
 update_node_state(down,  ?STATE_RUNNING,   Node) -> update_node_state_1(?STATE_STOP, Node);
 update_node_state(down,  ?STATE_STOP,     _Node) -> ok;
-update_node_state(down,  ?STATE_RESTARTED,_Node) -> delete;
+update_node_state(down,  ?STATE_RESTARTED, Node) -> update_node_state_1(?STATE_STOP, Node);
 update_node_state(down,  not_found,       _Node) -> ok.
 
 update_node_state_1(State, Node) ->
@@ -430,7 +430,8 @@ register_fun_1(#registration{node = Node,
             ?error("register_fun_1/2", "cause:~p", [Cause]),
             {error, Cause};
         _Other ->
-            case rpc:call(Node, leo_redundant_manager_api, checksum, [?CHECKSUM_RING], ?DEF_TIMEOUT) of
+            case rpc:call(Node, leo_redundant_manager_api,
+                          checksum, [?CHECKSUM_RING], ?DEF_TIMEOUT) of
                 {ok, {Chksum0, Chksum1}} ->
                     leo_manager_mnesia:update_gateway_node(
                       #node_state{node    = Node,
@@ -438,7 +439,7 @@ register_fun_1(#registration{node = Node,
                                   ring_hash_new = leo_hex:integer_to_hex(Chksum0, 8),
                                   ring_hash_old = leo_hex:integer_to_hex(Chksum1, 8),
                                   when_is = ?CURRENT_TIME});
-                _ ->
+                _Error ->
                     void
             end
     end;
@@ -456,7 +457,7 @@ register_fun_2({ok, [#node_state{state = ?STATE_RUNNING}|_]}, #registration{node
                                                                             type = storage}) ->
     %% synchronize member and ring
     leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
-    leo_manager_api:synchronize(?CHECKSUM_RING, Node),
+    leo_manager_api:synchronize(?CHECKSUM_RING,   Node),
     ok;
 
 register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,

@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012 Rakuten, Inc.
+%% Copyright (c) 2012-2013 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -90,15 +90,18 @@ handle_call(_Socket, ?PASSWORD, #state{formatter = Formatter} = State) ->
     Reply = Formatter:password(),
     {reply, Reply, State};
 
+
 %% Command: "_authorized_"
 %%
 handle_call(_Socket, ?AUTHORIZED, #state{formatter = Formatter} = State) ->
     Reply = Formatter:authorized(),
     {reply, Reply, State};
 
+
 %% Command: "_authorized_"
 %%
-handle_call(_Socket, <<?LOGIN, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?LOGIN, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Reply = case login(Command, Option) of
                 {ok, User, Credential} ->
                     Formatter:login(User, Credential);
@@ -111,7 +114,8 @@ handle_call(_Socket, <<?LOGIN, ?SPACE, Option/binary>> = Command, #state{formatt
 %% Command: "status"
 %% Command: "status ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case status(Command, Option) of
                       {ok, {node_list, Props}} ->
@@ -130,7 +134,8 @@ handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command, #state{formatter 
 
 %% Command : "detach ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case detach(Command, Option) of
                       ok ->
@@ -147,7 +152,8 @@ handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command, #state{fo
 
 %% Command: "suspend ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?CMD_SUSPEND, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_SUSPEND, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case suspend(Command, Option) of
                       ok ->
@@ -162,7 +168,8 @@ handle_call(_Socket, <<?CMD_SUSPEND, ?SPACE, Option/binary>> = Command, #state{f
 
 %% Command: "resume ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case resume(Command, Option) of
                       ok ->
@@ -177,7 +184,8 @@ handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command, #state{fo
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?CMD_START, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_START, ?CRLF>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case start(Command) of
                       ok ->
@@ -194,7 +202,8 @@ handle_call(_Socket, <<?CMD_START, ?CRLF>> = Command, #state{formatter = Formatt
 
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?CMD_REBALANCE, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case rebalance(Command) of
                       ok ->
@@ -212,7 +221,8 @@ handle_call(_Socket, <<?CMD_REBALANCE, ?CRLF>> = Command, #state{formatter = For
 %%----------------------------------------------------------------------
 %% Command: "du ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?CMD_DU, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_DU, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case du(Command, Option) of
                       {ok, {Option1, StorageStats}} ->
@@ -227,7 +237,8 @@ handle_call(_Socket, <<?CMD_DU, ?SPACE, Option/binary>> = Command, #state{format
 
 %% Command: "compact ${NODE_NAME}"
 %%
-handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case compact(Command, Option) of
                       ok ->
@@ -247,7 +258,8 @@ handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command, #state{f
 %%----------------------------------------------------------------------
 %% Command: "create-user ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case create_user(Command, Option) of
                       {ok, PropList} ->
@@ -264,7 +276,8 @@ handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command, #sta
 
 %% Command: "update-user-role ${USER_ID} ${ROLE}"
 %%
-handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case update_user_role(Command, Option) of
                       ok ->
@@ -281,7 +294,8 @@ handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command,
 
 %% Command: "update-user-password ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case update_user_password(Command, Option) of
                       ok ->
@@ -298,7 +312,8 @@ handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command, #
 
 %% Command: "delete-user ${USER_ID} ${PASSWORD}"
 %%
-handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case delete_user(Command, Option) of
                       ok ->
@@ -315,7 +330,8 @@ handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command, #sta
 
 %% Command: "get-users"
 %%
-handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case get_users(Command) of
                       {ok, List} ->
@@ -328,9 +344,23 @@ handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command, #state{formatter = For
     {reply, Reply, State};
 
 
-%% Command: "set-endpoint ${END_POINT}"
+%% Command: "end-endpoint ${END_POINT}"
 %%
-handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_ADD_ENDPOINT, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case set_endpoint(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_ADD_ENDPOINT, Formatter, Fun),
+    {reply, Reply, State};
+
+handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case set_endpoint(Command, Option) of
                       ok ->
@@ -345,7 +375,8 @@ handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command, #st
 
 %% Command: "get-endpoints"
 %%
-handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case get_endpoints(Command) of
                       {ok, EndPoints} ->
@@ -360,9 +391,10 @@ handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command, #state{formatter =
 
 %% Command: "del-endpoint ${end_point}"
 %%
-handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case del_endpoint(Command, Option) of
+                  case delete_endpoint(Command, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -375,7 +407,8 @@ handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command, #st
 
 %% Command: "add-buckets ${bucket} ${access-key-id}"
 %%
-handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case add_bucket(Command, Option) of
                       ok ->
@@ -387,9 +420,11 @@ handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command, #stat
     Reply = invoke(?CMD_ADD_BUCKET, Formatter, Fun),
     {reply, Reply, State};
 
+
 %% Command: "delete-buckets ${bucket} ${access-key-id}"
 %%
-handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case delete_bucket(Command, Option) of
                       ok ->
@@ -404,7 +439,8 @@ handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command, #s
 
 %% Command: "get-buckets"
 %%
-handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case get_buckets(Command) of
                       {ok, Buckets} ->
@@ -416,9 +452,27 @@ handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command, #state{formatter = F
     Reply = invoke(?CMD_GET_BUCKETS, Formatter, Fun),
     {reply, Reply, State};
 
+
+%% Command: "get-buckets"
+%%
+handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case change_bucket_owner(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_CHANGE_BUCKET_OWNER, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "get-acl ${bucket}"
 %%
-handle_call(_Socket, <<?CMD_GET_ACL, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_GET_ACL, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case get_acl(Command, Option) of
                       {ok, ACLs}->
@@ -430,9 +484,11 @@ handle_call(_Socket, <<?CMD_GET_ACL, ?SPACE, Option/binary>> = Command, #state{f
     Reply = invoke(?CMD_GET_ACL, Formatter, Fun),
     {reply, Reply, State};
 
+
 %% Command: "update-acl ${bucket} ${canned_acl}"
 %%
-handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case update_acl(Command, Option) of
                       ok ->
@@ -447,7 +503,8 @@ handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>> = Command, #stat
 
 %% Command: "whereis ${PATH}"
 %%
-handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case whereis(Command, Option) of
                       {ok, AssignedInfo} ->
@@ -462,7 +519,8 @@ handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command, #state{f
 
 %% Command: "recover file|node ${PATH}|${NODE}"
 %%
-handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case recover(Command, Option) of
                       ok ->
@@ -477,7 +535,8 @@ handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command, #state{f
 
 %% Command: "purge ${PATH}"
 %%
-handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case purge(Command, Option) of
                       ok ->
@@ -492,7 +551,8 @@ handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command, #state{for
 
 %% Command: "remove ${GATEWAY_NODE}"
 %%
-handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case remove(Command, Option) of
                       ok ->
@@ -504,9 +564,11 @@ handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command, #state{fo
     Reply = invoke(?CMD_REMOVE, Formatter, Fun),
     {reply, Reply, State};
 
+
 %% Command: "backup-mnesia ${MNESIA_BACKUPFILE}"
 %%
-handle_call(_Socket, <<?CMD_BACKUP_MNESIA, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_BACKUP_MNESIA, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case backup_mnesia(Command, Option) of
                       ok ->
@@ -518,9 +580,11 @@ handle_call(_Socket, <<?CMD_BACKUP_MNESIA, ?SPACE, Option/binary>> = Command, #s
     Reply = invoke(?CMD_BACKUP_MNESIA, Formatter, Fun),
     {reply, Reply, State};
 
+
 %% Command: "restore-mnesia ${MNESIA_BACKUPFILE}"
 %%
-handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case restore_mnesia(Command, Option) of
                       ok ->
@@ -532,9 +596,11 @@ handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command, #
     Reply = invoke(?CMD_RESTORE_MNESIA, Formatter, Fun),
     {reply, Reply, State};
 
+
 %% Command: "update-managers ${MANAGER_MASTER} ${MANAGER_SLAVE}"
 %%
-handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case update_manager_nodes(Command, Option) of
                       ok ->
@@ -545,6 +611,7 @@ handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command, 
           end,
     Reply = invoke(?CMD_UPDATE_MANAGERS, Formatter, Fun),
     {reply, Reply, State};
+
 
 %% Command: "history"
 %%
@@ -593,6 +660,7 @@ invoke(Command, Formatter, Fun) ->
             Fun()
     end.
 
+
 %% @private
 -spec(backup_mnesia(binary(), binary()) ->
              ok | {error, any()}).
@@ -604,6 +672,7 @@ backup_mnesia(CmdBody, Option) ->
         [BackupFile|_] ->
             leo_manager_mnesia:backup(BackupFile)
     end.
+
 
 %% @private
 -spec(restore_mnesia(binary(), binary()) ->
@@ -617,6 +686,7 @@ restore_mnesia(CmdBody, Option) ->
             leo_manager_mnesia:restore(BackupFile)
     end.
 
+
 %% @private
 -spec(update_manager_nodes(binary(), binary()) ->
              ok | {error, any()}).
@@ -629,6 +699,7 @@ update_manager_nodes(CmdBody, Option) ->
         _ ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
+
 
 %% @doc Retrieve version of the system
 %% @private
@@ -823,6 +894,7 @@ detach(CmdBody, Option) ->
                     end
             end
     end.
+
 
 %% @private
 -spec(allow_to_detach_node_1(pos_integer()) ->
@@ -1036,7 +1108,6 @@ compact(CmdBody, Option) ->
             %%   compact suspend ${storage-node}
             %%   compact resume ${storage-node}
             %%   compact status ${storage-node}
-
             case catch compact(Mode, list_to_atom(Node), Rest) of
                 ok ->
                     ok;
@@ -1170,7 +1241,6 @@ create_user(CmdBody, Option) ->
     end.
 
 
-
 %% @doc Update user's role-id
 %% @private
 -spec(update_user_role(binary(), binary()) ->
@@ -1277,12 +1347,7 @@ set_endpoint(CmdBody, Option) ->
             EndPointBin = list_to_binary(EndPoint),
             case leo_manager_api:set_endpoint(EndPointBin) of
                 ok ->
-                    case leo_s3_endpoint:set_endpoint(EndPointBin) of
-                        ok ->
-                            ok;
-                        {error, Cause} ->
-                            {error, Cause}
-                    end;
+                    ok;
                 {error, Cause} ->
                     {error, Cause}
             end
@@ -1308,20 +1373,19 @@ get_endpoints(CmdBody) ->
 
 %% @doc Remove an Endpoint from the manager
 %% @private
--spec(del_endpoint(binary(), binary()) ->
+-spec(delete_endpoint(binary(), binary()) ->
              ok | {error, any()}).
-del_endpoint(CmdBody, Option) ->
+delete_endpoint(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_INVALID_ARGS};
         [EndPoint|_] ->
-            case leo_s3_endpoint:delete_endpoint(list_to_binary(EndPoint)) of
+            EndPointBin = list_to_binary(EndPoint),
+            case leo_manager_api:delete_endpoint(EndPointBin) of
                 ok ->
                     ok;
-                not_found = Cause ->
-                    {error, Cause};
                 {error, Cause} ->
                     {error, Cause}
             end
@@ -1381,6 +1445,23 @@ get_buckets(CmdBody) ->
             {error, Cause}
     end.
 
+
+%% @doc Change owner of a bucket
+%% @private
+-spec(change_bucket_owner(binary(), binary()) ->
+             ok | {error, any()}).
+change_bucket_owner(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, NewAccessKeyId] ->
+            leo_s3_bucket:change_bucket_owner(list_to_binary(NewAccessKeyId),
+                                              list_to_binary(Bucket));
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
 %% @doc Get ACLs of the specified bucket in the manager
 %% @private
 -spec(get_acl(binary(), binary()) ->
@@ -1389,8 +1470,7 @@ get_acl(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                                                % @todo maybe need to check if this access key is valid
-        [Bucket, _AccessKey] ->
+        [Bucket] ->
             case leo_s3_bucket:get_acls(list_to_binary(Bucket)) of
                 {ok, ACLs} ->
                     {ok, ACLs};
@@ -1405,6 +1485,7 @@ get_acl(CmdBody, Option) ->
             {error, ?ERROR_INVALID_ARGS}
     end.
 
+
 %% @doc Update ACLs of the specified bucket with the Canned ACL in the manager
 %% @private
 -spec(update_acl(binary(), binary()) ->
@@ -1413,40 +1494,13 @@ update_acl(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket, AccessKey, ?CANNED_ACL_PRIVATE] ->
-            case leo_s3_bucket:update_acls2private(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
+        [Bucket, AccessKey, Permission] ->
+            case leo_manager_api:update_acl(Permission,
+                                            list_to_binary(AccessKey),
+                                            list_to_binary(Bucket)) of
                 ok ->
                     ok;
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
-        [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ] ->
-            case leo_s3_bucket:update_acls2public_read(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
-        [Bucket, AccessKey, ?CANNED_ACL_PUBLIC_READ_WRITE] ->
-            case leo_s3_bucket:update_acls2public_read_write(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
-        [Bucket, AccessKey, ?CANNED_ACL_AUTHENTICATED_READ] ->
-            case leo_s3_bucket:update_acls2authenticated_read(
-                   list_to_binary(AccessKey),
-                   list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, _Cause} ->
+                _Error ->
                     {error, ?ERROR_COULD_NOT_STORE}
             end;
         _ ->
