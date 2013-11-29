@@ -568,7 +568,7 @@ resume_0_({Node0, _Node1, Sock}) ->
                              true
                      end),
     ok = meck:expect(leo_redundant_manager_api, update_member_by_node,
-                     fun(_Node, _Clock, _State) ->
+                     fun(_Node, _State) ->
                              ok
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_members,
@@ -655,7 +655,7 @@ resume_1_({Node0,_, Sock}) ->
                              true
                      end),
     ok = meck:expect(leo_redundant_manager_api, update_member_by_node,
-                     fun(_Node, _Clock, _State) ->
+                     fun(_Node, _State) ->
                              ok
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_members,
