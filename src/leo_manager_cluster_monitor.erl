@@ -307,8 +307,7 @@ update_node_state_1(State, Node) ->
                                ring_hash_old = [],
                                when_is       = ?CURRENT_TIME}) of
         ok ->
-            case leo_redundant_manager_api:update_member_by_node(
-                   Node, leo_date:clock(), State) of
+            case leo_redundant_manager_api:update_member_by_node(Node, State) of
                 ok ->
                     leo_manager_api:distribute_members(ok, []);
                 Error ->

@@ -328,8 +328,7 @@ resume(is_alive, true,  Node) ->
 
 resume(is_state, {ok, [#node_state{state = State}|_]}, Node) when State == ?STATE_SUSPEND;
                                                                   State == ?STATE_RESTARTED ->
-    Res = leo_redundant_manager_api:update_member_by_node(
-            Node, leo_date:clock(), ?STATE_RUNNING),
+    Res = leo_redundant_manager_api:update_member_by_node(Node, ?STATE_RUNNING),
     resume(sync, Res, Node);
 resume(is_state, {ok, [#node_state{state = State}|_]},_Node) ->
     {error, atom_to_list(State)};
@@ -636,7 +635,7 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
                                              when_is       = leo_date:now()}) of
                       ok ->
                           case leo_redundant_manager_api:update_member_by_node(
-                                 Node, leo_date:clock(), ?STATE_RUNNING) of
+                                 Node, ?STATE_RUNNING) of
                               ok ->
                                   ok;
                               Error ->
@@ -866,8 +865,7 @@ notify_2(State, Node) ->
 
 
 notify_3(ok, State, Node) ->
-    Clock = leo_date:clock(),
-    case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
+    case leo_redundant_manager_api:update_member_by_node(Node, State) of
         ok ->
             case get_nodes() of
                 {ok, []} ->
@@ -875,7 +873,7 @@ notify_3(ok, State, Node) ->
                 {ok, Nodes} ->
                     _ = rpc:multicall(Nodes, leo_redundant_manager_api,
                                       update_member_by_node,
-                                      [Node, Clock, State], ?DEF_TIMEOUT),
+                                      [Node, State], ?DEF_TIMEOUT),
                     ok
             end;
         _Error ->
