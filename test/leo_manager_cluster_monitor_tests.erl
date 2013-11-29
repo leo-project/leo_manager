@@ -107,7 +107,7 @@ all_(Node) ->
                 end),
 
     meck:new(leo_redundant_manager_api),
-    meck:expect(leo_redundant_manager_api, update_member_by_node, 2, ok),
+    meck:expect(leo_redundant_manager_api, update_member_by_node, 3, ok),
 
 
 
