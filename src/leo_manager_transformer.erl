@@ -41,13 +41,17 @@ transform() ->
     %% Update available commands
     ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
 
-    %% data migration#1 - bucket
+    %% data migration - bucket
     case ?env_use_s3_api() of
         false -> void;
         true  ->
             catch leo_s3_bucket_transform_handler:transform()
     end,
-    %% data migration#1 - members
+
+    %% data migration - members
     {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
     ok = leo_members_table_transformer:transform(ReplicaNodes),
+
+    %% data migration - ring
+    ok = leo_ring_table_transformer:transform(),
     ok.
