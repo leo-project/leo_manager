@@ -1364,6 +1364,35 @@ synchronize_1(?SYNC_TARGET_MEMBER = Type, Node) ->
 
 synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
                                Type == ?SYNC_TARGET_RING_PREV ->
+    {ok, {L_RingHashCur, L_RingHashPrev}} = leo_redundant_manager_api:checksum(?CHECKSUM_RING),
+
+    case rpc:call(Node, leo_redundant_manager_api, checksum,
+                  [?CHECKSUM_RING], ?DEF_TIMEOUT) of
+        {ok, {R_RingHashCur, R_RingHashPrev}} ->
+            CheckHash = case Type of
+                            ?SYNC_TARGET_RING_CUR  when L_RingHashCur  == R_RingHashCur  -> true;
+                            ?SYNC_TARGET_RING_PREV when L_RingHashPrev == R_RingHashPrev -> true;
+                            _ ->
+                                false
+                        end,
+
+            case CheckHash of
+                true  -> ok;
+                false ->
+                    synchronize_1_1(Type, Node)
+            end;
+        {_, Cause} ->
+            ?error("synchronize_1/2", "cause:~p", [Cause]),
+            {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
+        timeout = Cause ->
+            {error, Cause}
+    end;
+synchronize_1(_,_) ->
+    {error, ?ERROR_INVALID_ARGS}.
+
+
+%% @private
+synchronize_1_1(Type, Node) ->
     Ver = case Type of
               ?SYNC_TARGET_RING_CUR  -> ?VER_CUR;
               ?SYNC_TARGET_RING_PREV -> ?VER_PREV
@@ -1385,9 +1414,7 @@ synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
             {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
-    end;
-synchronize_1(_,_) ->
-    {error, ?ERROR_INVALID_ARGS}.
+    end.
 
 
 synchronize_2(Node, Hashes) ->
