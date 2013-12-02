@@ -193,8 +193,14 @@
 -define(ERROR_NODE_NOT_EXISTS,           "Node not exist").
 -define(ERROR_FAILED_COMPACTION,         "Failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS,  "Failed to get storage stats").
--define(ERROR_ENDPOINT_NOT_FOUND,        "Specified endpoint not found").
+-define(ERROR_USER_NOT_FOUND,            "User not found").
+-define(ERROR_COULD_NOT_GET_USER,        "Could not get user(s)").
+-define(ERROR_COULD_NOT_ADD_USER,        "Could not add a user").
+-define(ERROR_COULD_NOT_REMOVE_USER,     "Could not delete a user").
+-define(ERROR_COULD_NOT_UPDATE_USER,     "Could not update a user").
+-define(ERROR_ENDPOINT_NOT_FOUND,        "Endpoint not found").
 -define(ERROR_COULD_NOT_SET_ENDPOINT,    "Could not set an endpoint").
+-define(ERROR_COULD_NOT_GET_ENDPOINT,    "Could not get endpoint(s)").
 -define(ERROR_COULD_NOT_REMOVE_ENDPOINT, "Could not remove an endpoint").
 -define(ERROR_COULD_NOT_ATTACH_NODE,     "Could not attach the node").
 -define(ERROR_COULD_NOT_DETACH_NODE,     "Could not detach the node").
@@ -211,6 +217,8 @@
 -define(ERROR_COULD_NOT_STORE,           "Could not store value").
 -define(ERROR_INVALID_BUCKET_FORMAT,     "Invalid bucket format").
 -define(ERROR_BUCKET_NOT_FOUND,          "Bucket not found").
+-define(ERROR_COULD_NOT_GET_BUCKET,      "Could not get bucket(s)").
+-define(ERROR_COULD_NOT_UPDATE_BUCKET,   "Could not update bucket(s)").
 -define(ERROR_NOT_STARTED,               "Storage cluster does not start, yet").
 -define(ERROR_ALREADY_STARTED,           "Storage cluster already started").
 -define(ERROR_STILL_RUNNING,             "still running").
