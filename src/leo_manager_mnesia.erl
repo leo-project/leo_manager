@@ -453,9 +453,7 @@ update_storage_node_status(update_state, NodeState) ->
     #node_state{node = Node, state = State} = NodeState,
     case get_storage_node_by_name(Node) of
         {ok, [Cur|_]} ->
-            update_storage_node_status(
-              update, Cur#node_state{state   = State,
-                                     when_is = leo_date:now()});
+            update_storage_node_status(update, Cur#node_state{state = State});
         _ ->
             ok
     end;
@@ -463,8 +461,7 @@ update_storage_node_status(keep_state, NodeState) ->
     #node_state{node  = Node} = NodeState,
     case get_storage_node_by_name(Node) of
         {ok, [Cur|_]} ->
-            update_storage_node_status(
-              update, Cur#node_state{when_is = leo_date:now()});
+            update_storage_node_status(update, Cur);
         _ ->
             ok
     end;
@@ -478,8 +475,7 @@ update_storage_node_status(update_chksum, NodeState) ->
         {ok, [Cur|_]} ->
             update_storage_node_status(
               update, Cur#node_state{ring_hash_new = RingHash0,
-                                     ring_hash_old = RingHash1,
-                                     when_is       = leo_date:now()});
+                                     ring_hash_old = RingHash1});
         _ ->
             ok
     end;
@@ -489,8 +485,7 @@ update_storage_node_status(increment_error, NodeState) ->
     case get_storage_node_by_name(Node) of
         {ok, [Cur|_]} ->
             update_storage_node_status(
-              update, Cur#node_state{error   = Cur#node_state.error + 1,
-                                     when_is = leo_date:now()});
+              update, Cur#node_state{error = Cur#node_state.error + 1});
         _ ->
             ok
     end;
@@ -500,8 +495,7 @@ update_storage_node_status(init_error, NodeState) ->
     case get_storage_node_by_name(Node) of
         {ok, [Cur|_]} ->
             update_storage_node_status(
-              update, Cur#node_state{error   = 0,
-                                     when_is = leo_date:now()});
+              update, Cur#node_state{error = 0});
         _ ->
             ok
     end;
