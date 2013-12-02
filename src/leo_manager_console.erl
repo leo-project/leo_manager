@@ -140,8 +140,6 @@ handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command,
                   case detach(Command, Option) of
                       ok ->
                           Formatter:ok();
-                      {error, {Node, Cause}} ->
-                          Formatter:error(Node, Cause);
                       {error, Cause} ->
                           Formatter:error(Cause)
                   end
@@ -883,8 +881,8 @@ detach(CmdBody, Option) ->
                                     case leo_manager_api:detach(NodeAtom) of
                                         ok ->
                                             ok;
-                                        {error, _} ->
-                                            {error, {Node, ?ERROR_COULD_NOT_DETACH_NODE}}
+                                        {error, Cause} ->
+                                            {error, Node, Cause}
                                     end;
                                 Error ->
                                     Error

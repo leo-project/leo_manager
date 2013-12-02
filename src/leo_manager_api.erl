@@ -68,10 +68,6 @@
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
--define(ERROR_COULD_NOT_MODIFY_STORAGE_STATE, "Could not modify the storage status").
--define(ERROR_COULD_NOT_GET_GATEWAY,          "Could not get gateway nodes").
--define(ERROR_COULD_NOT_GET_RTABLE_CHKSUM,    "Could not get a routing talble checksum").
--define(ERROR_META_NOT_FOUND,                 "Metadata not found").
 
 -record(rebalance_proc_info, {
           members_cur    = [] :: list(#member{}),
@@ -124,13 +120,15 @@ get_members_of_all_versions() ->
                     {ok, {MembersCur, MembersPrev}};
                 not_found ->
                     {error, not_found};
-                Error ->
-                    Error
+                {error, Cause} ->
+                    ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
+                    {error, Cause}
             end;
         not_found ->
             {error, not_found};
-        Error ->
-            Error
+        {error, Cause} ->
+            ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
+            {error, Cause}
     end.
 
 
@@ -172,7 +170,7 @@ get_node_status(Node_1) ->
 get_routing_table_chksum() ->
     case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
         {ok, []} ->
-            {error, ?ERROR_COULD_NOT_GET_RTABLE_CHKSUM};
+            {error, ?ERROR_COULD_NOT_GET_CHECKSUM};
         {ok, Chksums} ->
             {ok, Chksums}
     end.
@@ -243,8 +241,8 @@ attach_1(_, Node,_L1, L2, Clock, NumOfVNodes) ->
               #node_state{node    = Node,
                           state   = ?STATE_ATTACHED,
                           when_is = leo_date:now()});
-        Error ->
-            Error
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_ATTACH_NODE}
     end.
 
 
@@ -263,8 +261,8 @@ suspend(Node) ->
                         ok ->
                             Res = leo_redundant_manager_api:suspend(Node, leo_date:clock()),
                             distribute_members(Res, []);
-                        Error ->
-                            Error
+                        {error,_Cause} ->
+                            {error, ?ERROR_COULD_NOT_UPDATE_NODE}
                     end;
                 false ->
                     {error, ?ERROR_COULD_NOT_CONNECT}
@@ -281,26 +279,24 @@ suspend(Node) ->
 detach(Node) ->
     case leo_redundant_manager_api:has_member(Node) of
         true ->
-            case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {_RingHashCur,_RingHashPrev}} ->
-                    detach_1(Node);
-                Error ->
-                    Error
+            State = ?STATE_DETACHED,
+            case leo_redundant_manager_api:reserve(
+                   Node, State, leo_date:clock()) of
+                ok ->
+                    case leo_manager_mnesia:update_storage_node_status(
+                           #node_state{node    = Node,
+                                       state   = State,
+                                       when_is = leo_date:now()}) of
+                        ok ->
+                            ok;
+                        {error, _Cause} ->
+                            {error, ?ERROR_COULD_NOT_UPDATE_NODE}
+                    end;
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_DETACH_NODE}
             end;
         false ->
             {error, ?ERROR_NODE_NOT_EXISTS}
-    end.
-
-detach_1(Node) ->
-    State = ?STATE_DETACHED,
-    case leo_redundant_manager_api:reserve(Node, State, leo_date:clock()) of
-        ok ->
-            leo_manager_mnesia:update_storage_node_status(
-              #node_state{node    = Node,
-                          state   = State,
-                          when_is = leo_date:now()});
-        Error ->
-            Error
     end.
 
 
@@ -317,6 +313,7 @@ resume(Node) ->
             {error, ?ERROR_NODE_NOT_EXISTS}
     end.
 
+
 -spec(resume(is_alive | is_state | sync | distribute | last, any(), atom()) ->
              any() | {error, any()}).
 resume(is_alive, false, _Node) ->
@@ -332,8 +329,8 @@ resume(is_state, {ok, [#node_state{state = State}|_]}, Node) when State == ?STAT
     resume(sync, Res, Node);
 resume(is_state, {ok, [#node_state{state = State}|_]},_Node) ->
     {error, atom_to_list(State)};
-resume(is_state, Error, _Node) ->
-    Error;
+resume(is_state,_Error, _Node) ->
+    {error, ?ERROR_COULD_NOT_RESUME_NODE};
 
 
 resume(sync, ok, Node) ->
@@ -344,14 +341,14 @@ resume(sync, ok, Node) ->
                           synchronize(?CHECKSUM_RING, Node, [{?VER_CUR,  MembersCur },
                                                              {?VER_PREV, MembersPrev}]);
                       not_found ->
-                          {error, not_found};
-                      Error ->
-                          Error
+                          {error, ?ERROR_MEMBER_NOT_FOUND};
+                      {error,_Cause} ->
+                          {error, ?ERROR_COULD_NOT_GET_MEMBER}
                   end;
               not_found ->
-                  {error, not_found};
-              Error ->
-                  Error
+                  {error, ?ERROR_MEMBER_NOT_FOUND};
+              {error,_Cause} ->
+                  {error, ?ERROR_COULD_NOT_GET_MEMBER}
           end,
     case distribute_members(Res, Node) of
         ok ->
@@ -359,14 +356,14 @@ resume(sync, ok, Node) ->
         Reason ->
             Reason
     end;
-resume(sync, Error, _Node) ->
-    Error;
+resume(sync,_Error, _Node) ->
+    {error, ?ERROR_COULD_NOT_RESUME_NODE};
 
 resume(last, ok, Node) ->
     leo_manager_mnesia:update_storage_node_status(#node_state{node = Node,
                                                               state =  ?STATE_RUNNING});
-resume(last, Error, _) ->
-    Error.
+resume(last,_Error, _) ->
+    {error, ?ERROR_COULD_NOT_RESUME_NODE}.
 
 
 %% @doc Distribute members list to all nodes.
@@ -402,9 +399,9 @@ distribute_members([_|_]= Nodes) ->
             end,
             ok;
         not_found ->
-            {error, not_found};
-        Error ->
-            Error
+            {error, ?ERROR_MEMBER_NOT_FOUND};
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end;
 
 distribute_members(Node) when is_atom(Node) ->
@@ -414,8 +411,9 @@ distribute_members(Node) when is_atom(Node) ->
              ok | {error, any()}).
 distribute_members(ok, Node) ->
     distribute_members([Node]);
-distribute_members(Error, _Node) ->
-    Error.
+distribute_members(_Error, _Node) ->
+    {error, ?ERROR_COULD_NOT_GET_MEMBER}.
+
 
 %% @doc update manager nodes
 %%
@@ -430,10 +428,10 @@ update_manager_nodes(Managers) ->
                       {_, []} -> ok;
                       {_, BadNodes} ->
                           ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
-                          {error, {badrpc, BadNodes}}
+                          {error, BadNodes}
                   end;
-              Error ->
-                  Error
+              _ ->
+                  {error, ?ERROR_COULD_NOT_GET_MEMBER}
           end,
     update_manager_nodes(Managers, Ret).
 
@@ -449,13 +447,14 @@ update_manager_nodes(Managers, ok) ->
                 {_, []} -> ok;
                 {_, BadNodes} ->
                     ?error("update_manager_nodes/2", "bad-nodes:~p", [BadNodes]),
-                    {error, {badrpc, BadNodes}}
+                    {error, BadNodes}
             end;
         Error ->
             Error
     end;
-update_manager_nodes(_Managers, Error) ->
-    Error.
+update_manager_nodes(_Managers,_Error) ->
+    {error, ?ERROR_COULD_NOT_UPDATE_MANAGER}.
+
 
 %% @doc Launch the leo-storage, but exclude Gateway(s).
 %%
@@ -478,11 +477,12 @@ start() ->
                                         [Members, Members, SystemConf], ?DEF_TIMEOUT),
                     start_1(Res);
                 {error, Cause} ->
-                    {error, Cause}
+                    ?error("start/0", "cause:~p", [Cause]),
+                    {error, ?ERROR_COULD_NOT_GET_CONF}
             end;
         {error, Cause} ->
             ?error("start/0", "cause:~p", [Cause]),
-            {error, Cause}
+            {error, ?ERROR_COULD_NOT_CREATE_RING}
     end.
 
 %% @doc Check results and update an object of node-status
@@ -555,26 +555,26 @@ rebalance() ->
                                 ok ->
                                     rebalance_4(MembersCur, RebalanceProcInfo);
                                 {error, Cause}->
-                                    ?error("rebalance/0", "cause:~p", [Cause]),
                                     {error, Cause}
                             end;
-                        Error ->
-                            Error
+                        {error,_Cause} ->
+                            {error, ?ERROR_COULD_NOT_GET_MEMBER}
                     end;
-                Error ->
-                    Error
+                {error, Cause} ->
+                    {error, Cause}
             end;
         not_found ->
-            {error, not_found};
-        Error ->
-            Error
+            {error, ?ERROR_MEMBER_NOT_FOUND};
+        {error, Cause} ->
+            ?error("rebalance/0", "cause:~p", [Cause]),
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end.
 
 %% @private
 rebalance_1(false,_Nodes) ->
-    {error, not_running};
+    {error, ?ERROR_NOT_STARTED};
 rebalance_1(_State, []) ->
-    {error, not_need_to_rebalance};
+    {error, ?ERROR_NOT_NEED_REBALANCE};
 rebalance_1(true, Nodes) ->
     case assign_nodes_to_ring(Nodes) of
         ok ->
@@ -584,14 +584,16 @@ rebalance_1(true, Nodes) ->
                         {ok, List} ->
                             Tbl = leo_hashtable:new(),
                             rebalance_2(Tbl, List);
-                        Error ->
-                            Error
+                        {error, Cause} ->
+                            ?error("rebalance_1/2", "cause:~p", [Cause]),
+                            {error, ?ERROR_FAIL_REBALANCE}
                     end;
                 {false, _} ->
                     {error, ?ERROR_NOT_SATISFY_CONDITION}
             end;
-        Error ->
-            Error
+        {error, Cause} ->
+            ?error("rebalance_1/2", "cause:~p", [Cause]),
+            {error, ?ERROR_FAIL_TO_ASSIGN_NODE}
     end.
 
 %% @private
@@ -665,8 +667,9 @@ rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
         {ok, [NodeInfo|_]} ->
             _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
             rebalance_3(Rest, RebalanceProcInfo);
-        Error ->
-            Error
+        {error, Cause} ->
+            ?error("rebalance_3/2", "cause:~p", [Cause]),
+            {error, ?ERROR_FAIL_TO_REMOVE_NODE}
     end.
 
 %% @private
@@ -750,7 +753,8 @@ register(RequestedTimes, Pid, Node, Type) ->
 -spec(register(first | again, pid(), atom(), atom(), string(), string(), pos_integer()) ->
              ok).
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
-    leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes).
+    leo_manager_cluster_monitor:register(
+      RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes).
 
 
 %% @doc Notified "Synchronized" from cluster-nods.
@@ -760,12 +764,14 @@ notify(synchronized,_VNodeId, Node) ->
 notify(_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
+
 %% @doc Notified "Server Error" from cluster-nods.
 %%
 notify(error, DownedNode, NotifyNode, ?ERR_TYPE_NODE_DOWN) ->
     Ret1 = notify_1(DownedNode),
     Ret2 = notify_1(NotifyNode),
     {ok, {Ret1, Ret2}};
+
 
 %% @doc Notified "Rebalance Progress" from cluster-nods.
 %%
@@ -775,6 +781,7 @@ notify(rebalance, VNodeId, Node, TotalOfObjects) ->
                       node     = Node,
                       total_of_objects = TotalOfObjects,
                       when_is  = leo_date:now()});
+
 
 %% @doc Notified "Server Launch" from cluster-nods.
 %%
@@ -797,6 +804,7 @@ notify(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
+%% @private
 notify_1(TargetNode) ->
     case leo_manager_mnesia:get_storage_node_by_name(TargetNode) of
         {ok, [#node_state{state = State,
@@ -818,26 +826,27 @@ notify_1(TargetNode) ->
                             notify_1(?STATE_STOP, TargetNode, NumOfErrors)
                     end;
                 _ ->
-                    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
+                    {error, ?ERROR_COULD_NOT_UPDATE_NODE}
             end;
         _Error ->
-            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
+            {error, ?ERROR_COULD_NOT_UPDATE_NODE}
     end.
 
-
+%% @private
 notify_1(?STATE_STOP = State, Node, NumOfErrors) when NumOfErrors >= ?DEF_NUM_OF_ERROR_COUNT ->
     notify_2(State, Node);
 
+%% @private
 notify_1(?STATE_STOP, Node,_NumOfErrors) ->
     case leo_manager_mnesia:update_storage_node_status(
            increment_error, #node_state{node = Node}) of
         ok ->
             ok;
         _Error ->
-            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
+            {error, ?ERROR_COULD_NOT_UPDATE_NODE}
     end.
 
-
+%% @private
 notify_2(?STATE_RUNNING = State, Node) ->
     Ret = case rpc:call(Node, ?API_STORAGE, get_routing_table_chksum, [], ?DEF_TIMEOUT) of
               {ok, {RingHashCur, RingHashPrev}} ->
@@ -857,13 +866,14 @@ notify_2(?STATE_RUNNING = State, Node) ->
           end,
     notify_3(Ret, ?STATE_RUNNING, Node);
 
+%% @private
 notify_2(State, Node) ->
     Ret = leo_manager_mnesia:update_storage_node_status(
             update_state, #node_state{node  = Node,
                                       state = State}),
     notify_3(Ret, State, Node).
 
-
+%% @private
 notify_3(ok, State, Node) ->
     case leo_redundant_manager_api:update_member_by_node(Node, State) of
         ok ->
@@ -877,11 +887,12 @@ notify_3(ok, State, Node) ->
                     ok
             end;
         _Error ->
-            {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}
+            {error, ?ERROR_COULD_NOT_UPDATE_NODE}
     end;
 
+%% @private
 notify_3({error,_Cause},_State,_Node) ->
-    {error, ?ERROR_COULD_NOT_MODIFY_STORAGE_STATE}.
+    {error, ?ERROR_COULD_NOT_UPDATE_NODE}.
 
 
 %% @doc purge an object.
@@ -898,7 +909,7 @@ purge(Path) ->
                                 end, [], R1),
             _ = rpc:multicall(Nodes, ?API_GATEWAY, purge, [Path], ?DEF_TIMEOUT),
             ok;
-        _Error ->
+        _ ->
             {error, ?ERROR_COULD_NOT_GET_GATEWAY}
     end.
 
@@ -970,9 +981,11 @@ whereis(_Key, false) ->
 whereis(_Key, _HasRoutingTable) ->
     {error, ?ERROR_INVALID_ARGS}.
 
+%% @private
 whereis_1(_, _, [],Acc) ->
     {ok, lists:reverse(Acc)};
 
+%% @private
 whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
     Node = RedundantNode#redundant_node.node,
     case RedundantNode#redundant_node.available of
@@ -1040,21 +1053,15 @@ recover(?RECOVER_BY_RING, Node, true) ->
              end,
     case leo_misc:node_existence(Node_1) of
         true ->
-            %% Check during-rebalance?
-            case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-                {ok, {RingHashCur, RingHashPrev}} when RingHashCur == RingHashPrev ->
-                    %% Sync target-node's member/ring with manager
-                    case get_members_of_all_versions() of
-                        {ok, {MembersCur, MembersPrev}} ->
-                            synchronize(?CHECKSUM_RING, Node_1, [{?VER_CUR,  MembersCur },
-                                                                 {?VER_PREV, MembersPrev}]);
-                        not_found ->
-                            {error, not_found};
-                        Error ->
-                            Error
-                    end;
-                _ ->
-                    {error, ?ERROR_DURING_REBALANCE}
+            %% Sync target-node's member/ring with manager
+            case get_members_of_all_versions() of
+                {ok, {MembersCur, MembersPrev}} ->
+                    synchronize(?CHECKSUM_RING, Node_1, [{?VER_CUR,  MembersCur },
+                                                         {?VER_PREV, MembersPrev}]);
+                not_found ->
+                    {error, ?ERROR_MEMBER_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_GET_MEMBER}
             end;
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
@@ -1064,6 +1071,7 @@ recover(_,_,true) ->
     {error, ?ERROR_INVALID_ARGS};
 recover(_,_,false) ->
     {error, ?ERROR_COULD_NOT_GET_RING}.
+
 
 %% @doc Execute recovery of the target node
 %%      Check conditions
@@ -1170,9 +1178,10 @@ stats(Mode, Node) ->
                     {error, ?ERR_TYPE_NODE_DOWN}
             end;
         _ ->
-            {error, not_found}
+            {error, ?ERROR_NODE_NOT_EXISTS}
     end.
 
+%% @private
 stats1(summary, List) ->
     {ok, lists:foldl(
            fun({ok, #storage_stats{file_path  = _ObjPath,
@@ -1220,14 +1229,14 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
                               ok
                       end, MembersCur);
                 not_found ->
-                    {error, not_found};
-                Error ->
-                    Error
+                    {error, ?ERROR_MEMBER_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_GET_MEMBER}
             end;
         not_found ->
-            {error, not_found};
-        Error ->
-            Error
+            {error, ?ERROR_MEMBER_NOT_FOUND};
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end.
 
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
@@ -1254,11 +1263,11 @@ synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                          ring_hash_new = leo_hex:integer_to_hex(RingHashCur, 8),
                                          ring_hash_old = leo_hex:integer_to_hex(RingHashPrev,8)}),
             ok;
-        not_found = Cause ->
-            {error, Cause};
+        not_found ->
+            {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         {_, Cause} ->
             ?warn("synchronize/3", "cause:~p", [Cause]),
-            {error, Cause};
+            {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         timeout = Cause ->
             ?warn("synchronize/3", "cause:~p", [Cause]),
             {error, Cause}
@@ -1293,37 +1302,33 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
 
     case Ret of
         not_match ->
-            case leo_redundant_manager_api:checksum(Type) of
-                {ok, LocalChecksum} ->
-                    compare_local_chksum_with_remote_chksum(
-                      ?SYNC_TARGET_MEMBER, Node_1, LocalChecksum, Checksum_1),
-                    compare_local_chksum_with_remote_chksum(
-                      ?SYNC_TARGET_MEMBER, Node_2, LocalChecksum, Checksum_2);
-                Error ->
-                    Error
-            end;
+            {ok, LocalChecksum} =
+                leo_redundant_manager_api:checksum(Type),
+            compare_local_chksum_with_remote_chksum(
+              ?SYNC_TARGET_MEMBER, Node_1, LocalChecksum, Checksum_1),
+            compare_local_chksum_with_remote_chksum(
+              ?SYNC_TARGET_MEMBER, Node_2, LocalChecksum, Checksum_2);
         _ ->
             Ret
     end;
 
 synchronize(?CHECKSUM_RING = Type, [{Node_1, {RingHashCur_1, RingHashPrev_1}},
                                     {Node_2, {RingHashCur_2, RingHashPrev_2}}]) ->
-    case leo_redundant_manager_api:checksum(Type) of
-        {ok, {LocalRingHashCur, LocalRingHashPrev}} ->
-            %% copare manager-cur-ring-hash with remote cur-ring-hash
-            _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_CUR,  Node_1, LocalRingHashCur,  RingHashCur_1),
-            _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_CUR,  Node_2, LocalRingHashCur,  RingHashCur_2),
+    {ok, {LocalRingHashCur, LocalRingHashPrev}} =
+        leo_redundant_manager_api:checksum(Type),
 
-            %% copare manager-cur/prev-ring-hash/ with remote prev-ring-hash
-            _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_PREV, Node_1, LocalRingHashPrev, RingHashPrev_1),
-            _ = compare_local_chksum_with_remote_chksum(
-                  ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashPrev, RingHashPrev_2);
-        Error ->
-            Error
-    end.
+    %% copare manager-cur-ring-hash with remote cur-ring-hash
+    _ = compare_local_chksum_with_remote_chksum(
+          ?SYNC_TARGET_RING_CUR,  Node_1, LocalRingHashCur,  RingHashCur_1),
+    _ = compare_local_chksum_with_remote_chksum(
+          ?SYNC_TARGET_RING_CUR,  Node_2, LocalRingHashCur,  RingHashCur_2),
+
+    %% copare manager-cur/prev-ring-hash/ with remote prev-ring-hash
+    _ = compare_local_chksum_with_remote_chksum(
+          ?SYNC_TARGET_RING_PREV, Node_1, LocalRingHashPrev, RingHashPrev_1),
+    _ = compare_local_chksum_with_remote_chksum(
+          ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashPrev, RingHashPrev_2).
+
 
 %% @doc Synchronize members-list or rings
 %% @private
@@ -1347,14 +1352,14 @@ synchronize_1(?SYNC_TARGET_MEMBER = Type, Node) ->
                             Error
                     end;
                 not_found ->
-                    {error, not_found};
-                Error ->
-                    Error
+                    {error, ?ERROR_MEMBER_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_GET_MEMBER}
             end;
         not_found ->
-            {error, not_found};
-        Error ->
-            Error
+            {error, ?ERROR_MEMBER_NOT_FOUND};
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end;
 
 synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
@@ -1371,14 +1376,15 @@ synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
                 {ok, Hashes} ->
                     synchronize_2(Node, Hashes);
                 {_, Cause} ->
-                    {error, Cause};
+                    ?error("synchronize_1/2", "cause:~p", [Cause]),
+                    {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
                 timeout = Cause ->
                     {error, Cause}
             end;
         not_found ->
-            {error, not_found};
-        Error ->
-            Error
+            {error, ?ERROR_MEMBER_NOT_FOUND};
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end;
 synchronize_1(_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
@@ -1423,8 +1429,9 @@ set_endpoint(EndPoint) ->
     case leo_s3_endpoint:set_endpoint(EndPoint) of
         ok ->
             rpc_call_for_gateway(set_endpoint, [EndPoint]);
-        Error ->
-            Error
+        {error, Cause} ->
+            ?error("set_endpoint/1", "cause:~p", [Cause]),
+            {error, ?ERROR_COULD_NOT_SET_ENDPOINT}
     end.
 
 
@@ -1436,8 +1443,9 @@ delete_endpoint(EndPoint) ->
     case leo_s3_endpoint:delete_endpoint(EndPoint) of
         ok ->
             rpc_call_for_gateway(delete_endpoint, [EndPoint]);
-        Error ->
-            Error
+        {error, Cause} ->
+            ?error("delete_endpoint/1", "cause:~p", [Cause]),
+            {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
     end.
 
 
@@ -1455,25 +1463,19 @@ delete_bucket(AccessKey, Bucket) ->
                        false -> list_to_binary(Bucket)
                    end,
 
-    %% Check during-rebalance
-    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-        {ok, {RingHashCur, RingHashPrev}} when RingHashCur == RingHashPrev ->
-            %% Check preconditions
-            case is_allow_to_distribute_command() of
-                {true, _}->
-                    case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
-                        ok ->
-                            delete_bucket_1(AccessKeyBin, BucketBin);
-                        not_found ->
-                            {error, not_found};
-                        {error, _} ->
-                            {error, ?ERROR_INVALID_ARGS}
-                    end;
-                _ ->
-                    {error, ?ERROR_NOT_SATISFY_CONDITION}
+    %% Check preconditions
+    case is_allow_to_distribute_command() of
+        {true, _}->
+            case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
+                ok ->
+                    delete_bucket_1(AccessKeyBin, BucketBin);
+                not_found ->
+                    {error, ?ERROR_BUCKET_NOT_FOUND};
+                {error, _} ->
+                    {error, ?ERROR_INVALID_ARGS}
             end;
         _ ->
-            {error, ?ERROR_DURING_REBALANCE}
+            {error, ?ERROR_NOT_SATISFY_CONDITION}
     end.
 
 delete_bucket_1(AccessKeyBin, BucketBin) ->
@@ -1488,11 +1490,11 @@ delete_bucket_1(AccessKeyBin, BucketBin) ->
                                [BucketBin], ?DEF_TIMEOUT) of
                 {_, []} -> void;
                 {_, BadNodes} ->
-                    ?error("start/0", "bad-nodes:~p", [BadNodes])
+                    ?error("delete_bucket_1/2", "bad-nodes:~p", [BadNodes])
             end,
             delete_bucket_2(AccessKeyBin, BucketBin);
-        {error, Cause} ->
-            {error, Cause}
+        _ ->
+            {error, ?ERROR_NOT_STARTED}
     end.
 
 delete_bucket_2(AccessKeyBin, BucketBin) ->
@@ -1515,28 +1517,32 @@ update_acl(?CANNED_ACL_PRIVATE = Permission, AccessKey, Bucket) ->
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            {error, Cause}
+            ?error("update_acl/3", "cause:~p", [Cause]),
+            {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(?CANNED_ACL_PUBLIC_READ = Permission, AccessKey, Bucket) ->
     case leo_s3_bucket:update_acls2public_read(AccessKey, Bucket) of
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            {error, Cause}
+            ?error("update_acl/3", "cause:~p", [Cause]),
+            {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(?CANNED_ACL_PUBLIC_READ_WRITE = Permission, AccessKey, Bucket) ->
     case leo_s3_bucket:update_acls2public_read_write(AccessKey, Bucket) of
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            {error, Cause}
+            ?error("update_acl/3", "cause:~p", [Cause]),
+            {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(?CANNED_ACL_AUTHENTICATED_READ = Permission, AccessKey, Bucket) ->
     case leo_s3_bucket:update_acls2authenticated_read(AccessKey, Bucket) of
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            {error, Cause}
+            ?error("update_acl/3", "cause:~p", [Cause]),
+            {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
@@ -1564,8 +1570,8 @@ rpc_call_for_gateway(Method, Args) ->
             end;
         not_found ->
             ok;
-        Error ->
-            Error
+        _Error ->
+            {error, ?ERROR_COULD_NOT_GET_GATEWAY}
     end.
 
 
@@ -1601,14 +1607,5 @@ is_allow_to_distribute_command(Node) ->
                false -> NVal - (NVal - 1)
            end,
     Ret  = ((Total - Active) =< Diff),
-    %% Ret  = case ((Total - Active) =< Diff) of
-    %%            true ->
-    %%                case rpc:multicall(Members_2, erlang, node, [], ?DEF_TIMEOUT) of
-    %%                    {_, []} -> true;
-    %%                    _ -> false
-    %%                end;
-    %%            false ->
-    %%                false
-    %%        end,
     {Ret, Members_2}.
 
