@@ -261,7 +261,7 @@
 %% --------------------------------------------------------------------
 %% @doc Log level
 {mapping,
- "leo_manager.log.log_level",
+ "log.log_level",
  "leo_manager.log_level",
  [
   {datatype, integer}, %% >> enum
@@ -270,7 +270,7 @@
 
 %% @doc Output log file(s) - erlang
 {mapping,
- "leo_manager.log.erlang",
+ "log.erlang",
  "leo_manager.log_dir",
  [
   {datatype, string},
@@ -279,7 +279,7 @@
 
 %% @doc Output log file(s) - app
 {mapping,
- "leo_manager.log.app",
+ "log.app",
  "leo_manager.log_appender",
  [
   {datatype, string},
@@ -288,13 +288,13 @@
 
 {translation, "leo_manager.log_appender",
  fun(Conf) ->
-         Path = cuttlefish_util:conf_get_value("leo_manager.log.app", Conf),
+         Path = cuttlefish_util:conf_get_value("log.app", Conf),
          [ {file, [{path, Path}]} ]
  end}.
 
 %% @doc Output log file(s) - members of storage-cluster
 {mapping,
- "leo_manager.log.member_dir",
+ "log.member_dir",
  "leo_redundant_manager.log_dir_member",
  [
   {datatype, string},
@@ -303,7 +303,7 @@
 
 %% @doc Output log file(s) - ring
 {mapping,
- "leo_manager.log.ring_dir",
+ "log.ring_dir",
  "leo_redundant_manager.log_dir_ring",
  [
   {datatype, string},
@@ -316,7 +316,7 @@
 %% --------------------------------------------------------------------
 %% @doc Directory of queue for monitoring "RING"
 {mapping,
- "leo_manager.queue_dir",
+ "queue_dir",
  "leo_manager.queue_dir",
  [
   {default, "./work/queue"}
@@ -324,7 +324,7 @@
 
 %% @doc Directory of SNMP agent configuration
 {mapping,
- "leo_manager.snmp_agent",
+ "snmp_agent",
  "leo_manager.snmp_agent",
  [
   {default, "./snmp/snmpa_manager_0/LEO-MANAGER"}
