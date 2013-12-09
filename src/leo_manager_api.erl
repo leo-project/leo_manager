@@ -257,9 +257,11 @@ suspend(Node) ->
                 true ->
                     case leo_manager_mnesia:update_storage_node_status(
                            update_state, #node_state{node  = Node,
-                                                     state = ?STATE_SUSPEND}) of
+                                                     state = ?STATE_SUSPEND,
+                                                     when_is = leo_date:now()
+                                                    }) of
                         ok ->
-                            Res = leo_redundant_manager_api:suspend(Node, leo_date:clock()),
+                            Res = leo_redundant_manager_api:suspend(Node),
                             distribute_members(Res, []);
                         {error,_Cause} ->
                             {error, ?ERROR_COULD_NOT_UPDATE_NODE}
@@ -360,8 +362,10 @@ resume(sync,_Error, _Node) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE};
 
 resume(last, ok, Node) ->
-    leo_manager_mnesia:update_storage_node_status(#node_state{node = Node,
-                                                              state =  ?STATE_RUNNING});
+    leo_manager_mnesia:update_storage_node_status(
+      #node_state{node = Node,
+                  state = ?STATE_RUNNING,
+                  when_is = leo_date:now()});
 resume(last,_Error, _) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE}.
 

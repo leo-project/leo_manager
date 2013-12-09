@@ -403,7 +403,7 @@ suspend_0_({Node0, _, Sock}) ->
                              true
                      end),
     ok = meck:expect(leo_redundant_manager_api, suspend,
-                     fun(_Node, _Clock) ->
+                     fun(_Node) ->
                              ok
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_members,
@@ -511,7 +511,7 @@ suspend_2_({Node0, _, Sock}) ->
                              true
                      end),
     ok = meck:expect(leo_redundant_manager_api, suspend,
-                     fun(_Node, _Clock) ->
+                     fun(_Node) ->
                              {error, []} %% error!
                      end),
 
