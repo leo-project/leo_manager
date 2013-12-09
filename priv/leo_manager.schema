@@ -373,15 +373,6 @@
 
 %% @doc
 {mapping,
- "leo_object_storage.profile",
- "leo_object_storage.profile",
- [
-  {datatype, {enum, [true, false]}},
-  {default, false}
- ]}.
-
-%% @doc
-{mapping,
  "leo_redundant_manager.profile",
  "leo_redundant_manager.profile",
  [
