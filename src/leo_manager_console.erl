@@ -140,8 +140,6 @@ handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command,
                   case detach(Command, Option) of
                       ok ->
                           Formatter:ok();
-                      {error, {Node, Cause}} ->
-                          Formatter:error(Node, Cause);
                       {error, Cause} ->
                           Formatter:error(Cause)
                   end
@@ -883,8 +881,8 @@ detach(CmdBody, Option) ->
                                     case leo_manager_api:detach(NodeAtom) of
                                         ok ->
                                             ok;
-                                        {error, _} ->
-                                            {error, {Node, ?ERROR_COULD_NOT_DETACH_NODE}}
+                                        {error, Cause} ->
+                                            {error, Node, Cause}
                                     end;
                                 Error ->
                                     Error
@@ -1009,8 +1007,8 @@ rebalance(CmdBody) ->
     case leo_manager_api:rebalance() of
         ok ->
             ok;
-        _Other ->
-            {error, "Fail rebalance"}
+        {error, Cause} ->
+            {error, Cause}
     end.
 
 
@@ -1214,8 +1212,9 @@ create_user(CmdBody, Option) ->
               [UserId, Password] ->
                   {ok, {UserId, Password}};
               _ ->
-                  {error, "No user-id/password specified"}
+                  {error, ?ERROR_INVALID_ARGS}
           end,
+
     case Ret of
         {ok, {Arg0, Arg1}} ->
             case leo_s3_user:add(Arg0, Arg1, true) of
@@ -1233,8 +1232,8 @@ create_user(CmdBody, Option) ->
                     end,
                     {ok, [{access_key_id,     AccessKeyId},
                           {secret_access_key, SecretAccessKey}]};
-                {error, Cause} ->
-                    {error, Cause}
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_ADD_USER}
             end;
         {error, Cause} ->
             {error, Cause}
@@ -1255,13 +1254,13 @@ update_user_role(CmdBody, Option) ->
                                           password = <<>>}) of
                 ok ->
                     ok;
-                not_found = Cause ->
-                    {error, Cause};
-                {error, Cause} ->
-                    {error, Cause}
+                not_found ->
+                    {error, ?ERROR_USER_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_UPDATE_USER}
             end;
         _ ->
-            {error, "No user-id/role_id specified"}
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 
@@ -1285,12 +1284,12 @@ update_user_password(CmdBody, Option) ->
                             {error, Cause}
                     end;
                 not_found ->
-                    {error, "user not found"};
-                {error, Cause} ->
-                    {error, Cause}
+                    {error, ?ERROR_USER_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_GET_USER}
             end;
         _ ->
-            {error, "No user-id/password specified"}
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 
@@ -1306,13 +1305,13 @@ delete_user(CmdBody, Option) ->
             case leo_s3_user:delete(UserId) of
                 ok ->
                     ok;
-                not_found = Cause ->
-                    {error, Cause};
-                {error, Cause} ->
-                    {error, Cause}
+                not_found ->
+                    {error, ?ERROR_USER_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_REMOVE_USER}
             end;
         _ ->
-            {error, "No user-id specified"}
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 
@@ -1364,10 +1363,10 @@ get_endpoints(CmdBody) ->
     case leo_s3_endpoint:get_endpoints() of
         {ok, EndPoints} ->
             {ok, EndPoints};
-        not_found = Cause ->
-            {error, Cause};
-        {error, Cause} ->
-            {error, Cause}
+        not_found ->
+            {error, ?ERROR_ENDPOINT_NOT_FOUND};
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_ENDPOINT}
     end.
 
 
@@ -1439,10 +1438,10 @@ get_buckets(CmdBody) ->
     case catch leo_s3_bucket:find_all_including_owner() of
         {ok, Buckets} ->
             {ok, Buckets};
-        not_found = Cause ->
-            {error, Cause};
-        {_, Cause} ->
-            {error, Cause}
+        not_found ->
+            {error, ?ERROR_BUCKET_NOT_FOUND};
+        {_,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_BUCKET}
     end.
 
 
@@ -1455,8 +1454,15 @@ change_bucket_owner(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, NewAccessKeyId] ->
-            leo_s3_bucket:change_bucket_owner(list_to_binary(NewAccessKeyId),
-                                              list_to_binary(Bucket));
+            case leo_s3_bucket:change_bucket_owner(list_to_binary(NewAccessKeyId),
+                                                   list_to_binary(Bucket)) of
+                ok ->
+                    ok;
+                not_found ->
+                    {error, ?ERROR_BUCKET_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
+            end;
         _ ->
             {error, ?ERROR_INVALID_ARGS}
     end.
@@ -1501,7 +1507,7 @@ update_acl(CmdBody, Option) ->
                 ok ->
                     ok;
                 _Error ->
-                    {error, ?ERROR_COULD_NOT_STORE}
+                    {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
             end;
         _ ->
             {error, ?ERROR_INVALID_ARGS}

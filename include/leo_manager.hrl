@@ -189,32 +189,55 @@
 -define(DEF_NUM_OF_ERROR_COUNT, 2).
 
 %% error
--define(ERROR_COULD_NOT_CONNECT,        "Could not connect").
--define(ERROR_NODE_NOT_EXISTS,          "Node not exist").
--define(ERROR_FAILED_COMPACTION,        "Failed compaction").
--define(ERROR_FAILED_GET_STORAGE_STATS, "Failed to get storage stats").
--define(ERROR_ENDPOINT_NOT_FOUND,       "Specified endpoint not found").
--define(ERROR_COULD_NOT_ATTACH_NODE,    "Could not attach the node").
--define(ERROR_COULD_NOT_DETACH_NODE,    "Could not detach the node").
--define(ERROR_COULD_NOT_SUSPEND_NODE,   "Could not suspend the node").
--define(ERROR_COULD_NOT_RESUME_NODE,    "Could not resume the node").
--define(ERROR_NOT_SPECIFIED_COMMAND,    "Command not exist").
--define(ERROR_NOT_SPECIFIED_NODE,       "Not specified node").
--define(ERROR_NO_CMODE_SPECIFIED,       "Not specified compaction mode").
--define(ERROR_INVALID_PATH,             "Invalid path").
--define(ERROR_INVALID_ARGS,             "Invalid arguments").
--define(ERROR_COULD_NOT_STORE,          "Could not store value").
--define(ERROR_INVALID_BUCKET_FORMAT,    "Invalid bucket format").
--define(ERROR_NOT_STARTED,              "Storage-cluster does not started, yet").
--define(ERROR_ALREADY_STARTED,          "Storage-cluster already started").
--define(ERROR_STILL_RUNNING,            "still running").
--define(ERROR_MNESIA_NOT_START,         "Mnesia does not start, yet").
--define(ERROR_DURING_REBALANCE,         "During rebalance").
--define(ERROR_NOT_SATISFY_CONDITION,    "Not satisfy conditions").
--define(ERROR_TARGET_NODE_NOT_RUNNING,  "Target node does not running").
--define(ERROR_FAILED_BACKUP_MNESIA,     "Failed to backup the mnesia backup file").
--define(ERROR_FAILED_RESTORE_MNESIA,    "Failed to restore the mnesia backup file").
--define(ERROR_FAILED_UPDATE_MANAGERS,   "Failed to update the manager nodes").
+-define(ERROR_COULD_NOT_CONNECT,         "Could not connect").
+-define(ERROR_NODE_NOT_EXISTS,           "Node not exist").
+-define(ERROR_FAILED_COMPACTION,         "Failed compaction").
+-define(ERROR_FAILED_GET_STORAGE_STATS,  "Failed to get storage stats").
+-define(ERROR_USER_NOT_FOUND,            "User not found").
+-define(ERROR_COULD_NOT_GET_USER,        "Could not get user(s)").
+-define(ERROR_COULD_NOT_ADD_USER,        "Could not add a user").
+-define(ERROR_COULD_NOT_REMOVE_USER,     "Could not delete a user").
+-define(ERROR_COULD_NOT_UPDATE_USER,     "Could not update a user").
+-define(ERROR_ENDPOINT_NOT_FOUND,        "Endpoint not found").
+-define(ERROR_COULD_NOT_SET_ENDPOINT,    "Could not set an endpoint").
+-define(ERROR_COULD_NOT_GET_ENDPOINT,    "Could not get endpoint(s)").
+-define(ERROR_COULD_NOT_REMOVE_ENDPOINT, "Could not remove an endpoint").
+-define(ERROR_COULD_NOT_ATTACH_NODE,     "Could not attach the node").
+-define(ERROR_COULD_NOT_DETACH_NODE,     "Could not detach the node").
+-define(ERROR_COULD_NOT_SUSPEND_NODE,    "Could not suspend the node").
+-define(ERROR_COULD_NOT_RESUME_NODE,     "Could not resume the node").
+-define(ERROR_COULD_NOT_UPDATE_NODE,     "Could not update state of a node").
+-define(ERROR_COULD_NOT_UPDATE_MANAGER,  "Could not update manager(s)").
+-define(ERROR_COULD_NOT_CREATE_RING,     "Could not create RING").
+-define(ERROR_NOT_SPECIFIED_COMMAND,     "Command not exist").
+-define(ERROR_NOT_SPECIFIED_NODE,        "Not specified node").
+-define(ERROR_NO_CMODE_SPECIFIED,        "Not specified compaction mode").
+-define(ERROR_INVALID_PATH,              "Invalid path").
+-define(ERROR_INVALID_ARGS,              "Invalid arguments").
+-define(ERROR_COULD_NOT_STORE,           "Could not store value").
+-define(ERROR_INVALID_BUCKET_FORMAT,     "Invalid bucket format").
+-define(ERROR_BUCKET_NOT_FOUND,          "Bucket not found").
+-define(ERROR_COULD_NOT_GET_BUCKET,      "Could not get bucket(s)").
+-define(ERROR_COULD_NOT_UPDATE_BUCKET,   "Could not update bucket(s)").
+-define(ERROR_NOT_STARTED,               "Storage cluster does not start, yet").
+-define(ERROR_ALREADY_STARTED,           "Storage cluster already started").
+-define(ERROR_STILL_RUNNING,             "still running").
+-define(ERROR_MNESIA_NOT_START,          "Mnesia does not start, yet").
+-define(ERROR_NOT_SATISFY_CONDITION,     "Not satisfy conditions").
+-define(ERROR_TARGET_NODE_NOT_RUNNING,   "Target node does not running").
+-define(ERROR_FAILED_BACKUP_MNESIA,      "Failed to backup the mnesia backup file").
+-define(ERROR_FAILED_RESTORE_MNESIA,     "Failed to restore the mnesia backup file").
+-define(ERROR_FAILED_UPDATE_MANAGERS,    "Failed to update the manager nodes").
+-define(ERROR_COULD_NOT_GET_CONF,        "Could not get the system-config").
+-define(ERROR_MEMBER_NOT_FOUND,          "Member not found").
+-define(ERROR_COULD_NOT_GET_MEMBER,      "Could not get member").
+-define(ERROR_COULD_NOT_GET_GATEWAY,     "Could not get gateway(s)").
+-define(ERROR_NOT_NEED_REBALANCE,        "Not need rebalance").
+-define(ERROR_FAIL_REBALANCE,            "Fail rebalance").
+-define(ERROR_FAIL_TO_ASSIGN_NODE,       "Fail to assign node(s)").
+-define(ERROR_FAIL_TO_REMOVE_NODE,       "Fail to remove a node").
+-define(ERROR_FAIL_TO_SYNCHRONIZE_RING,  "Fail to synchronize RING").
+-define(ERROR_FAIL_TO_UPDATE_ACL,        "Fail to update acl of a bucket").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').

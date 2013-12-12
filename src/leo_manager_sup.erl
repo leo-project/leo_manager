@@ -299,7 +299,7 @@ create_mnesia_tables_2() ->
             ok = mnesia:wait_for_tables(Tbls, 60000),
 
             %% Execute to migrate data
-            ok = leo_manager_transformer:transform(),
+            catch leo_manager_transformer:transform(),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};

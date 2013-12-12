@@ -289,7 +289,7 @@ update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state_1(?STATE_R
 update_node_state(start, ?STATE_RUNNING,  _Node) -> ok;
 update_node_state(start, ?STATE_STOP,      Node) -> update_node_state_1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RESTARTED,_Node) -> ok;
-update_node_state(start, not_found,        Node) -> update_node_state_1(?STATE_ATTACHED,  Node);
+update_node_state(start, not_found,        Node) -> update_node_state_1(?STATE_ATTACHED,  Node, leo_date:clock());
 
 update_node_state(down,  ?STATE_ATTACHED, _Node) -> delete;
 update_node_state(down,  ?STATE_DETACHED, _Node) -> ok;
@@ -300,6 +300,8 @@ update_node_state(down,  ?STATE_RESTARTED, Node) -> update_node_state_1(?STATE_S
 update_node_state(down,  not_found,       _Node) -> ok.
 
 update_node_state_1(State, Node) ->
+    update_node_state_1(State, Node, -1).
+update_node_state_1(State, Node, Clock) ->
     case leo_manager_mnesia:update_storage_node_status(
            update, #node_state{node          = Node,
                                state         = State,
@@ -307,8 +309,7 @@ update_node_state_1(State, Node) ->
                                ring_hash_old = [],
                                when_is       = ?CURRENT_TIME}) of
         ok ->
-            case leo_redundant_manager_api:update_member_by_node(
-                   Node, leo_date:clock(), State) of
+            case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
                 ok ->
                     leo_manager_api:distribute_members(ok, []);
                 Error ->
