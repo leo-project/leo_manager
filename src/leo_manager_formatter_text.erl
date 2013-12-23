@@ -273,6 +273,7 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                                 "        max # of chunked objs : ~w\r\n",
                                 "            max object length : ~w\r\n",
                                 "          chunk object length : ~w\r\n",
+                                "   reading_chunked_obj_length : ~w\r\n",
                                 "    threshold of chunk length : ~w\r\n",
                                 "\r\n[status-1: ring]\r\n",
                                 "            ring state (cur)  : ~s\r\n",
@@ -307,6 +308,7 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                    leo_misc:get_value('max_chunked_objs',         HttpConf, 0),
                    leo_misc:get_value('max_len_of_obj',           HttpConf, 0),
                    leo_misc:get_value('chunked_obj_len',          HttpConf, 0),
+                   leo_misc:get_value('reading_chunked_obj_len',  HttpConf, 0),
                    leo_misc:get_value('threshold_of_chunk_len',   HttpConf, 0),
                    %% status-1 [2]
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
