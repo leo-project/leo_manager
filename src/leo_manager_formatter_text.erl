@@ -250,6 +250,10 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
     RingHashes   = leo_misc:get_value('ring_checksum', State, []),
     Statistics   = leo_misc:get_value('statistics',    State, []),
 
+    MaxChunkedObjs = leo_misc:get_value('max_chunked_objs', HttpConf, 0),
+    ChunkedObjLen  = leo_misc:get_value('chunked_obj_len',  HttpConf, 0),
+    MaxObjLen = MaxChunkedObjs * ChunkedObjLen,
+
     io_lib:format(lists:append(["[config-1]\r\n",
                                 "                      version : ~s\r\n",
                                 "                      log dir : ~s\r\n",
@@ -271,8 +275,8 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                                 "       disc cache journal dir : ~s\r\n",
                                 "  -- large-object-related --\r\n",
                                 "        max # of chunked objs : ~w\r\n",
-                                "            max object length : ~w\r\n",
                                 "          chunk object length : ~w\r\n",
+                                "            max object length : ~w\r\n",
                                 "   reading_chunked_obj_length : ~w\r\n",
                                 "    threshold of chunk length : ~w\r\n",
                                 "\r\n[status-1: ring]\r\n",
@@ -305,9 +309,11 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                    leo_misc:get_value('cache_disc_threshold_len', HttpConf, 0),
                    leo_misc:get_value('cache_disc_dir_data',      HttpConf, ""),
                    leo_misc:get_value('cache_disc_dir_journal',   HttpConf, ""),
-                   leo_misc:get_value('max_chunked_objs',         HttpConf, 0),
-                   leo_misc:get_value('max_len_of_obj',           HttpConf, 0),
-                   leo_misc:get_value('chunked_obj_len',          HttpConf, 0),
+
+                   %% large-object
+                   MaxChunkedObjs,
+                   ChunkedObjLen,
+                   MaxObjLen,
                    leo_misc:get_value('reading_chunked_obj_len',  HttpConf, 0),
                    leo_misc:get_value('threshold_of_chunk_len',   HttpConf, 0),
                    %% status-1 [2]

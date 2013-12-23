@@ -184,6 +184,10 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
     RingHashes   = leo_misc:get_value('ring_checksum', State, []),
     Statistics   = leo_misc:get_value('statistics',    State, []),
 
+    MaxChunkedObjs = leo_misc:get_value('max_chunked_objs', HttpConf, 0),
+    ChunkedObjLen  = leo_misc:get_value('chunked_obj_len',  HttpConf, 0),
+    MaxObjLen = MaxChunkedObjs * ChunkedObjLen,
+
     gen_json({[{<<"node_stat">>,
                 {[
                   %% config-1
@@ -216,9 +220,9 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   {<<"cache_disc_dir_journal">>,   list_to_binary(leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
                   {<<"cache_max_content_len">>,    leo_misc:get_value('cache_max_content_len',    HttpConf, 0)},
                   %% large-object
-                  {<<"max_chunked_objs">>,         leo_misc:get_value('max_chunked_objs',         HttpConf, 0)},
-                  {<<"max_len_for_obj">>,          leo_misc:get_value('max_len_of_obj',           HttpConf, 0)},
-                  {<<"chunked_obj_len">>,          leo_misc:get_value('chunked_obj_len',          HttpConf, 0)},
+                  {<<"max_chunked_objs">>,         MaxChunkedObjs},
+                  {<<"chunked_obj_len">>,          ChunkedObjLen},
+                  {<<"max_len_for_obj">>,          MaxObjLen},
                   {<<"reading_chunked_obj_len">>,  leo_misc:get_value('reading_chunked_obj_len',  HttpConf, 0)},
                   {<<"threshold_of_chunk_len">>,   leo_misc:get_value('threshold_of_chunk_len',   HttpConf, 0)}
                  ]}}
