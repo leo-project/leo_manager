@@ -702,30 +702,35 @@ rebalance_4([#member{node  = Node,
     MembersCur    = RebalanceProcInfo#rebalance_proc_info.members_cur,
     MembersPrev   = RebalanceProcInfo#rebalance_proc_info.members_prev,
     RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
-
     RebalanceList_1 = leo_misc:get_value(Node, RebalanceList, []),
-    Ret = case rpc:call(Node, ?API_STORAGE, rebalance,
-                        [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
-              {ok, Hashes} ->
-                  {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
-                  _ = leo_manager_mnesia:update_storage_node_status(
-                        update_chksum, #node_state{node = Node,
-                                                   ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                                   ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
-                  ok;
-              {_, Cause} ->
-                  {error, Cause};
-              timeout = Cause ->
-                  {error, Cause}
-          end,
 
-    case Ret of
-        ok -> void;
-        {error, _Cause} ->
-            %% Enqueue a message (fail distribution of rebalance-info)
-            ok = leo_manager_mq_client:publish(
-                   ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList_1)
-    end,
+    spawn(
+      fun() ->
+              Ret = case catch rpc:call(Node, ?API_STORAGE, rebalance,
+                                        [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
+                        {ok, Hashes} ->
+                            {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
+                            _ = leo_manager_mnesia:update_storage_node_status(
+                                  update_chksum,
+                                  #node_state{
+                                     node = Node,
+                                     ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                     ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
+                            ok;
+                        {_, Cause} ->
+                            {error, Cause};
+                        timeout = Cause ->
+                            {error, Cause}
+                    end,
+              case Ret of
+                  ok -> void;
+                  {error, _Cause} ->
+                      %% Enqueue a message (fail distribution of rebalance-info)
+                      ok = leo_manager_mq_client:publish(
+                             ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList_1)
+              end
+      end),
+    timer:sleep(250),
     rebalance_4(T, RebalanceProcInfo);
 
 rebalance_4([#member{node = Node}|T], RebalanceProcInfo) ->
