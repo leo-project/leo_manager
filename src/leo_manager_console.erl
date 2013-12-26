@@ -824,14 +824,15 @@ start(CmdBody) ->
                     case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
                         {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
                             case leo_manager_api:start() of
-                                {error, Cause} ->
-                                    {error, Cause};
-                                {_ResL, []} ->
+                                ok ->
                                     ok;
-                                {_ResL, BadNodes} ->
-                                    {error, {bad_nodes, lists:foldl(fun(Node, Acc) ->
-                                                                            Acc ++ [Node]
-                                                                    end, [], BadNodes)}}
+                                {error, timeout = Cause} ->
+                                    {error, Cause};
+                                {error, BadNodes} ->
+                                    {error, {bad_nodes, [N || {N,_} <- BadNodes]}}
+                                     %% lists:foldl(fun(Node, Acc) ->
+                                     %%                     Acc ++ [Node]
+                                     %%             end, [], BadNodes)}}
                             end;
                         {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
                             {error, "Attached nodes less than # of replicas"};
