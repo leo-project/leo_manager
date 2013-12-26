@@ -108,6 +108,7 @@ help() ->
                        [?CMD_VERSION,
                         ?CMD_STATUS,
                         ?CMD_HISTORY,
+                        ?CMD_DUMP_RING,
                         ?CMD_QUIT], [])]).
 
 %% @private

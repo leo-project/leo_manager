@@ -628,6 +628,22 @@ handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = St
     {reply, Reply, State};
 
 
+%% Command: dump_ring ${NODE}"
+%%
+handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case dump_ring(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DUMP_RING, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "quit"
 %%
 handle_call(_Socket, <<?CMD_QUIT, ?CRLF>>, State) ->
@@ -698,6 +714,17 @@ update_manager_nodes(CmdBody, Option) ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
 
+
+%% @doc Output ring of a targe node
+%% @private
+dump_ring(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node|_] ->
+            rpc:call(list_to_atom(Node), leo_redundant_manager_api, dump, [both]);
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
 
 %% @doc Retrieve version of the system
 %% @private
