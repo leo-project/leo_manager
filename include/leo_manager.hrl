@@ -99,7 +99,7 @@
 -define(CMD_WHEREIS,             "whereis").
 -define(CMD_RECOVER,             "recover").
 -define(CMD_HISTORY,             "history").
--define(CMD_DUMP_RING,           "dump_ring").
+-define(CMD_DUMP_RING,           "dump-ring").
 -define(CMD_PURGE,               "purge").
 -define(CMD_REMOVE,              "remove").
 -define(CMD_BACKUP_MNESIA,       "backup-mnesia").
@@ -115,7 +115,7 @@
                    {?CMD_VERSION,   "version"},
                    {?CMD_STATUS,    "status [${storage-node}|${gateway-node}]"},
                    {?CMD_HISTORY,   "history"},
-                   {?CMD_DUMP_RING, "dump_ring ${manager-node}|${storage-node}|${gateway-node}"},
+                   {?CMD_DUMP_RING, "dump-ring ${manager-node}|${storage-node}|${gateway-node}"},
                    %% for Cluster
                    {?CMD_WHEREIS,   "whereis ${path}"},
                    {?CMD_RECOVER,   lists:append(
