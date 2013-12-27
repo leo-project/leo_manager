@@ -659,7 +659,7 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
                                              when_is       = leo_date:now()}) of
                       ok ->
                           case leo_redundant_manager_api:update_member_by_node(
-                                 Node, ?STATE_RUNNING) of
+                                 Node, leo_date:clock(), ?STATE_RUNNING) of
                               ok ->
                                   ok;
                               Error ->
@@ -746,10 +746,9 @@ assign_nodes_to_ring([]) ->
     ok;
 assign_nodes_to_ring([{?STATE_ATTACHED, Node}|Rest]) ->
     case leo_redundant_manager_api:get_member_by_node(Node) of
-        {ok, #member{grp_level_1 = L1,
-                     grp_level_2 = L2,
+        {ok, #member{grp_level_2 = L2,
                      num_of_vnodes = NumOfVNodes}} ->
-            case leo_redundant_manager_api:attach(Node, L1, L2, NumOfVNodes) of
+            case leo_redundant_manager_api:attach(Node, L2, leo_date:clock(), NumOfVNodes) of
                 ok ->
                     assign_nodes_to_ring(Rest);
                 Error ->
