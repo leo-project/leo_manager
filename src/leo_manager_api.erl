@@ -659,7 +659,7 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
                                              when_is       = leo_date:now()}) of
                       ok ->
                           case leo_redundant_manager_api:update_member_by_node(
-                                 Node, leo_date:clock(), ?STATE_RUNNING) of
+                                 Node, ?STATE_RUNNING) of
                               ok ->
                                   ok;
                               Error ->
