@@ -477,9 +477,8 @@ start() ->
             %% Then launch storage-cluster
             case leo_manager_mnesia:get_system_config() of
                 {ok, SystemConf} ->
-                    Res = rpc:multicall(Nodes, ?API_STORAGE, start,
-                                        [Members, Members, SystemConf], ?DEF_TIMEOUT),
-                    start_1(Res);
+                    ok = start_1(self(), Nodes, Members, SystemConf),
+                    start_2(length(Members),[]);
                 {error, Cause} ->
                     ?error("start/0", "cause:~p", [Cause]),
                     {error, ?ERROR_COULD_NOT_GET_CONF}
@@ -489,33 +488,52 @@ start() ->
             {error, ?ERROR_COULD_NOT_CREATE_RING}
     end.
 
+
 %% @doc Check results and update an object of node-status
 %% @private
-start_1({ResL0, BadNodes0}) ->
-    case lists:foldl(fun({ok, {Node, Chksum}}, {Acc0,Acc1}) ->
-                             {[{Node, Chksum}|Acc0], Acc1};
-                        ({error, {ErrorNode, _Cause}}, {Acc0,Acc1}) ->
-                             {Acc0, [ErrorNode|Acc1]}
-                     end, {[],[]}, ResL0) of
-        {ResL1, []} ->
-            case BadNodes0 of
-                [] ->
-                    lists:foreach(
-                      fun({Node, {RingHashCur, RingHashPrev}}) ->
-                              leo_manager_mnesia:update_storage_node_status(
-                                update,
-                                #node_state{node          = Node,
-                                            state         = ?STATE_RUNNING,
-                                            ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                            ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
-                                            when_is       = leo_date:now()})
-                      end, ResL1),
-                    {ResL1, []};
-                _ ->
-                    {ResL1, BadNodes0}
-            end;
-        {ResL1, BadNodes1} ->
-            {ResL1, BadNodes0 ++ BadNodes1}
+start_1(_,[],_,_) ->
+    ok;
+start_1(Pid, [Node|Rest], Members, SystemConf) ->
+    spawn(
+      fun() ->
+              Reply = case rpc:call(Node, ?API_STORAGE, start,
+                                    [Members, Members, SystemConf], ?DEF_TIMEOUT) of
+                          {ok, Ret} ->
+                              {ok, Ret};
+                          {error, Ret} ->
+                              {error, Ret};
+                          {_, Cause} ->
+                              {error, {Node, Cause}};
+                          timeout = Cause ->
+                              {error, {Node, Cause}}
+                      end,
+                  erlang:send(Pid, Reply)
+      end),
+    start_1(Pid, Rest, Members, SystemConf).
+
+
+%% @doc Check results and update an object of node-status
+%% @private
+start_2(0, []) ->
+    ok;
+start_2(0, Errors) ->
+    {error, Errors};
+start_2(NumOfNodes, Errors) ->
+    receive
+        {ok, {Node, {RingHashCur, RingHashPrev}}} ->
+            leo_manager_mnesia:update_storage_node_status(
+              update,
+              #node_state{node          = Node,
+                          state         = ?STATE_RUNNING,
+                          ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                          ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
+                          when_is       = leo_date:now()}),
+            start_2(NumOfNodes - 1, Errors);
+        {error, {Node, Cause}} ->
+            start_2(NumOfNodes - 1, [{Node, Cause}|Errors])
+    after
+        ?DEF_TIMEOUT ->
+            {error, timeout}
     end.
 
 
@@ -684,30 +702,35 @@ rebalance_4([#member{node  = Node,
     MembersCur    = RebalanceProcInfo#rebalance_proc_info.members_cur,
     MembersPrev   = RebalanceProcInfo#rebalance_proc_info.members_prev,
     RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
-
     RebalanceList_1 = leo_misc:get_value(Node, RebalanceList, []),
-    Ret = case rpc:call(Node, ?API_STORAGE, rebalance,
-                        [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
-              {ok, Hashes} ->
-                  {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
-                  _ = leo_manager_mnesia:update_storage_node_status(
-                        update_chksum, #node_state{node = Node,
-                                                   ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                                   ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
-                  ok;
-              {_, Cause} ->
-                  {error, Cause};
-              timeout = Cause ->
-                  {error, Cause}
-          end,
 
-    case Ret of
-        ok -> void;
-        {error, _Cause} ->
-            %% Enqueue a message (fail distribution of rebalance-info)
-            ok = leo_manager_mq_client:publish(
-                   ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList_1)
-    end,
+    spawn(
+      fun() ->
+              Ret = case catch rpc:call(Node, ?API_STORAGE, rebalance,
+                                        [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
+                        {ok, Hashes} ->
+                            {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
+                            _ = leo_manager_mnesia:update_storage_node_status(
+                                  update_chksum,
+                                  #node_state{
+                                     node = Node,
+                                     ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                     ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
+                            ok;
+                        {_, Cause} ->
+                            {error, Cause};
+                        timeout = Cause ->
+                            {error, Cause}
+                    end,
+              case Ret of
+                  ok -> void;
+                  {error, _Cause} ->
+                      %% Enqueue a message (fail distribution of rebalance-info)
+                      ok = leo_manager_mq_client:publish(
+                             ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList_1)
+              end
+      end),
+    timer:sleep(250),
     rebalance_4(T, RebalanceProcInfo);
 
 rebalance_4([#member{node = Node}|T], RebalanceProcInfo) ->
@@ -723,10 +746,9 @@ assign_nodes_to_ring([]) ->
     ok;
 assign_nodes_to_ring([{?STATE_ATTACHED, Node}|Rest]) ->
     case leo_redundant_manager_api:get_member_by_node(Node) of
-        {ok, #member{grp_level_1 = L1,
-                     grp_level_2 = L2,
+        {ok, #member{grp_level_2 = L2,
                      num_of_vnodes = NumOfVNodes}} ->
-            case leo_redundant_manager_api:attach(Node, L1, L2, NumOfVNodes) of
+            case leo_redundant_manager_api:attach(Node, L2, leo_date:clock(), NumOfVNodes) of
                 ok ->
                     assign_nodes_to_ring(Rest);
                 Error ->
@@ -1639,4 +1661,3 @@ is_allow_to_distribute_command(Node) ->
            end,
     Ret  = ((Total - Active) =< Diff),
     {Ret, Members_2}.
-

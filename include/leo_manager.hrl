@@ -34,8 +34,8 @@
 -define(DEF_TIMEOUT,           1000). %% 1sec
 -define(DEF_MONITOR_INTERVAL,  3000). %% 3sec
 -else.
--define(DEF_TIMEOUT,          30000). %% 30sec
--define(DEF_MONITOR_INTERVAL, 20000). %% 20sec
+-define(DEF_TIMEOUT,         120000). %% 120sec
+-define(DEF_MONITOR_INTERVAL, 20000). %%  20sec
 -endif.
 
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
@@ -99,6 +99,7 @@
 -define(CMD_WHEREIS,             "whereis").
 -define(CMD_RECOVER,             "recover").
 -define(CMD_HISTORY,             "history").
+-define(CMD_DUMP_RING,           "dump-ring").
 -define(CMD_PURGE,               "purge").
 -define(CMD_REMOVE,              "remove").
 -define(CMD_BACKUP_MNESIA,       "backup-mnesia").
@@ -114,6 +115,7 @@
                    {?CMD_VERSION,   "version"},
                    {?CMD_STATUS,    "status [${storage-node}|${gateway-node}]"},
                    {?CMD_HISTORY,   "history"},
+                   {?CMD_DUMP_RING, "dump-ring ${manager-node}|${storage-node}|${gateway-node}"},
                    %% for Cluster
                    {?CMD_WHEREIS,   "whereis ${path}"},
                    {?CMD_RECOVER,   lists:append(
