@@ -56,7 +56,7 @@
 
 -export([attach/1, attach/4, detach/1, suspend/1, resume/1,
          distribute_members/1, distribute_members/2,
-         start/0, rebalance/0]).
+         start/1, rebalance/0]).
 
 -export([register/4, register/7,
          notify/3, notify/4, purge/1, remove/1,
@@ -462,9 +462,9 @@ update_manager_nodes(_Managers,_Error) ->
 
 %% @doc Launch the leo-storage, but exclude Gateway(s).
 %%
--spec(start() ->
+-spec(start(port()) ->
              ok | {error, any()}).
-start() ->
+start(Socket) ->
     %% Create current and previous RING(routing-table)
     case leo_redundant_manager_api:create() of
         {ok, Members, _Chksums} ->
@@ -478,13 +478,14 @@ start() ->
             case leo_manager_mnesia:get_system_config() of
                 {ok, SystemConf} ->
                     ok = start_1(self(), Nodes, Members, SystemConf),
-                    start_2(length(Members),[]);
+                    TotalMembers = length(Members),
+                    start_2(Socket, 0, TotalMembers);
                 {error, Cause} ->
-                    ?error("start/0", "cause:~p", [Cause]),
+                    ?error("start/1", "cause:~p", [Cause]),
                     {error, ?ERROR_COULD_NOT_GET_CONF}
             end;
         {error, Cause} ->
-            ?error("start/0", "cause:~p", [Cause]),
+            ?error("start/1", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_CREATE_RING}
     end.
 
@@ -507,34 +508,55 @@ start_1(Pid, [Node|Rest], Members, SystemConf) ->
                           timeout = Cause ->
                               {error, {Node, Cause}}
                       end,
-                  erlang:send(Pid, Reply)
+              erlang:send(Pid, Reply)
       end),
     start_1(Pid, Rest, Members, SystemConf).
 
 
 %% @doc Check results and update an object of node-status
 %% @private
-start_2(0, []) ->
+start_2(_Socket, TotalMembers, TotalMembers) ->
     ok;
-start_2(0, Errors) ->
-    {error, Errors};
-start_2(NumOfNodes, Errors) ->
+%% start_2(Socket, 0, Errors) ->
+%%     {error, Errors};
+start_2(Socket, NumOfNodes, TotalMembers) ->
     receive
-        {ok, {Node, {RingHashCur, RingHashPrev}}} ->
-            leo_manager_mnesia:update_storage_node_status(
-              update,
-              #node_state{node          = Node,
-                          state         = ?STATE_RUNNING,
-                          ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                          ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
-                          when_is       = leo_date:now()}),
-            start_2(NumOfNodes - 1, Errors);
-        {error, {Node, Cause}} ->
-            start_2(NumOfNodes - 1, [{Node, Cause}|Errors])
+        Msg ->
+            {Node_1, State} =
+                case Msg of
+                    {ok, {Node, {RingHashCur, RingHashPrev}}} ->
+                        leo_manager_mnesia:update_storage_node_status(
+                          update,
+                          #node_state{node          = Node,
+                                      state         = ?STATE_RUNNING,
+                                      ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                      ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
+                                      when_is       = leo_date:now()}),
+                        {Node, <<"OK">>};
+                    {error, {Node, Cause}} ->
+                        ?error("start_2/3", "node:~w, cause:~p", [Node, Cause]),
+                        {Node, <<"ERROR">>}
+                end,
+
+            NewNumOfNodes = NumOfNodes + 1,
+            Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),
+            SendMsg = lists:append([string:right(Ratio, 5), " - ", atom_to_list(Node_1)]),
+            ok = output_message_to_console(Socket, State, list_to_binary(SendMsg)),
+            start_2(Socket, NewNumOfNodes, TotalMembers)
     after
-        ?DEF_TIMEOUT ->
-            {error, timeout}
+        infinity ->
+            ok
     end.
+
+
+%% Output a message to the console
+%% @private
+-spec(output_message_to_console(port()|[], binary(), binary()) ->
+             ok).
+output_message_to_console(null, _State,_MsgBin) ->
+    ok;
+output_message_to_console(Socket, State, MsgBin) ->
+    ok = gen_tcp:send(Socket, << State/binary, MsgBin/binary, "\r\n" >>).
 
 
 %% @doc Do Rebalance which affect all storage-nodes in operation.

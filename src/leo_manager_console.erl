@@ -182,10 +182,15 @@ handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command,
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?CMD_START, ?CRLF>> = Command,
+handle_call(Socket, <<?CMD_START, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER -> Socket;
+                   _ -> null
+               end,
+
     Fun = fun() ->
-                  case start(Command) of
+                  case start(Socket_1, Command) of
                       ok ->
                           Formatter:ok();
                       {error, {bad_nodes, BadNodes}} ->
@@ -837,9 +842,9 @@ status({node_state, Node}) ->
 
 %% @doc Launch the storage cluster
 %% @private
--spec(start(binary()) ->
+-spec(start(port(), binary()) ->
              ok | {error, any()}).
-start(CmdBody) ->
+start(Socket, CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case leo_manager_mnesia:get_storage_nodes_all() of
@@ -850,7 +855,7 @@ start(CmdBody) ->
 
                     case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
                         {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
-                            case leo_manager_api:start() of
+                            case leo_manager_api:start(Socket) of
                                 ok ->
                                     ok;
                                 {error, timeout = Cause} ->
