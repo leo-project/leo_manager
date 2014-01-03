@@ -205,10 +205,15 @@ handle_call(Socket, <<?CMD_START, ?CRLF>> = Command,
 
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
+handle_call(Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER -> Socket;
+                   _ -> null
+               end,
+
     Fun = fun() ->
-                  case rebalance(Command) of
+                  case rebalance(Socket_1, Command) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -842,7 +847,7 @@ status({node_state, Node}) ->
 
 %% @doc Launch the storage cluster
 %% @private
--spec(start(port(), binary()) ->
+-spec(start(port()|null, binary()) ->
              ok | {error, any()}).
 start(Socket, CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
@@ -1033,11 +1038,11 @@ resume(CmdBody, Option) ->
 
 %% @doc Rebalance the storage cluster
 %% @private
--spec(rebalance(binary()) ->
+-spec(rebalance(port()|null, binary()) ->
              ok | {error, any()}).
-rebalance(CmdBody) ->
+rebalance(Socket, CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    case leo_manager_api:rebalance() of
+    case leo_manager_api:rebalance(Socket) of
         ok ->
             ok;
         {error, Cause} ->

@@ -56,7 +56,7 @@
 
 -export([attach/1, attach/4, detach/1, suspend/1, resume/1,
          distribute_members/1, distribute_members/2,
-         start/1, rebalance/0]).
+         start/1, rebalance/1]).
 
 -export([register/4, register/7,
          notify/3, notify/4, purge/1, remove/1,
@@ -475,8 +475,7 @@ start(Socket) ->
             case leo_manager_mnesia:get_system_config() of
                 {ok, SystemConf} ->
                     ok = start_1(self(), Nodes, Members, SystemConf),
-                    TotalMembers = length(Members),
-                    start_2(Socket, 0, TotalMembers);
+                    start_2(Socket, 0, length(Members));
                 {error, Cause} ->
                     ?error("start/1", "cause:~p", [Cause]),
                     {error, ?ERROR_COULD_NOT_GET_CONF}
@@ -565,9 +564,9 @@ output_message_to_console(Socket, State, MsgBin) ->
 %%     2. Distribute every storage node from manager
 %%     3. Confirm callback.
 %%
--spec(rebalance() ->
+-spec(rebalance(port()|null) ->
              ok | {error, any()}).
-rebalance() ->
+rebalance(Socket) ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, Members_1} ->
             {State, Nodes} =
@@ -597,7 +596,8 @@ rebalance() ->
                                                                      rebalance_list = RetRebalance},
                             case rebalance_3(Nodes, RebalanceProcInfo) of
                                 ok ->
-                                    rebalance_4(MembersCur, RebalanceProcInfo);
+                                    ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
+                                    rebalance_4_loop(Socket, 0, length(MembersCur));
                                 {error, Cause}->
                                     {error, Cause}
                             end;
@@ -717,10 +717,10 @@ rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
     end.
 
 %% @private
-rebalance_4([],_) ->
+rebalance_4(_Pid, [],_) ->
     ok;
-rebalance_4([#member{node  = Node,
-                     state = ?STATE_RUNNING}|T], RebalanceProcInfo) ->
+rebalance_4( Pid, [#member{node  = Node,
+                           state = ?STATE_RUNNING}|T], RebalanceProcInfo) ->
     MembersCur    = RebalanceProcInfo#rebalance_proc_info.members_cur,
     MembersPrev   = RebalanceProcInfo#rebalance_proc_info.members_prev,
     RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
@@ -744,23 +744,53 @@ rebalance_4([#member{node  = Node,
                         timeout = Cause ->
                             {error, Cause}
                     end,
-              case Ret of
-                  ok -> void;
-                  {error, _Cause} ->
-                      %% Enqueue a message (fail distribution of rebalance-info)
-                      ok = leo_manager_mq_client:publish(
-                             ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList_1)
-              end
+              erlang:send(Pid, {Ret, Node, RebalanceList_1})
       end),
-    timer:sleep(250),
-    rebalance_4(T, RebalanceProcInfo);
+    rebalance_4(Pid, T, RebalanceProcInfo);
 
-rebalance_4([#member{node = Node}|T], RebalanceProcInfo) ->
-    %% Enqueue a message (fail distribution of rebalance-info)
-    ok = leo_manager_mq_client:publish(
-           ?QUEUE_ID_FAIL_REBALANCE, Node,
-           RebalanceProcInfo#rebalance_proc_info.rebalance_list),
-    rebalance_4(T, RebalanceProcInfo).
+rebalance_4(Pid, [#member{node = Node}|T], RebalanceProcInfo) ->
+    RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
+    RebalanceList_1 = leo_misc:get_value(Node, RebalanceList, []),
+    erlang:send(Pid, {ok, Node, RebalanceList_1}),
+    rebalance_4(Pid, T, RebalanceProcInfo).
+
+
+%% @doc receive the results of rebalance
+%% @private
+rebalance_4_loop(_Socket, TotalMembers, TotalMembers) ->
+    ok;
+rebalance_4_loop(Socket, NumOfNodes, TotalMembers) ->
+    receive
+        Msg ->
+            {Node_1, State} =
+                case Msg of
+                    {ok, Node, _RebalanceList} ->
+                        {Node, <<"OK">>};
+                    OtherMsg ->
+                        %% Enqueue a message (fail distribution of rebalance-info)
+                        {Ret, Node, RebalanceList} = OtherMsg,
+                        ok = leo_manager_mq_client:publish(
+                               ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList),
+
+                        %% Judge the result of rebalance
+                        case Ret of
+                            pending ->
+                                {Node, <<"PENDING">>};
+                            {error, Cause} ->
+                                ?error("rebalance_4_loop/3", "node:~w, cause:~p", [Node, Cause]),
+                                {Node, <<"ERROR">>}
+                        end
+                end,
+            %% output a message
+            NewNumOfNodes = NumOfNodes + 1,
+            Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),
+            SendMsg = lists:append([string:right(Ratio, 5), " - ", atom_to_list(Node_1)]),
+            ok = output_message_to_console(Socket, State, list_to_binary(SendMsg)),
+            rebalance_4_loop(Socket, NewNumOfNodes, TotalMembers)
+    after
+        infinity ->
+            ok
+    end.
 
 
 %% @private
