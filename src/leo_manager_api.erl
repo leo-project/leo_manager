@@ -468,13 +468,10 @@ start(Socket) ->
     %% Create current and previous RING(routing-table)
     case leo_redundant_manager_api:create() of
         {ok, Members, _Chksums} ->
-            %% Distribute members-list to all storage nodes.
-            Nodes = lists:map(fun(#member{node = Node}) ->
-                                      Node
-                              end, Members),
-
             %% Retrieve system-configuration
             %% Then launch storage-cluster
+            Nodes = [N || #member{node = N} <- Members],
+
             case leo_manager_mnesia:get_system_config() of
                 {ok, SystemConf} ->
                     ok = start_1(self(), Nodes, Members, SystemConf),
@@ -517,8 +514,6 @@ start_1(Pid, [Node|Rest], Members, SystemConf) ->
 %% @private
 start_2(_Socket, TotalMembers, TotalMembers) ->
     ok;
-%% start_2(Socket, 0, Errors) ->
-%%     {error, Errors};
 start_2(Socket, NumOfNodes, TotalMembers) ->
     receive
         Msg ->
@@ -535,6 +530,11 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
                         {Node, <<"OK">>};
                     {error, {Node, Cause}} ->
                         ?error("start_2/3", "node:~w, cause:~p", [Node, Cause]),
+                        leo_manager_mnesia:update_storage_node_status(
+                          update,
+                          #node_state{node    = Node,
+                                      state   = ?STATE_STOP,
+                                      when_is = leo_date:now()}),
                         {Node, <<"ERROR">>}
                 end,
 
