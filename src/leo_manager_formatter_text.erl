@@ -555,40 +555,55 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    {Col1Len, Col2Len} = lists:foldl(fun({Bucket, #user_credential{user_id= Owner}, _}, {C1, C2}) ->
-                                             BucketStr = binary_to_list(Bucket),
-                                             Len1 = length(BucketStr),
-                                             Len2 = length(Owner),
-
-                                             {case (Len1 > C1) of
-                                                  true  -> Len1;
-                                                  false -> C1
-                                              end,
-                                              case (Len2 > C2) of
-                                                  true  -> Len2;
-                                                  false -> C2
-                                              end}
-                                     end, {8, 6}, Buckets),
-    Col3Len = 26,
+    Col1MinLen = 8,
+    Col2MinLen = 6,
+    Col3MinLen = 12,
+    {Col1Len, Col2Len, Col3Len} =
+        lists:foldl(fun({Bucket, #user_credential{user_id= Owner}, Permissions, _CreatedAt},
+                        {C1, C2, C3}) ->
+                            BucketStr = binary_to_list(Bucket),
+                            PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions], ","),
+                            Len1 = length(BucketStr),
+                            Len2 = length(Owner),
+                            Len3 = length(PermissionsStr),
+                            {case (Len1 > C1) of
+                                 true  -> Len1;
+                                 false -> C1
+                             end,
+                             case (Len2 > C2) of
+                                 true  -> Len2;
+                                 false -> C2
+                             end,
+                             case (Len3 > C3) of
+                                 true  -> Len3;
+                                 false -> C3
+                             end
+                            }
+                    end, {Col1MinLen, Col2MinLen, Col3MinLen}, Buckets),
+    Col4Len = 26,
     Header = lists:append(
-               [string:left("bucket",     Col1Len), " | ",
-                string:left("owner",      Col2Len), " | ",
-                string:left("created at", Col3Len), "\r\n",
+               [string:left("bucket",      Col1Len), " | ",
+                string:left("owner",       Col2Len), " | ",
+                string:left("permissions", Col3Len), " | ",
+                string:left("created at",  Col4Len), "\r\n",
 
                 lists:duplicate(Col1Len, "-"), "-+-",
                 lists:duplicate(Col2Len, "-"), "-+-",
-                lists:duplicate(Col3Len, "-"), "\r\n"]),
+                lists:duplicate(Col3Len, "-"), "-+-",
+                lists:duplicate(Col4Len, "-"), "\r\n"]),
 
-    Fun = fun({Bucket, #user_credential{user_id= Owner}, Created1}, Acc) ->
+    Fun = fun({Bucket, #user_credential{user_id= Owner}, Permissions1, Created1}, Acc) ->
                   BucketStr = binary_to_list(Bucket),
+                  PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions1], ","),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
                                   false -> []
                               end,
 
-                  Acc ++ io_lib:format("~s | ~s | ~s\r\n",
-                                       [string:left(BucketStr, Col1Len),
-                                        string:left(Owner,     Col2Len),
+                  Acc ++ io_lib:format("~s | ~s | ~s | ~s\r\n",
+                                       [string:left(BucketStr,      Col1Len),
+                                        string:left(Owner,          Col2Len),
+                                        string:left(PermissionsStr, Col3Len),
                                         Created2])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
@@ -724,4 +739,3 @@ acls(ACLs) ->
 %%----------------------------------------------------------------------
 %% Inner function(s)
 %%----------------------------------------------------------------------
-

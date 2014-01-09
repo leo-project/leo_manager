@@ -391,14 +391,16 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    JSON = lists:map(fun({Bucket, #user_credential{user_id = Owner}, Created1}) ->
-                             Created2  = case (Created1 > 0) of
-                                             true  -> leo_date:date_format(Created1);
-                                             false -> []
-                                         end,
-                             {[{<<"bucket">>,     Bucket},
-                               {<<"owner">>,      list_to_binary(Owner)},
-                               {<<"created_at">>, list_to_binary(Created2)}
+    JSON = lists:map(fun({Bucket, #user_credential{user_id = Owner}, Permissions, CreatedAt}) ->
+                             CreatedAt_1  = case (CreatedAt > 0) of
+                                                true  -> leo_date:date_format(CreatedAt);
+                                                false -> []
+                                            end,
+                             PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions], ","),
+                             {[{<<"bucket">>,      Bucket},
+                               {<<"owner">>,       list_to_binary(Owner)},
+                               {<<"permissions">>, list_to_binary(PermissionsStr)},
+                               {<<"created_at">>,  list_to_binary(CreatedAt_1)}
                               ]}
                      end, Buckets),
     gen_json({[{<<"buckets">>, JSON}]}).
