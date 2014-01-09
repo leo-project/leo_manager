@@ -152,9 +152,9 @@ handle_call(stop, _From, State) ->
 
 
 handle_call({register, RegistrationInfo}, _From, {Refs, Htbl, Pids} = Arg) ->
-    ?info("handle_call - register", "requested-times:~w, node:~w",
-          [RegistrationInfo#registration.times,
-           RegistrationInfo#registration.node]),
+    ?debug("handle_call - register", "requested-times:~w, node:~w",
+           [RegistrationInfo#registration.times,
+            RegistrationInfo#registration.node]),
     #registration{pid   = Pid,
                   node  = Node,
                   type  = TypeOfNode} = RegistrationInfo,
@@ -327,6 +327,7 @@ update_node_state_1(State, Node, Clock) ->
 get_remote_node_proc_fun() ->
     case leo_manager_api:get_nodes() of
         {ok, Members} ->
+            ?debugVal(Members),
             lists:foreach(
               fun({_Type, _Node, ?STATE_DETACHED}) -> void;
                  ({_Type, _Node, ?STATE_SUSPEND})  -> void;
@@ -356,6 +357,7 @@ get_remote_node_proc_fun(storage, Node) ->
 
 get_remote_node_proc_fun(gateway, Node) ->
     timer:sleep(50),
+    ?debugVal(Node),
 
     case leo_misc:node_existence(Node) of
         true ->
