@@ -327,7 +327,6 @@ update_node_state_1(State, Node, Clock) ->
 get_remote_node_proc_fun() ->
     case leo_manager_api:get_nodes() of
         {ok, Members} ->
-            ?debugVal(Members),
             lists:foreach(
               fun({_Type, _Node, ?STATE_DETACHED}) -> void;
                  ({_Type, _Node, ?STATE_SUSPEND})  -> void;
@@ -357,8 +356,6 @@ get_remote_node_proc_fun(storage, Node) ->
 
 get_remote_node_proc_fun(gateway, Node) ->
     timer:sleep(50),
-    ?debugVal(Node),
-
     case leo_misc:node_existence(Node) of
         true ->
             Mod = leo_gateway_api,
