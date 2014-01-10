@@ -30,6 +30,7 @@
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+-include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -175,13 +176,13 @@ system_info_and_nodes_stat(Props) ->
                                     "              ring hash (prev) : ~s\r\n\r\n",
                                     "[Node(s) state]\r\n"]),
                       [Version,
-                       SystemConf#system_conf.n,
-                       SystemConf#system_conf.r,
-                       SystemConf#system_conf.w,
-                       SystemConf#system_conf.d,
-                       SystemConf#system_conf.level_1,
-                       SystemConf#system_conf.level_2,
-                       SystemConf#system_conf.bit_of_ring,
+                       SystemConf#?SYSTEM_CONF.n,
+                       SystemConf#?SYSTEM_CONF.r,
+                       SystemConf#?SYSTEM_CONF.w,
+                       SystemConf#?SYSTEM_CONF.d,
+                       SystemConf#?SYSTEM_CONF.num_of_dc_replicas,
+                       SystemConf#?SYSTEM_CONF.num_of_rack_replicas,
+                       SystemConf#?SYSTEM_CONF.bit_of_ring,
                        leo_hex:integer_to_hex(RH0, 8),
                        leo_hex:integer_to_hex(RH1, 8)
                       ]),

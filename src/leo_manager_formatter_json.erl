@@ -30,6 +30,7 @@
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+-include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -159,13 +160,13 @@ system_info_and_nodes_stat(Props) ->
 
     gen_json({[{<<"system_info">>,
                 {[{<<"version">>,        list_to_binary(Version)},
-                  {<<"n">>,              list_to_binary(integer_to_list(SystemConf#system_conf.n))},
-                  {<<"r">>,              list_to_binary(integer_to_list(SystemConf#system_conf.r))},
-                  {<<"w">>,              list_to_binary(integer_to_list(SystemConf#system_conf.w))},
-                  {<<"d">>,              list_to_binary(integer_to_list(SystemConf#system_conf.d))},
-                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#system_conf.level_1))},
-                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#system_conf.level_2))},
-                  {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))},
+                  {<<"n">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.n))},
+                  {<<"r">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.r))},
+                  {<<"w">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.w))},
+                  {<<"d">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.d))},
+                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_dc_replicas))},
+                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_rack_replicas))},
+                  {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.bit_of_ring))},
                   {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
                   {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
                  ]}},

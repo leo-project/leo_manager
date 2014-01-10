@@ -793,7 +793,7 @@ status(CmdBody, Option) ->
     end.
 
 status(node_list) ->
-    case leo_manager_mnesia:get_system_config() of
+    case leo_redundant_manager_table_conf:get_system_config() of
         {ok, SystemConf} ->
             Version = case application:get_env(leo_manager, system_version) of
                           {ok, Vsn} -> Vsn;
@@ -856,10 +856,10 @@ start(Socket, CmdBody) ->
         {ok, _} ->
             case leo_manager_api:get_system_status() of
                 ?STATE_STOP ->
-                    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+                    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
 
                     case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
-                        {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
+                        {ok, Nodes} when length(Nodes) >= SystemConf#?SYSTEM_CONF.n ->
                             case leo_manager_api:start(Socket) of
                                 ok ->
                                     ok;
@@ -871,7 +871,7 @@ start(Socket, CmdBody) ->
                                      %%                     Acc ++ [Node]
                                      %%             end, [], BadNodes)}}
                             end;
-                        {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
+                        {ok, Nodes} when length(Nodes) < SystemConf#?SYSTEM_CONF.n ->
                             {error, "Attached nodes less than # of replicas"};
                         not_found ->
                             %% status of all-nodes is 'suspend' or 'restarted'
@@ -893,7 +893,7 @@ start(Socket, CmdBody) ->
              ok | {error, {atom(), string()}} | {error, any()}).
 detach(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
@@ -911,7 +911,7 @@ detach(CmdBody, Option) ->
                 _ ->
                     %% allow to detach the node?
                     %% if it's ok then execute to detach it
-                    N = SystemConf#system_conf.n,
+                    N = SystemConf#?SYSTEM_CONF.n,
                     case allow_to_detach_node_1(N) of
                         ok ->
                             case allow_to_detach_node_2(N, NodeAtom) of

@@ -83,11 +83,11 @@
 %% @doc Retrieve system configuration from mnesia(localdb).
 %%
 -spec(get_system_config() ->
-             {ok, #system_conf{}} |
+             {ok, #?SYSTEM_CONF{}} |
              atom() |
              {error, any()}).
 get_system_config() ->
-    leo_manager_mnesia:get_system_config().
+    leo_redundant_manager_table_conf:get_system_config().
 
 
 -spec(get_system_status() ->
@@ -472,7 +472,7 @@ start(Socket) ->
             %% Then launch storage-cluster
             Nodes = [N || #member{node = N} <- Members],
 
-            case leo_manager_mnesia:get_system_config() of
+            case leo_redundant_manager_table_conf:get_system_config() of
                 {ok, SystemConf} ->
                     ok = start_1(self(), Nodes, Members, SystemConf),
                     start_2(Socket, 0, length(Members));
@@ -589,7 +589,7 @@ rebalance(Socket) ->
                 {ok, RetRebalance} ->
                     case get_members_of_all_versions() of
                         {ok, {MembersCur, MembersPrev}} ->
-                            {ok, SystemConf}  = leo_manager_mnesia:get_system_config(),
+                            {ok, SystemConf}  = leo_redundant_manager_table_conf:get_system_config(),
                             RebalanceProcInfo = #rebalance_proc_info{members_cur    = MembersCur,
                                                                      members_prev   = MembersPrev,
                                                                      system_conf    = SystemConf,
@@ -1319,14 +1319,16 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
 
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER ->
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    Options = [{n, SystemConf#system_conf.n},
-               {r, SystemConf#system_conf.r},
-               {w, SystemConf#system_conf.w},
-               {d, SystemConf#system_conf.d},
-               {bit_of_ring, SystemConf#system_conf.bit_of_ring},
-               {level_1, SystemConf#system_conf.level_1},
-               {level_2, SystemConf#system_conf.level_2}
+    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
+    Options = [{cluster_id, SystemConf#?SYSTEM_CONF.cluster_id},
+               {dc_id,      SystemConf#?SYSTEM_CONF.dc_id},
+               {n, SystemConf#?SYSTEM_CONF.n},
+               {r, SystemConf#?SYSTEM_CONF.r},
+               {w, SystemConf#?SYSTEM_CONF.w},
+               {d, SystemConf#?SYSTEM_CONF.d},
+               {bit_of_ring,          SystemConf#?SYSTEM_CONF.bit_of_ring},
+               {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
+               {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
               ],
     MembersCur  = leo_misc:get_value(?VER_CUR,  MembersList),
     MembersPrev = leo_misc:get_value(?VER_PREV, MembersList),
@@ -1690,7 +1692,7 @@ is_allow_to_distribute_command() ->
 -spec(is_allow_to_distribute_command(atom()) ->
              boolean()).
 is_allow_to_distribute_command(Node) ->
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
     {ok, Members_1}  = leo_redundant_manager_api:get_members(),
     {Total, Active, Members_2} =
         lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
@@ -1706,8 +1708,8 @@ is_allow_to_distribute_command(Node) ->
                             {Num1+1, Num2, M}
                     end, {0,0,[]}, Members_1),
 
-    NVal = SystemConf#system_conf.n,
-    Diff = case (SystemConf#system_conf.n < 2) of
+    NVal = SystemConf#?SYSTEM_CONF.n,
+    Diff = case (SystemConf#?SYSTEM_CONF.n < 2) of
                true  -> 0;
                false -> NVal - (NVal - 1)
            end,

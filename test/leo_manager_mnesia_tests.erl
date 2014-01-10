@@ -51,9 +51,9 @@ teardown(_) ->
 %%--------------------------------------------------------------------
 all_(_) ->
     %% create tables
+    {atomic,ok} = leo_redundant_manager_table_conf:create_system_config(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_storage_nodes(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_gateway_nodes(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_system_config(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_histories(ram_copies, [node()]),
     {atomic,ok} = leo_manager_mnesia:create_available_commands(ram_copies, [node()]),
@@ -71,7 +71,7 @@ all_(_) ->
     not_found = leo_manager_mnesia:get_storage_nodes_by_status('running'),
     not_found = leo_manager_mnesia:get_gateway_nodes_all(),
     not_found = leo_manager_mnesia:get_gateway_node_by_name(node()),
-    not_found = leo_manager_mnesia:get_system_config(),
+    %% not_found = leo_manager_mnesia:get_system_config(),
     not_found = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_rebalance_info_by_node(node()),
 
@@ -133,10 +133,10 @@ all_(_) ->
                               error         = 0}], Res6),
 
     %% (3) system-config
-    SystemConf = #system_conf{n = 3, w = 2, r = 1, d = 2},
-    ok = leo_manager_mnesia:update_system_config(SystemConf),
-    {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
-    ?assertEqual(SystemConf, ReceivedSystemConf),
+    %% SystemConf = #system_conf{n = 3, w = 2, r = 1, d = 2},
+    %% ok = leo_manager_mnesia:update_system_config(SystemConf),
+    %% {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
+    %% ?assertEqual(SystemConf, ReceivedSystemConf),
 
     %% (4) rebalance-info
     RebalanceInfo = #rebalance_info{vnode_id         = 255,
@@ -164,7 +164,7 @@ all_(_) ->
     ok = leo_manager_mnesia:delete_all(),
     ok = leo_manager_mnesia:restore(BakFile),
     {ok, Res6} = leo_manager_mnesia:get_gateway_nodes_all(),
-    {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
+    %% {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
     {ok, [Res7|_]} = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_storage_nodes_all(),
 

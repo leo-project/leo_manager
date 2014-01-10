@@ -94,10 +94,6 @@ status_0_({Node0, Node1, Sock}) ->
                      fun(_) ->
                              ok
                      end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
-                     end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_all,
                      fun() ->
                              {ok, [#node_state{node  = Node0,
@@ -112,6 +108,12 @@ status_0_({Node0, Node1, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
+                     end),
+
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -142,14 +144,16 @@ status_1_({Node0, _, Sock}) ->
                      fun(_) ->
                              ok
                      end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
-                     end),
     ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
+                     end),
+
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
                      end),
 
     ok = meck:new(leo_storage_api, [non_strict]),
@@ -186,14 +190,16 @@ status_1_({Node0, _, Sock}) ->
 
 
 detach_0_({Node0,_, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
                              ok
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
@@ -254,14 +260,16 @@ detach_0_({Node0,_, Sock}) ->
     ok.
 
 detach_1_({Node0, _, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{n = 2}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
                              ok
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{n = 2}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
@@ -320,14 +328,16 @@ detach_1_({Node0, _, Sock}) ->
     ok.
 
 detach_2_({Node0,_, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
                              ok
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
@@ -530,6 +540,12 @@ suspend_2_({Node0, _, Sock}) ->
 
 
 resume_0_({Node0, _Node1, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -539,10 +555,6 @@ resume_0_({Node0, _Node1, Sock}) ->
                      fun(_Node) ->
                              {ok, [#node_state{node  = Node0,
                                                state = ?STATE_SUSPEND}]} %% SUSPEND
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_gateway_nodes_all,
                      fun() ->
@@ -621,6 +633,12 @@ resume_0_({Node0, _Node1, Sock}) ->
     ok.
 
 resume_1_({Node0,_, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -630,10 +648,6 @@ resume_1_({Node0,_, Sock}) ->
                      fun(_Node) ->
                              {ok, [#node_state{node  = Node0,
                                                state = ?STATE_RUNNING}]} %% NOT SUSPEND
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
                      fun(_, _State) ->
@@ -703,6 +717,12 @@ resume_1_({Node0,_, Sock}) ->
 
 
 start_0_({Node0, _, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -713,10 +733,6 @@ start_0_({Node0, _, Sock}) ->
                              not_found; %% >> ?STATUS_STOP
                         (?STATE_ATTACHED) ->
                              {ok, [#node_state{}]}
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
                      fun(_Mode, _State) ->
@@ -745,6 +761,12 @@ start_0_({Node0, _, Sock}) ->
     ok.
 
 start_1_({Node0, _, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -755,10 +777,6 @@ start_1_({Node0, _, Sock}) ->
                              {ok, [#node_state{}]}; %% >> ?STATUS_RUNNING
                         (?STATE_ATTACHED) ->
                              {ok, [#node_state{}]}
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
                      fun(_Mode, _State) ->
@@ -797,6 +815,12 @@ start_1_({Node0, _, Sock}) ->
     ok.
 
 start_2_({Node0, _, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -807,10 +831,6 @@ start_2_({Node0, _, Sock}) ->
                              not_found; %% >> ?STATUS_STOP
                         (?STATE_ATTACHED) ->
                              {ok, []}   %% >> NOT_ATTACHED
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
                      fun(_Mode, _State) ->
@@ -850,6 +870,12 @@ start_2_({Node0, _, Sock}) ->
 
 
 rebalance_0_({_Node0, _, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -859,10 +885,6 @@ rebalance_0_({_Node0, _, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -886,6 +908,12 @@ rebalance_0_({_Node0, _, Sock}) ->
     ok.
 
 rebalance_1_({Node0, _, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -895,10 +923,6 @@ rebalance_1_({Node0, _, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -925,6 +949,12 @@ rebalance_1_({Node0, _, Sock}) ->
     ok.
 
 rebalance_2_({Node0, Node1, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
                      fun(_, _) ->
@@ -938,10 +968,6 @@ rebalance_2_({Node0, Node1, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -1264,6 +1290,12 @@ whereis_({Node0, _Node1, Sock}) ->
 
 
 recover_({Node0, _Node1, Sock}) ->
+    ok = meck:new(leo_redundant_manager_table_conf, [non_strict]),
+    ok = meck:expect(leo_redundant_manager_table_conf, get_system_config,
+                     fun() ->
+                             {ok, #?SYSTEM_CONF{}}
+                     end),
+
     ok = meck:new(leo_manager_mnesia, [non_strict]),
     ok = meck:expect(leo_manager_mnesia, insert_history,
                      fun(_) ->
@@ -1273,10 +1305,6 @@ recover_({Node0, _Node1, Sock}) ->
                      fun(Cmd) ->
                              {ok, [#cmd_state{name = Cmd,
                                               available = true}]}
-                     end),
-    ok = meck:expect(leo_manager_mnesia, get_system_config,
-                     fun() ->
-                             {ok, #system_conf{}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),

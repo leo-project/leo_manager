@@ -108,13 +108,13 @@ start_link() ->
             ChildSpec  = {leo_redundant_manager_sup,
                           {leo_redundant_manager_sup, start_link,
                            [Mode, ReplicaNodes_1, ?env_queue_dir(leo_manager),
-                            [{n,           SystemConf#system_conf.n},
-                             {r,           SystemConf#system_conf.r},
-                             {w,           SystemConf#system_conf.w},
-                             {d,           SystemConf#system_conf.d},
-                             {bit_of_ring, SystemConf#system_conf.bit_of_ring},
-                             {level_1,     SystemConf#system_conf.level_1},
-                             {level_2,     SystemConf#system_conf.level_2}
+                            [{n,           SystemConf#?SYSTEM_CONF.n},
+                             {r,           SystemConf#?SYSTEM_CONF.r},
+                             {w,           SystemConf#?SYSTEM_CONF.w},
+                             {d,           SystemConf#?SYSTEM_CONF.d},
+                             {bit_of_ring, SystemConf#?SYSTEM_CONF.bit_of_ring},
+                             {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
+                             {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
                             ]]},
                           permanent, 2000, supervisor, [leo_redundant_manager_sup]},
             {ok, _} = supervisor:start_child(Pid, ChildSpec),
@@ -225,13 +225,13 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 rpc:multicall(Nodes_1, application, start, [mnesia], ?DEF_TIMEOUT),
 
                 %% create table into the mnesia
-                leo_manager_mnesia:create_system_config(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
+                leo_redundant_manager_table_conf:create_system_config(disc_copies, Nodes_1),
                 leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes_1),
                 leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes_1),
                 leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
@@ -336,14 +336,17 @@ log_file_appender([{Type, _}|T], Acc) when Type == file ->
 %% @private
 load_system_config() ->
     {ok, Props} = application:get_env(leo_manager, system),
-    SystemConf = #system_conf{n = leo_misc:get_value(n, Props, 1),
-                              w = leo_misc:get_value(w, Props, 1),
-                              r = leo_misc:get_value(r, Props, 1),
-                              d = leo_misc:get_value(d, Props, 1),
-                              bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
-                              level_1 = leo_misc:get_value(level_1, Props, 0),
-                              level_2 = leo_misc:get_value(level_2, Props, 0)
-                             },
+    SystemConf = #?SYSTEM_CONF{
+                     cluster_id = leo_misc:get_value(cluster_id, Props),
+                     dc_id = leo_misc:get_value(dc_id, Props),
+                     n = leo_misc:get_value(n, Props, 1),
+                     w = leo_misc:get_value(w, Props, 1),
+                     r = leo_misc:get_value(r, Props, 1),
+                     d = leo_misc:get_value(d, Props, 1),
+                     bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
+                     num_of_dc_replicas   = leo_misc:get_value(num_of_dc_replicas,   Props, 0),
+                     num_of_rack_replicas = leo_misc:get_value(num_of_rack_replicas, Props, 0)
+                    },
     SystemConf.
 
 
@@ -351,11 +354,11 @@ load_system_config() ->
 %% @end
 %% @private
 -spec(load_system_config_with_store_data() ->
-             {ok, #system_conf{}} | {error, any()}).
+             {ok, #?SYSTEM_CONF{}} | {error, any()}).
 load_system_config_with_store_data() ->
     SystemConf = load_system_config(),
 
-    case leo_manager_mnesia:update_system_config(SystemConf) of
+    case leo_redundant_manager_table_conf:update_system_config(SystemConf) of
         ok ->
             {ok, SystemConf};
         Error ->

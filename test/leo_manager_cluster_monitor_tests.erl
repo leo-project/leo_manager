@@ -103,7 +103,7 @@ all_(Node) ->
                 end),
     meck:expect(leo_manager_mnesia, get_system_config,
                 fun() ->
-                        {ok, #system_conf{}}
+                        {ok, #?SYSTEM_CONF{}}
                 end),
 
     meck:new(leo_redundant_manager_api),
