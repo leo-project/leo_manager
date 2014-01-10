@@ -244,8 +244,8 @@
           {r, R},
           {d, D},
           {bit_of_ring, 128},
-          {level_1, 0 },
-          {level_2, L2}
+          {num_of_dc_replicas,   0 },
+          {num_of_rack_replicas, L2}
          ]
  end}.
 
