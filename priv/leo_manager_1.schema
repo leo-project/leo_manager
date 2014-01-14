@@ -266,6 +266,53 @@
  ]}.
 
 
+%% --------------------------------------------------------------------
+%% RPC
+%% --------------------------------------------------------------------
+%% @doc
+{mapping,
+ "rpc.nodename",
+ "leo_rpc.node",
+ [
+  {datatype, atom},
+  {default, 'node_1@127.0.0.1'}
+ ]}.
+
+{translation, "leo_rpc.node",
+ fun(Conf) ->
+         NodeName = cuttlefish_util:conf_get_value("nodename", Conf),
+         PortNum  = cuttlefish_util:conf_get_value("rpc.server.listen_port", Conf),
+         list_to_atom(lists:append([NodeName, ":", integer_to_list(PortNum)]))
+ end}.
+
+
+%% @doc
+{mapping,
+ "rpc.server.acceptors",
+ "leo_rpc.num_of_acceptors",
+ [
+  {datatype, integer},
+  {default, 64}
+ ]}.
+
+%% @doc
+{mapping,
+ "rpc.server.listen_port",
+ "leo_rpc.listen_port",
+ [
+  {datatype, integer},
+  {default, 13076}
+ ]}.
+
+%% @doc
+{mapping,
+ "rpc.server.listen_timeout",
+ "leo_rpc.listen_timeout",
+ [
+  {datatype, integer},
+  {default, 5000}
+ ]}.
+
 
 %%======================================================================
 %% Other libs

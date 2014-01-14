@@ -126,6 +126,9 @@ start_link() ->
                     ok = leo_s3_libs:start(master, [])
             end,
 
+            %% launch leo_rpc's server
+            ok = application:start(leo_rpc),
+
             %% Launch Mnesia and create that tables
             {ok, Dir} = application:get_env(mnesia, dir),
             case filelib:fold_files(Dir, "\\.DCD$", false,

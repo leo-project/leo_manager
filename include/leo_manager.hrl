@@ -69,17 +69,13 @@
 -define(SERVER_ERROR,         "SERVER_ERROR").
 -define(BYE,                  "BYE\r\n").
 
+%% Common Commands
 -define(CMD_HELP,                "help").
 -define(CMD_QUIT,                "quit").
 -define(CMD_VERSION,             "version").
 -define(CMD_STATUS,              "status").
--define(CMD_ATTACH,              "attach").
--define(CMD_DETACH,              "detach").
--define(CMD_SUSPEND,             "suspend").
--define(CMD_RESUME,              "resume").
--define(CMD_START,               "start").
--define(CMD_REBALANCE,           "rebalance").
--define(CMD_COMPACT,             "compact").
+
+%% For S3-API
 -define(CMD_CREATE_USER,         "create-user").
 -define(CMD_UPDATE_USER_ROLE,    "update-user-role").
 -define(CMD_UPDATE_USER_PW,      "update-user-password").
@@ -95,16 +91,34 @@
 -define(CMD_CHANGE_BUCKET_OWNER, "chown-bucket").
 -define(CMD_UPDATE_ACL,          "update-acl").
 -define(CMD_GET_ACL,             "get-acl").
+
+%% For Storage
+-define(CMD_ATTACH,              "attach").
+-define(CMD_DETACH,              "detach").
+-define(CMD_SUSPEND,             "suspend").
+-define(CMD_RESUME,              "resume").
+-define(CMD_START,               "start").
+-define(CMD_REBALANCE,           "rebalance").
+-define(CMD_COMPACT,             "compact").
 -define(CMD_DU,                  "du").
 -define(CMD_WHEREIS,             "whereis").
--define(CMD_RECOVER,             "recover").
--define(CMD_HISTORY,             "history").
--define(CMD_DUMP_RING,           "dump-ring").
+
+%% For Gateway
 -define(CMD_PURGE,               "purge").
 -define(CMD_REMOVE,              "remove").
 -define(CMD_BACKUP_MNESIA,       "backup-mnesia").
 -define(CMD_RESTORE_MNESIA,      "restore-mnesia").
 -define(CMD_UPDATE_MANAGERS,     "update-managers").
+
+%% For Maintenance
+-define(CMD_RECOVER,             "recover").
+-define(CMD_HISTORY,             "history").
+-define(CMD_DUMP_RING,           "dump-ring").
+
+%% For MDC-Replication
+-define(CMD_JOIN_CLUSTER,        "join-cluster").
+-define(CMD_REMOVE_CLUSTER,      "remove-cluster").
+
 -define(LOGIN,                   "login").
 -define(AUTHORIZED,              <<"_authorized_\r\n">>).
 -define(USER_ID,                 <<"_user_id_\r\n">>).
@@ -160,6 +174,9 @@
                    %% - acl-related
                    {?CMD_UPDATE_ACL, "update-acl ${bucket} ${access-key-id} private|public-read|public-read-write"},
                    {?CMD_GET_ACL,    "get-acl ${bucket}"},
+                   %% - multi-dc replication
+                   {?CMD_JOIN_CLUSTER,   "join-cluster ${remote-manager-master} ${remote-manager-slave}"},
+                   {?CMD_REMOVE_CLUSTER, "remove-cluster ${remote-manager-master} ${remote-manager-slave}"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
                    {?CMD_BACKUP_MNESIA,    "backup-mnesia ${backupfilepath}"},
@@ -405,4 +422,3 @@
             _ ->
                 ?DEF_QUEUE_DIR
         end).
-
