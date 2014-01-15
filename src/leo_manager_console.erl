@@ -62,6 +62,8 @@ init([Formatter]) ->
 %%----------------------------------------------------------------------
 %% Operation-1
 %%----------------------------------------------------------------------
+%% Command: "help"
+%%
 handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter = Formatter} = State) ->
     Fun = fun() -> Formatter:help()
           end,
@@ -638,7 +640,7 @@ handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = St
     {reply, Reply, State};
 
 
-%% Command: dump_ring ${NODE}"
+%% Command: "dump-ring ${NODE}"
 %%
 handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
@@ -651,6 +653,40 @@ handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
                   end
           end,
     Reply = invoke(?CMD_DUMP_RING, Formatter, Fun),
+    {reply, Reply, State};
+
+
+%%----------------------------------------------------------------------
+%% Operation-4
+%%----------------------------------------------------------------------
+%% Command: "join-cluster [${REMOTE_MANAGER_NODE}, ${REMOTE_MANAGER_NODE}, ...]"
+%%
+handle_call(_Socket, <<?CMD_JOIN_CLUSTER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case join_cluster(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_JOIN_CLUSTER, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "remove-cluster [${REMOTE_MANAGER_NODE}, ${REMOTE_MANAGER_NODE}, ...]"
+%%
+handle_call(_Socket, <<?CMD_REMOVE_CLUSTER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case remove_cluster(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_REMOVE_CLUSTER, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -685,6 +721,7 @@ invoke(Command, Formatter, Fun) ->
     end.
 
 
+%% @doc Backup files of manager's mnesia
 %% @private
 -spec(backup_mnesia(binary(), binary()) ->
              ok | {error, any()}).
@@ -698,6 +735,7 @@ backup_mnesia(CmdBody, Option) ->
     end.
 
 
+%% @doc Restore mnesia from backup files
 %% @private
 -spec(restore_mnesia(binary(), binary()) ->
              ok | {error, any()}).
@@ -711,6 +749,7 @@ restore_mnesia(CmdBody, Option) ->
     end.
 
 
+%% @doc Update manager's node to alternate node
 %% @private
 -spec(update_manager_nodes(binary(), binary()) ->
              ok | {error, any()}).
@@ -735,6 +774,59 @@ dump_ring(CmdBody, Option) ->
         _ ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
+
+
+%% @doc Join a cluster
+%% @private
+join_cluster(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        Nodes ->
+            %% @TODO
+            ?debugVal(Nodes),
+            join_cluster_1(Nodes)
+    end.
+
+join_cluster_1([]) ->
+    {error, ''};
+join_cluster_1([Node|Rest]) ->
+    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
+    case leo_rpc:call(Node, leo_manager_api, join_cluster, [SystemConf]) of
+        {ok, RemoteSystemConf} ->
+            ?debugVal(RemoteSystemConf),
+            ok;
+        _Error ->
+            join_cluster_1(Rest)
+    end.
+
+
+%% @doc Remove a cluster
+%% @private
+remove_cluster(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        Nodes ->
+            %% @TODO
+            ?debugVal(Nodes),
+            remove_cluster_1(Nodes)
+    end.
+
+remove_cluster_1([]) ->
+    {error, ''};
+remove_cluster_1([Node|Rest]) ->
+    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
+    case leo_rpc:call(Node, leo_manager_api, remove_cluster, [SystemConf]) of
+        {ok, RemoteSystemConf} ->
+            ?debugVal(RemoteSystemConf),
+            ok;
+        _Error ->
+            remove_cluster_1(Rest)
+    end.
+
 
 %% @doc Retrieve version of the system
 %% @private

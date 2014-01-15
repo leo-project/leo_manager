@@ -160,6 +160,8 @@ system_info_and_nodes_stat(Props) ->
 
     gen_json({[{<<"system_info">>,
                 {[{<<"version">>,        list_to_binary(Version)},
+                  {<<"cluster_id">>,     list_to_binary(SystemConf#?SYSTEM_CONF.cluster_id)},
+                  {<<"dc_id">>,          list_to_binary(SystemConf#?SYSTEM_CONF.dc_id)},
                   {<<"n">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.n))},
                   {<<"r">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.r))},
                   {<<"w">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.w))},
@@ -468,4 +470,3 @@ gen_json(JSON) ->
         Result ->
             <<Result/binary, ?CRLF>>
     end.
-

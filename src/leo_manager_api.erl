@@ -66,6 +66,8 @@
          update_acl/3
         ]).
 
+-export([join_cluster/1, remove_cluster/1]).
+
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
 
@@ -1680,6 +1682,24 @@ rpc_call_for_gateway(Method, Args) ->
         _Error ->
             {error, ?ERROR_COULD_NOT_GET_GATEWAY}
     end.
+
+
+%% @doc Join a cluster (MDC-Replication)
+%%
+-spec(join_cluster(#system_conf{}) ->
+             {ok, #system_conf{}} | {error, any()}).
+join_cluster(RemoteSystemConf) ->
+    ?debugVal(RemoteSystemConf),
+    leo_redundant_manager_table_conf:get_system_config().
+
+
+%% @doc Remove a cluster (MDC-Replication)
+%%
+-spec(remove_cluster(#system_conf{}) ->
+             {ok, #system_conf{}} | {error, any()}).
+remove_cluster(RemoteSystemConf) ->
+    ?debugVal(RemoteSystemConf),
+    leo_redundant_manager_table_conf:get_system_config().
 
 
 %% @doc Is allow distribute to a command
