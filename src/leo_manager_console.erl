@@ -784,19 +784,23 @@ join_cluster(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         Nodes ->
-            %% @TODO
-            ?debugVal(Nodes),
             join_cluster_1(Nodes)
     end.
 
 join_cluster_1([]) ->
-    {error, ''};
+    {error, ?ERROR_COULD_NOT_CONNECT};
 join_cluster_1([Node|Rest]) ->
     {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
-    case leo_rpc:call(Node, leo_manager_api, join_cluster, [SystemConf]) of
-        {ok, RemoteSystemConf} ->
-            ?debugVal(RemoteSystemConf),
-            ok;
+    case leo_rpc:call(list_to_atom(Node), leo_manager_api, join_cluster, [SystemConf]) of
+        {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
+            case leo_redundant_manager_table_cluster:get(ClusterId) of
+                not_found ->
+                    leo_redundant_manager_table_cluster:update(RemoteSystemConf);
+                {ok, _} ->
+                    {error, ?ERROR_ALREADY_HAS_SAME_CLUSTER};
+                _Other ->
+                    {error, ?ERROR_FAIL_ACCESS_MNESIA}
+            end;
         _Error ->
             join_cluster_1(Rest)
     end.
@@ -810,19 +814,16 @@ remove_cluster(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         Nodes ->
-            %% @TODO
-            ?debugVal(Nodes),
             remove_cluster_1(Nodes)
     end.
 
 remove_cluster_1([]) ->
-    {error, ''};
+    {error, ?ERROR_COULD_NOT_CONNECT};
 remove_cluster_1([Node|Rest]) ->
     {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
-    case leo_rpc:call(Node, leo_manager_api, remove_cluster, [SystemConf]) of
-        {ok, RemoteSystemConf} ->
-            ?debugVal(RemoteSystemConf),
-            ok;
+    case leo_rpc:call(list_to_atom(Node), leo_manager_api, remove_cluster, [SystemConf]) of
+        {ok, #?SYSTEM_CONF{cluster_id = ClusterId}} ->
+            leo_redundant_manager_table_cluster:delete(ClusterId);
         _Error ->
             remove_cluster_1(Rest)
     end.

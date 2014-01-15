@@ -257,6 +257,8 @@
 -define(ERROR_FAIL_TO_REMOVE_NODE,       "Fail to remove a node").
 -define(ERROR_FAIL_TO_SYNCHRONIZE_RING,  "Fail to synchronize RING").
 -define(ERROR_FAIL_TO_UPDATE_ACL,        "Fail to update acl of a bucket").
+-define(ERROR_FAIL_ACCESS_MNESIA,        "Fail to access mnesia").
+-define(ERROR_ALREADY_HAS_SAME_CLUSTER,  "Already has a same neme of cluster").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').

@@ -234,7 +234,9 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
+                SystemConf = load_system_config(),
                 leo_redundant_manager_table_conf:create_system_config(disc_copies, Nodes_1),
+                leo_redundant_manager_table_cluster:create_table(disc_copies, Nodes_1),
                 leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes_1),
                 leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes_1),
                 leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
@@ -363,7 +365,12 @@ load_system_config_with_store_data() ->
 
     case leo_redundant_manager_table_conf:update_system_config(SystemConf) of
         ok ->
-            {ok, SystemConf};
+            case leo_redundant_manager_table_cluster:update(SystemConf) of
+                ok ->
+                    {ok, SystemConf};
+                Error ->
+                    Error
+            end;
         Error ->
             Error
     end.

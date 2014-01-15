@@ -1688,18 +1688,28 @@ rpc_call_for_gateway(Method, Args) ->
 %%
 -spec(join_cluster(#system_conf{}) ->
              {ok, #system_conf{}} | {error, any()}).
-join_cluster(RemoteSystemConf) ->
-    ?debugVal(RemoteSystemConf),
-    leo_redundant_manager_table_conf:get_system_config().
+join_cluster(#?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf) ->
+    case leo_redundant_manager_table_cluster:get(ClusterId) of
+        not_found ->
+            case leo_redundant_manager_table_cluster:update(RemoteSystemConf) of
+                ok ->
+                    leo_redundant_manager_table_conf:get_system_config();
+                Error ->
+                    Error
+            end;
+        {ok,_} ->
+            {error, ?ERROR_ALREADY_HAS_SAME_CLUSTER};
+        Error ->
+            Error
+    end.
 
 
 %% @doc Remove a cluster (MDC-Replication)
 %%
 -spec(remove_cluster(#system_conf{}) ->
              {ok, #system_conf{}} | {error, any()}).
-remove_cluster(RemoteSystemConf) ->
-    ?debugVal(RemoteSystemConf),
-    leo_redundant_manager_table_conf:get_system_config().
+remove_cluster(#?SYSTEM_CONF{cluster_id = ClusterId}) ->
+    leo_redundant_manager_table_cluster:delete(ClusterId).
 
 
 %% @doc Is allow distribute to a command
