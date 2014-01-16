@@ -50,8 +50,8 @@ transform() ->
 
     %% data migration - members
     {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
-    ok = leo_members_table_transformer:transform(ReplicaNodes),
+    ok = leo_members_tbl_transformer:transform(ReplicaNodes),
 
     %% data migration - ring
-    ok = leo_ring_table_transformer:transform(),
+    ok = leo_ring_tbl_transformer:transform(),
     ok.

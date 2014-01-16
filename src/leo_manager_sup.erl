@@ -235,12 +235,12 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
                 SystemConf = load_system_config(),
-                leo_redundant_manager_table_conf:create_system_config(disc_copies, Nodes_1),
-                leo_redundant_manager_table_cluster:create_table(disc_copies, Nodes_1),
-                leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes_1),
-                leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes_1),
-                leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
-                leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
+                leo_redundant_manager_tbl_conf:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_ring:create_table_current(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_ring:create_table_prev(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
+                leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
 
                 %% Load from system-config and store it into the mnesia
                 {ok, _} = load_system_config_with_store_data(),
@@ -363,9 +363,9 @@ load_system_config() ->
 load_system_config_with_store_data() ->
     SystemConf = load_system_config(),
 
-    case leo_redundant_manager_table_conf:update_system_config(SystemConf) of
+    case leo_redundant_manager_tbl_conf:update(SystemConf) of
         ok ->
-            case leo_redundant_manager_table_cluster:update(SystemConf) of
+            case leo_redundant_manager_tbl_cluster_info:update(SystemConf) of
                 ok ->
                     {ok, SystemConf};
                 Error ->

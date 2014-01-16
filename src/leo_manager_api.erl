@@ -89,7 +89,7 @@
              atom() |
              {error, any()}).
 get_system_config() ->
-    leo_redundant_manager_table_conf:get_system_config().
+    leo_redundant_manager_tbl_conf:get().
 
 
 -spec(get_system_status() ->
@@ -474,7 +474,7 @@ start(Socket) ->
             %% Then launch storage-cluster
             Nodes = [N || #member{node = N} <- Members],
 
-            case leo_redundant_manager_table_conf:get_system_config() of
+            case leo_redundant_manager_tbl_conf:get() of
                 {ok, SystemConf} ->
                     ok = start_1(self(), Nodes, Members, SystemConf),
                     start_2(Socket, 0, length(Members));
@@ -591,7 +591,7 @@ rebalance(Socket) ->
                 {ok, RetRebalance} ->
                     case get_members_of_all_versions() of
                         {ok, {MembersCur, MembersPrev}} ->
-                            {ok, SystemConf}  = leo_redundant_manager_table_conf:get_system_config(),
+                            {ok, SystemConf}  = leo_redundant_manager_tbl_conf:get(),
                             RebalanceProcInfo = #rebalance_proc_info{members_cur    = MembersCur,
                                                                      members_prev   = MembersPrev,
                                                                      system_conf    = SystemConf,
@@ -1321,7 +1321,7 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
 
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER ->
-    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
+    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
     Options = [{cluster_id, SystemConf#?SYSTEM_CONF.cluster_id},
                {dc_id,      SystemConf#?SYSTEM_CONF.dc_id},
                {n, SystemConf#?SYSTEM_CONF.n},
@@ -1689,11 +1689,11 @@ rpc_call_for_gateway(Method, Args) ->
 -spec(join_cluster(#system_conf{}) ->
              {ok, #system_conf{}} | {error, any()}).
 join_cluster(#?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf) ->
-    case leo_redundant_manager_table_cluster:get(ClusterId) of
+    case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
         not_found ->
-            case leo_redundant_manager_table_cluster:update(RemoteSystemConf) of
+            case leo_redundant_manager_tbl_cluster_info:update(RemoteSystemConf) of
                 ok ->
-                    leo_redundant_manager_table_conf:get_system_config();
+                    leo_redundant_manager_tbl_conf:get();
                 Error ->
                     Error
             end;
@@ -1709,7 +1709,7 @@ join_cluster(#?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf) ->
 -spec(remove_cluster(#system_conf{}) ->
              {ok, #system_conf{}} | {error, any()}).
 remove_cluster(#?SYSTEM_CONF{cluster_id = ClusterId}) ->
-    leo_redundant_manager_table_cluster:delete(ClusterId).
+    leo_redundant_manager_tbl_cluster_info:delete(ClusterId).
 
 
 %% @doc Is allow distribute to a command
@@ -1722,7 +1722,7 @@ is_allow_to_distribute_command() ->
 -spec(is_allow_to_distribute_command(atom()) ->
              boolean()).
 is_allow_to_distribute_command(Node) ->
-    {ok, SystemConf} = leo_redundant_manager_table_conf:get_system_config(),
+    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
     {ok, Members_1}  = leo_redundant_manager_api:get_members(),
     {Total, Active, Members_2} =
         lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
