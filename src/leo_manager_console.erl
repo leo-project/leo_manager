@@ -786,7 +786,12 @@ join_cluster(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         Nodes ->
-            join_cluster_1(Nodes)
+            case join_cluster_1(Nodes) of
+                {ok, ClusterId} ->
+                    update_cluster_member(Nodes, ClusterId);
+                Other ->
+                    Other
+            end
     end.
 
 join_cluster_1([]) ->
@@ -797,7 +802,12 @@ join_cluster_1([Node|Rest]) ->
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
             case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
                 not_found ->
-                    leo_redundant_manager_tbl_cluster_info:update(RemoteSystemConf);
+                    case leo_redundant_manager_tbl_cluster_info:update(RemoteSystemConf) of
+                        ok ->
+                            {ok, ClusterId};
+                        _Other ->
+                            {error, ?ERROR_FAIL_ACCESS_MNESIA}
+                    end;
                 {ok, _} ->
                     {error, ?ERROR_ALREADY_HAS_SAME_CLUSTER};
                 _Other ->
@@ -805,6 +815,19 @@ join_cluster_1([Node|Rest]) ->
             end;
         _Error ->
             join_cluster_1(Rest)
+    end.
+
+%% @private
+update_cluster_member([],_ClusterId) ->
+    ok;
+update_cluster_member([Node|Rest], ClusterId) ->
+    case leo_redundant_manager_tbl_cluster_mgr:update(
+           #cluster_manager{node = Node,
+                            cluster_id = ClusterId}) of
+        ok ->
+            update_cluster_member(Rest, ClusterId);
+        Other ->
+            Other
     end.
 
 

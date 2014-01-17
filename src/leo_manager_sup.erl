@@ -237,6 +237,8 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 SystemConf = load_system_config(),
                 leo_redundant_manager_tbl_conf:create_table(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_cluster_stat:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_cluster_mgr:create_table(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_ring:create_table_current(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_ring:create_table_prev(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
