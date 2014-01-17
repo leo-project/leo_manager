@@ -37,7 +37,8 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, credential/2, users/1, endpoints/1,
+         buckets/1, bucket_by_access_key/1,
          acls/1, whereis/1, histories/1
         ]).
 
@@ -402,6 +403,26 @@ buckets(Buckets) ->
                              PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions], ","),
                              {[{<<"bucket">>,      Bucket},
                                {<<"owner">>,       list_to_binary(Owner)},
+                               {<<"permissions">>, list_to_binary(PermissionsStr)},
+                               {<<"created_at">>,  list_to_binary(CreatedAt_1)}
+                              ]}
+                     end, Buckets),
+    gen_json({[{<<"buckets">>, JSON}]}).
+
+-spec(bucket_by_access_key(list(#?BUCKET{})) ->
+             string()).
+bucket_by_access_key(Buckets) ->
+    JSON = lists:map(fun(#?BUCKET{name = Bucket,
+                                  acls = Permissions,
+                                  created_at = CreatedAt}) ->
+                             PermissionsStr = string:join([atom_to_list(Item)
+                                                           || #bucket_acl_info{permissions = [Item|_]}
+                                                                  <- Permissions], ","),
+                             CreatedAt_1  = case (CreatedAt > 0) of
+                                                true  -> leo_date:date_format(CreatedAt);
+                                                false -> []
+                                            end,
+                             {[{<<"bucket">>,      Bucket},
                                {<<"permissions">>, list_to_binary(PermissionsStr)},
                                {<<"created_at">>,  list_to_binary(CreatedAt_1)}
                               ]}

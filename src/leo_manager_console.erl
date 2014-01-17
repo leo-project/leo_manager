@@ -463,7 +463,25 @@ handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command,
     {reply, Reply, State};
 
 
-%% Command: "get-buckets"
+%% Command: "get-bucket ${access-key-id}"
+%%
+handle_call(_Socket, <<?CMD_GET_BUCKET_BY_ACCESS_KEY, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case get_bucket_by_access_key(Command, Option) of
+                      {ok, Buckets} ->
+                          Formatter:bucket_by_access_key(Buckets);
+                      not_found ->
+                          Formatter:error("Bucket not found");
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_GET_BUCKETS, Formatter, Fun),
+    {reply, Reply, State};
+
+
+%% Command: "chown-bucket ${bucket} ${new-access-key-id}"
 %%
 handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
@@ -476,22 +494,6 @@ handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Comma
                   end
           end,
     Reply = invoke(?CMD_CHANGE_BUCKET_OWNER, Formatter, Fun),
-    {reply, Reply, State};
-
-
-%% Command: "get-acl ${bucket}"
-%%
-handle_call(_Socket, <<?CMD_GET_ACL, ?SPACE, Option/binary>> = Command,
-            #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case get_acl(Command, Option) of
-                      {ok, ACLs}->
-                          Formatter:acls(ACLs);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_GET_ACL, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -873,8 +875,7 @@ login(CmdBody, Option) ->
 %% @private
 -spec(status(binary(), binary()) ->
              {ok, any()} | {error, any()}).
-status(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+status(_CmdBody, Option) ->
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
 
     case (erlang:length(Token) == 0) of
@@ -960,9 +961,9 @@ start(Socket, CmdBody) ->
                                     {error, Cause};
                                 {error, BadNodes} ->
                                     {error, {bad_nodes, [N || {N,_} <- BadNodes]}}
-                                     %% lists:foldl(fun(Node, Acc) ->
-                                     %%                     Acc ++ [Node]
-                                     %%             end, [], BadNodes)}}
+                                    %% lists:foldl(fun(Node, Acc) ->
+                                    %%                     Acc ++ [Node]
+                                    %%             end, [], BadNodes)}}
                             end;
                         {ok, Nodes} when length(Nodes) < SystemConf#?SYSTEM_CONF.n ->
                             {error, "Attached nodes less than # of replicas"};
@@ -1135,6 +1136,7 @@ resume(CmdBody, Option) ->
              ok | {error, any()}).
 rebalance(Socket, CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
+
     case leo_manager_api:rebalance(Socket) of
         ok ->
             ok;
@@ -1288,9 +1290,7 @@ compact(_,_,_, _) ->
 %% @private
 -spec(whereis(binary(), binary()) ->
              ok | {error, any()}).
-whereis(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
-
+whereis(_CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
@@ -1576,6 +1576,21 @@ get_buckets(CmdBody) ->
     end.
 
 
+%% @doc Retrieve a Buckets from the manager
+%% @private
+-spec(get_bucket_by_access_key(binary(), binary()) ->
+             ok | {error, any()}).
+get_bucket_by_access_key(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [AccessKey] ->
+            leo_s3_bucket:find_buckets_by_id(list_to_binary(AccessKey));
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
 %% @doc Change owner of a bucket
 %% @private
 -spec(change_bucket_owner(binary(), binary()) ->
@@ -1593,30 +1608,6 @@ change_bucket_owner(CmdBody, Option) ->
                     {error, ?ERROR_BUCKET_NOT_FOUND};
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
-            end;
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
-    end.
-
-
-%% @doc Get ACLs of the specified bucket in the manager
-%% @private
--spec(get_acl(binary(), binary()) ->
-             {ok, acls()} | {error, any()}).
-get_acl(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
-
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket] ->
-            case leo_s3_bucket:get_acls(list_to_binary(Bucket)) of
-                {ok, ACLs} ->
-                    {ok, ACLs};
-                not_found ->
-                    {ok, []};
-                {error, badarg} ->
-                    {error, ?ERROR_INVALID_BUCKET_FORMAT};
-                {error, _Cause} ->
-                    {error, ?ERROR_INVALID_ARGS}
             end;
         _ ->
             {error, ?ERROR_INVALID_ARGS}

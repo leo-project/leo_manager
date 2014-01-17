@@ -37,7 +37,8 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, credential/2, users/1, endpoints/1,
+         buckets/1, bucket_by_access_key/1,
          acls/1, whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
@@ -102,9 +103,9 @@ help() ->
                         ?CMD_ADD_BUCKET,
                         ?CMD_DELETE_BUCKET,
                         ?CMD_GET_BUCKETS,
+                        ?CMD_GET_BUCKET_BY_ACCESS_KEY,
                         ?CMD_CHANGE_BUCKET_OWNER,
-                        ?CMD_UPDATE_ACL,
-                        ?CMD_GET_ACL], []),
+                        ?CMD_UPDATE_ACL], []),
                   help("[Multi-DC Replication]\r\n",
                        [?CMD_JOIN_CLUSTER,
                         ?CMD_REMOVE_CLUSTER], []),
@@ -612,6 +613,62 @@ buckets(Buckets) ->
                                        [string:left(BucketStr,      Col1Len),
                                         string:left(Owner,          Col2Len),
                                         string:left(PermissionsStr, Col3Len),
+                                        Created2])
+          end,
+    lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
+
+
+%% @doc Format a bucket list
+%%
+-spec(bucket_by_access_key(list(#?BUCKET{})) ->
+             string()).
+bucket_by_access_key(Buckets) ->
+    Col1MinLen = 8,
+    Col2MinLen = 12,
+    {Col1Len, Col2Len} =
+        lists:foldl(fun(#?BUCKET{name = Bucket,
+                                 acls = Permissions}, {C1, C2}) ->
+                            BucketStr = binary_to_list(Bucket),
+                            PermissionsStr = string:join([atom_to_list(Item)
+                                                          || #bucket_acl_info{permissions = [Item|_]}
+                                                                 <- Permissions], ","),
+                            Len1 = length(BucketStr),
+                            Len2 = length(PermissionsStr),
+                            {case (Len1 > C1) of
+                                 true  -> Len1;
+                                 false -> C1
+                             end,
+                             case (Len2 > C2) of
+                                 true  -> Len2;
+                                 false -> C2
+                             end
+                            }
+                    end, {Col1MinLen, Col2MinLen}, Buckets),
+    Col3Len = 26,
+    Header = lists:append(
+               [string:left("bucket",      Col1Len), " | ",
+                string:left("permissions", Col2Len), " | ",
+                string:left("created at",  Col3Len), "\r\n",
+
+                lists:duplicate(Col1Len, "-"), "-+-",
+                lists:duplicate(Col2Len, "-"), "-+-",
+                lists:duplicate(Col3Len, "-"), "\r\n"]),
+
+    Fun = fun(#?BUCKET{name = Bucket1,
+                       acls = Permissions1,
+                       created_at = Created1}, Acc) ->
+                  BucketStr = binary_to_list(Bucket1),
+                  PermissionsStr = string:join([atom_to_list(Item)
+                                                || #bucket_acl_info{permissions = [Item|_]}
+                                                       <- Permissions1], ","),
+                  Created2  = case (Created1 > 0) of
+                                  true  -> leo_date:date_format(Created1);
+                                  false -> []
+                              end,
+
+                  Acc ++ io_lib:format("~s | ~s | ~s\r\n",
+                                       [string:left(BucketStr,      Col1Len),
+                                        string:left(PermissionsStr, Col2Len),
                                         Created2])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
