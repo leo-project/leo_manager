@@ -209,7 +209,7 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
                                       false -> Acc
                                   end
                           end, 0, Nodes) + 5,
-    CellColumns = [{"type",          5},
+    CellColumns = [{"type",          6},
                    {"node",    Col1Len},
                    {"state",        12},
                    {"current ring", 14},
@@ -221,11 +221,11 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 
     Fun1 = fun(Col, Str) ->
                    case Col of
-                       {'$end',_Len      } -> lists:append([        Str, ?CRLF]);
-                       {"type", Len      } -> lists:append([        Str, lists:duplicate(Len + 1, "-"), "+"]);
-                       {"node", Len      } -> lists:append([?SPACE, Str, lists:duplicate(Len + 2, "-"), "+"]);
-                       {"updated at", Len} -> lists:append([        Str, lists:duplicate(Len + 0, "-")]);
-                       {_Other, Len      } -> lists:append([        Str, lists:duplicate(Len + 2, "-"), "+"])
+                       {'$end',_Len      } -> lists:append([Str, ?CRLF]);
+                       {"type", Len      } -> lists:append([Str, lists:duplicate(Len + 1, "-"), "+"]);
+                       {"node", Len      } -> lists:append([Str, lists:duplicate(Len + 2, "-"), "+"]);
+                       {"updated at", Len} -> lists:append([Str, lists:duplicate(Len + 0, "-")]);
+                       {_Other, Len      } -> lists:append([Str, lists:duplicate(Len + 2, "-"), "+"])
                    end
            end,
     Header1 = lists:foldl(Fun1, [], CellColumns),
@@ -233,10 +233,10 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
     Fun2 = fun(Col, Str) ->
                    {Name, Len} = Col,
                    case Col of
-                       {'$end',_Len      } -> lists:append([        Str, ?CRLF]);
-                       {"node", Len      } -> lists:append([?SPACE, Str, string:centre(Name, Len, $ ), ?SEPARATOR]);
-                       {"updated at", Len} -> lists:append([        Str, string:centre(Name, Len, $ )]);
-                       {_Other, Len      } -> lists:append([        Str, string:centre(Name, Len, $ ), ?SEPARATOR])
+                       {'$end',_Len      } -> lists:append([Str, ?CRLF]);
+                       {"node", Len      } -> lists:append([Str, string:centre(Name, Len, $ ), ?SEPARATOR]);
+                       {"updated at", Len} -> lists:append([Str, string:centre(Name, Len, $ )]);
+                       {_Other, Len      } -> lists:append([Str, string:centre(Name, Len, $ ), ?SEPARATOR])
                    end
            end,
     Header2 = lists:foldl(Fun2, [], CellColumns),
@@ -244,8 +244,7 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
     Fun3 = fun(N, List) ->
                    {Type, Alias, State, RingHash0, RingHash1, When} = N,
                    FormattedDate = leo_date:date_format(When),
-                   Ret = lists:append([?SPACE,
-                                       string:centre(Type,    lists:nth(1,LenPerCol)), ?SEPARATOR,
+                   Ret = lists:append([string:centre(Type,    lists:nth(1,LenPerCol)), ?SEPARATOR,
                                        string:left(Alias,     lists:nth(2,LenPerCol)), ?SEPARATOR,
                                        string:left(State,     lists:nth(3,LenPerCol)), ?SEPARATOR,
                                        string:left(RingHash0, lists:nth(4,LenPerCol)), ?SEPARATOR,
