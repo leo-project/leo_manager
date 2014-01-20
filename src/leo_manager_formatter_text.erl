@@ -231,10 +231,9 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
     Header1 = lists:foldl(Fun1, [], CellColumns),
 
     Fun2 = fun(Col, Str) ->
-                   {Name, Len} = Col,
+                   {Name, _} = Col,
                    case Col of
                        {'$end',_Len      } -> lists:append([Str, ?CRLF]);
-                       {"node", Len      } -> lists:append([Str, string:centre(Name, Len, $ ), ?SEPARATOR]);
                        {"updated at", Len} -> lists:append([Str, string:centre(Name, Len, $ )]);
                        {_Other, Len      } -> lists:append([Str, string:centre(Name, Len, $ ), ?SEPARATOR])
                    end
@@ -693,7 +692,7 @@ whereis(AssignedInfo) ->
                                       false -> Acc
                                   end
                           end, 0, AssignedInfo) + 5,
-    CellColumns = [{"del?",          5},
+    CellColumns = [{"del?",          6},
                    {"node",    Col2Len},
                    {"ring address", 36},
                    {"size",         10},
@@ -701,52 +700,65 @@ whereis(AssignedInfo) ->
                    {"# of chunks",  14},
                    {"clock",        14},
                    {"when",         28},
-                   {"END",           0}],
+                   {'$end',          0}],
 
     LenPerCol = lists:map(fun({_, Len})-> Len end, CellColumns),
-    Fun1 = fun(Col, {Type,Str}) ->
-                   {Name, Len} = Col,
-                   case Name of
-                       "END" when Type =:= title -> {Type, Str ++ ?CRLF};
-                       _ when Type =:= title andalso
-                              Name =:= "node"-> {Type, " " ++ Str ++ string:left(Name, Len, $ )};
-                       _ when Type =:= title -> {Type,        Str ++ string:left(Name, Len, $ )}
+
+    Fun1 = fun(Col, Str) ->
+                   case Col of
+                       {'$end',_Len} -> lists:append([Str, ?CRLF]);
+                       {"del?", Len} -> lists:append([Str, lists:duplicate(Len + 1, "-"), "+"]);
+                       {"node", Len} -> lists:append([Str, lists:duplicate(Len + 2, "-"), "+"]);
+                       {"when", Len} -> lists:append([Str, lists:duplicate(Len + 0, "-")]);
+                       {_Other, Len} -> lists:append([Str, lists:duplicate(Len + 2, "-"), "+"])
                    end
            end,
-    {_, Header2} = lists:foldl(Fun1, {title,[]}, CellColumns),
-    Sepalator = lists:foldl(
-                  fun(N, L) -> L ++ N  end,
-                  [], lists:duplicate(lists:sum(LenPerCol), "-")) ++ ?CRLF,
+    Header1 = lists:foldl(Fun1, [], CellColumns),
 
-    Fun2 = fun(N, List) ->
+    Fun2 = fun(Col, Str) ->
+                   {Name, _} = Col,
+                   case Col of
+                       {'$end', _  } -> lists:append([Str, ?CRLF]);
+                       {"when", Len} -> lists:append([Str, string:centre(Name, Len, $ )]);
+                       {_Other, Len} -> lists:append([Str, string:centre(Name, Len, $ ), ?SEPARATOR])
+                   end
+           end,
+    Header2 = lists:foldl(Fun2, [], CellColumns),
+
+
+    Fun3 = fun(N, List) ->
                    Ret = case N of
                              {Node, not_found} ->
-                                 lists:append([" ",
-                                               string:left("", lists:nth(1,LenPerCol)),
-                                               Node,
+                                 %% lists:append([string:left([], lists:nth(1,LenPerCol)), ?SEPARATOR,
+                                 %%               Node, ?CRLF]);
+                                 lists:append([string:left([],   lists:nth(1,LenPerCol)), ?SEPARATOR,
+                                               string:left(Node, lists:nth(2,LenPerCol)), ?SEPARATOR,
+                                               string:left([],   lists:nth(3,LenPerCol)), ?SEPARATOR,
+                                               string:left([],   lists:nth(4,LenPerCol)), ?SEPARATOR,
+                                               string:left([],   lists:nth(5,LenPerCol)), ?SEPARATOR,
+                                               string:left([],   lists:nth(6,LenPerCol)), ?SEPARATOR,
+                                               string:left([],   lists:nth(7,LenPerCol)), ?SEPARATOR,
                                                ?CRLF]);
                              {Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag} ->
                                  FormattedDate = leo_date:date_format(Timestamp),
                                  DelStr = case DelFlag of
-                                              0 -> " ";
+                                              0 -> ?SPACE;
                                               _ -> "*"
                                           end,
-                                 lists:append([" ",
-                                               string:left(DelStr,                              lists:nth(1,LenPerCol)),
-                                               string:left(Node,                                lists:nth(2,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(VNodeId, 8),  lists:nth(3,LenPerCol)),
-                                               string:left(leo_file:dsize(DSize),               lists:nth(4,LenPerCol)),
-                                               string:left(string:sub_string(leo_hex:integer_to_hex(Checksum, 8), 1, 10),
-                                                           lists:nth(5,LenPerCol)),
-                                               string:left(integer_to_list(ChunkedObjs),        lists:nth(6,LenPerCol)),
-                                               string:left(leo_hex:integer_to_hex(Clock, 8),    lists:nth(7,LenPerCol)),
+                                 lists:append([string:centre(DelStr,                           lists:nth(1,LenPerCol)), ?SEPARATOR,
+                                               string:left(Node,                               lists:nth(2,LenPerCol)), ?SEPARATOR,
+                                               string:left(leo_hex:integer_to_hex(VNodeId, 8), lists:nth(3,LenPerCol)), ?SEPARATOR,
+                                               string:right(leo_file:dsize(DSize),             lists:nth(4,LenPerCol)), ?SEPARATOR,
+                                               string:right(string:sub_string(leo_hex:integer_to_hex(Checksum, 8), 1, 10),
+                                                            lists:nth(5,LenPerCol)), ?SEPARATOR,
+                                               string:right(integer_to_list(ChunkedObjs),      lists:nth(6,LenPerCol)), ?SEPARATOR,
+                                               string:left(leo_hex:integer_to_hex(Clock, 8),   lists:nth(7,LenPerCol)), ?SEPARATOR,
                                                FormattedDate,
                                                ?CRLF])
                          end,
                    List ++ [Ret]
            end,
-    _FormattedList =
-        lists:foldl(Fun2, [Sepalator, Header2, Sepalator], AssignedInfo) ++ ?CRLF.
+    lists:foldl(Fun3, [Header1, Header2, Header1], AssignedInfo) ++ ?CRLF.
 
 
 %% @doc Format a history list
