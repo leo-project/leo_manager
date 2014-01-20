@@ -209,44 +209,52 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
                                       false -> Acc
                                   end
                           end, 0, Nodes) + 5,
-    CellColumns = [{"type",        5},
-                   {"node",  Col1Len},
-                   {"state",      12},
-                   {"ring (cur)", 14},
-                   {"ring (prev)",14},
-                   {"when",       28},
-                   {"END",         0}],
+    CellColumns = [{"type",          5},
+                   {"node",    Col1Len},
+                   {"state",        12},
+                   {"current ring", 14},
+                   {"prev ring",    14},
+                   {"updated at",   28},
+                   {'$end',          0}],
     LenPerCol = lists:map(fun({_, Len}) -> Len end, CellColumns),
 
-    Fun1 = fun(Col, {Type,Str}) ->
-                   {Name, Len} = Col,
-                   case Name of
-                       "END" when Type =:= title -> {Type, Str ++ ?CRLF};
-                       _ when Type =:= title andalso
-                              Name =:= "node"-> {Type, " " ++ Str ++ string:left(Name, Len, $ )};
-                       _ when Type =:= title -> {Type,        Str ++ string:left(Name, Len, $ )}
+
+    Fun1 = fun(Col, Str) ->
+                   case Col of
+                       {'$end',_Len      } -> lists:append([        Str, ?CRLF]);
+                       {"type", Len      } -> lists:append([        Str, lists:duplicate(Len + 1, "-"), "+"]);
+                       {"node", Len      } -> lists:append([?SPACE, Str, lists:duplicate(Len + 2, "-"), "+"]);
+                       {"updated at", Len} -> lists:append([        Str, lists:duplicate(Len + 0, "-")]);
+                       {_Other, Len      } -> lists:append([        Str, lists:duplicate(Len + 2, "-"), "+"])
                    end
            end,
-    {_, Header2} = lists:foldl(Fun1, {title,[]}, CellColumns),
-    Sepalator = lists:foldl(
-                  fun(N, L) -> L ++ N  end,
-                  [], lists:duplicate(lists:sum(LenPerCol), "-")) ++ ?CRLF,
+    Header1 = lists:foldl(Fun1, [], CellColumns),
 
-    Fun2 = fun(N, List) ->
+    Fun2 = fun(Col, Str) ->
+                   {Name, Len} = Col,
+                   case Col of
+                       {'$end',_Len      } -> lists:append([        Str, ?CRLF]);
+                       {"node", Len      } -> lists:append([?SPACE, Str, string:centre(Name, Len, $ ), ?SEPARATOR]);
+                       {"updated at", Len} -> lists:append([        Str, string:centre(Name, Len, $ )]);
+                       {_Other, Len      } -> lists:append([        Str, string:centre(Name, Len, $ ), ?SEPARATOR])
+                   end
+           end,
+    Header2 = lists:foldl(Fun2, [], CellColumns),
+
+    Fun3 = fun(N, List) ->
                    {Type, Alias, State, RingHash0, RingHash1, When} = N,
                    FormattedDate = leo_date:date_format(When),
-                   Ret = lists:append([" ",
-                                       string:left(Type,          lists:nth(1,LenPerCol)),
-                                       string:left(Alias,         lists:nth(2,LenPerCol)),
-                                       string:left(State,         lists:nth(3,LenPerCol)),
-                                       string:left(RingHash0,     lists:nth(4,LenPerCol)),
-                                       string:left(RingHash1,     lists:nth(5,LenPerCol)),
+                   Ret = lists:append([?SPACE,
+                                       string:centre(Type,    lists:nth(1,LenPerCol)), ?SEPARATOR,
+                                       string:left(Alias,     lists:nth(2,LenPerCol)), ?SEPARATOR,
+                                       string:left(State,     lists:nth(3,LenPerCol)), ?SEPARATOR,
+                                       string:left(RingHash0, lists:nth(4,LenPerCol)), ?SEPARATOR,
+                                       string:left(RingHash1, lists:nth(5,LenPerCol)), ?SEPARATOR,
                                        FormattedDate,
                                        ?CRLF]),
                    List ++ [Ret]
            end,
-    _FormattedList =
-        lists:foldl(Fun2, [FormattedSystemConf, Sepalator, Header2, Sepalator], Nodes) ++ ?CRLF.
+    lists:foldl(Fun3, [FormattedSystemConf, Header1, Header2, Header1], Nodes) ++ ?CRLF.
 
 
 %% @doc Format a cluster node state

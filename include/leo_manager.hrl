@@ -62,6 +62,7 @@
 -define(ERROR,        "ERROR\r\n").
 -define(CRLF,         "\r\n").
 -define(SPACE,        " ").
+-define(SEPARATOR,    " | ").
 -define(STORED,       "STORED\r\n").
 -define(NOT_STORED,   "NOT_STORED\r\n").
 -define(DELETED,      "DELETED\r\n").
