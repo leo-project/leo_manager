@@ -66,7 +66,8 @@
          update_acl/3
         ]).
 
--export([join_cluster/1, remove_cluster/1]).
+-export([join_cluster/2, update_cluster_member/2,
+         remove_cluster/1]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
@@ -1686,13 +1687,19 @@ rpc_call_for_gateway(Method, Args) ->
 
 %% @doc Join a cluster (MDC-Replication)
 %%
--spec(join_cluster(#system_conf{}) ->
+-spec(join_cluster(list(atom()), #system_conf{}) ->
              {ok, #system_conf{}} | {error, any()}).
-join_cluster(#?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf) ->
+join_cluster(RemoteManagerNodes,
+             #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf) ->
+    %% update cluster info in order to
+    %  communicate with remote-cluster(s)
     case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
         not_found ->
             case leo_redundant_manager_tbl_cluster_info:update(RemoteSystemConf) of
                 ok ->
+                    %% update info of remote-managers
+                    ok = update_cluster_member(RemoteManagerNodes, ClusterId),
+                    %% retrieve the system-conf of current cluster
                     leo_redundant_manager_tbl_conf:get();
                 Error ->
                     Error
@@ -1701,6 +1708,23 @@ join_cluster(#?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf) ->
             {error, ?ERROR_ALREADY_HAS_SAME_CLUSTER};
         Error ->
             Error
+    end.
+
+
+%% @doc Update cluster members for MDC-replication
+%%
+-spec(update_cluster_member(list(atom()), atom()) ->
+             ok).
+update_cluster_member([],_ClusterId) ->
+    ok;
+update_cluster_member([Node|Rest], ClusterId) ->
+    case leo_redundant_manager_tbl_cluster_mgr:update(
+           #cluster_manager{node = Node,
+                            cluster_id = ClusterId}) of
+        ok ->
+            update_cluster_member(Rest, ClusterId);
+        Other ->
+            Other
     end.
 
 

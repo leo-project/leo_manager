@@ -788,7 +788,7 @@ join_cluster(CmdBody, Option) ->
         Nodes ->
             case join_cluster_1(Nodes) of
                 {ok, ClusterId} ->
-                    update_cluster_member(Nodes, ClusterId);
+                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
                 Other ->
                     Other
             end
@@ -798,7 +798,20 @@ join_cluster_1([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
 join_cluster_1([Node|Rest]) ->
     {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
-    case leo_rpc:call(list_to_atom(Node), leo_manager_api, join_cluster, [SystemConf]) of
+    RPCNode = leo_rpc:node(),
+    Managers = case ?env_partner_of_manager_node() of
+                   [] -> [RPCNode];
+                   Partner ->
+                       case rpc:call(Partner, leo_rpc, node, []) of
+                           {_,_Cause} ->
+                               [RPCNode];
+                           Partner_1 ->
+                               [RPCNode, Partner_1]
+                       end
+               end,
+
+    case leo_rpc:call(list_to_atom(Node), leo_manager_api,
+                      join_cluster, [Managers, SystemConf]) of
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
             case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
                 not_found ->
@@ -815,19 +828,6 @@ join_cluster_1([Node|Rest]) ->
             end;
         _Error ->
             join_cluster_1(Rest)
-    end.
-
-%% @private
-update_cluster_member([],_ClusterId) ->
-    ok;
-update_cluster_member([Node|Rest], ClusterId) ->
-    case leo_redundant_manager_tbl_cluster_mgr:update(
-           #cluster_manager{node = Node,
-                            cluster_id = ClusterId}) of
-        ok ->
-            update_cluster_member(Rest, ClusterId);
-        Other ->
-            Other
     end.
 
 
