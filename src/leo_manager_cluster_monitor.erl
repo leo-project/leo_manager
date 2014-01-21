@@ -88,7 +88,6 @@ stop() ->
 -spec(register(first|again, pid(), atom(), storage|gateway) ->
              ok).
 register(RequestedTimes, Pid, Node, TypeOfNode) ->
-    ?debugVal(Node),
     RegistrationInfo = #registration{pid   = Pid,
                                      node  = Node,
                                      type  = TypeOfNode,
@@ -98,7 +97,6 @@ register(RequestedTimes, Pid, Node, TypeOfNode) ->
 -spec(register(first|again, pid(), atom(), storage, string(), string(), pos_integer()) ->
              ok).
 register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes) ->
-    ?debugVal(Node),
     RegistrationInfo = #registration{pid   = Pid,
                                      node  = Node,
                                      type  = TypeOfNode,
