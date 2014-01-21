@@ -801,7 +801,7 @@ join_cluster_1([Node|Rest]) ->
     RPCNode = leo_rpc:node(),
     Managers = case ?env_partner_of_manager_node() of
                    [] -> [RPCNode];
-                   Partner ->
+                   [Partner|_] ->
                        case rpc:call(Partner, leo_rpc, node, []) of
                            {_,_Cause} ->
                                [RPCNode];
