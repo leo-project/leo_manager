@@ -44,7 +44,6 @@
 %% manager-related tables
 -define(TBL_STORAGE_NODES,  'leo_storage_nodes').
 -define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
--define(TBL_SYSTEM_CONF,    'leo_system_conf').
 -define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
 -define(TBL_HISTORIES,      'leo_histories').
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').

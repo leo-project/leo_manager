@@ -846,7 +846,7 @@ remove_cluster_1([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
 remove_cluster_1([Node|Rest]) ->
     {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
-    case leo_rpc:call(list_to_atom(Node), leo_manager_api, remove_cluster, [SystemConf]) of
+    case catch leo_rpc:call(list_to_atom(Node), leo_manager_api, remove_cluster, [SystemConf]) of
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId}} ->
             leo_redundant_manager_tbl_cluster_info:delete(ClusterId);
         _Error ->
