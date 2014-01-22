@@ -810,8 +810,8 @@ join_cluster_1([Node|Rest]) ->
                        end
                end,
 
-    case leo_rpc:call(list_to_atom(Node), leo_manager_api,
-                      join_cluster, [Managers, SystemConf]) of
+    case catch leo_rpc:call(list_to_atom(Node), leo_manager_api,
+                            join_cluster, [Managers, SystemConf]) of
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
             case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
                 not_found ->
