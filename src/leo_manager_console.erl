@@ -903,6 +903,24 @@ status(_CmdBody, Option) ->
 
     case (erlang:length(Token) == 0) of
         true ->
+            %% Reload and store system-conf
+            case ?env_mode_of_manager() of
+                'master' ->
+                    case leo_redundant_manager_tbl_conf:get() of
+                        {ok, SystemConf} ->
+                            case leo_manager_api:load_system_config() of
+                                SystemConf -> void;
+                                _ ->
+                                    leo_manager_api:load_system_config_with_store_data()
+                            end;
+                        _ ->
+                            void
+                    end;
+                _ ->
+                    void
+            end,
+
+            %% Retrieve the status
             status(node_list);
         false ->
             [Node|_] = Token,

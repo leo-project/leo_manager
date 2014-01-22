@@ -90,8 +90,8 @@
 load_system_config() ->
     {ok, Props} = application:get_env(leo_manager, system),
     SystemConf = #?SYSTEM_CONF{
-                     cluster_id = leo_misc:get_value(cluster_id, Props),
-                     dc_id = leo_misc:get_value(dc_id, Props),
+                     cluster_id = leo_misc:get_value(cluster_id, Props, []),
+                     dc_id = leo_misc:get_value(dc_id, Props, []),
                      n = leo_misc:get_value(n, Props, 1),
                      w = leo_misc:get_value(w, Props, 1),
                      r = leo_misc:get_value(r, Props, 1),
