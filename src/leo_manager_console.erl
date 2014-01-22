@@ -815,7 +815,19 @@ join_cluster_1([Node|Rest]) ->
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
             case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
                 not_found ->
-                    case leo_redundant_manager_tbl_cluster_info:update(RemoteSystemConf) of
+                    #?SYSTEM_CONF{dc_id = DCId,
+                                  n = N, r = R, w = W, d = D,
+                                  bit_of_ring = BitOfRing,
+                                  num_of_dc_replicas = NumOfReplicas,
+                                  num_of_rack_replicas = NumOfRaclReplicas
+                                 } = RemoteSystemConf,
+                    case leo_redundant_manager_tbl_cluster_info:update(
+                           #cluster_info{cluster_id = ClusterId,
+                                         dc_id = DCId,
+                                         n = N, r = R, w = W, d = D,
+                                         bit_of_ring = BitOfRing,
+                                         num_of_dc_replicas = NumOfReplicas,
+                                         num_of_rack_replicas = NumOfRaclReplicas}) of
                         ok ->
                             {ok, ClusterId};
                         _Other ->

@@ -112,7 +112,20 @@ load_system_config_with_store_data() ->
 
     case leo_redundant_manager_tbl_conf:update(SystemConf) of
         ok ->
-            case leo_redundant_manager_tbl_cluster_info:update(SystemConf) of
+            #?SYSTEM_CONF{cluster_id = ClusterId,
+                          dc_id = DCId,
+                          n = N, r = R, w = W, d = D,
+                          bit_of_ring = BitOfRing,
+                          num_of_dc_replicas = NumOfReplicas,
+                          num_of_rack_replicas = NumOfRaclReplicas
+                         } = SystemConf,
+            case leo_redundant_manager_tbl_cluster_info:update(
+                   #cluster_info{cluster_id = ClusterId,
+                                 dc_id = DCId,
+                                 n = N, r = R, w = W, d = D,
+                                 bit_of_ring = BitOfRing,
+                                 num_of_dc_replicas = NumOfReplicas,
+                                 num_of_rack_replicas = NumOfRaclReplicas}) of
                 ok ->
                     {ok, SystemConf};
                 Error ->
@@ -1730,12 +1743,24 @@ rpc_call_for_gateway(Method, Args) ->
 -spec(join_cluster(list(atom()), #system_conf{}) ->
              {ok, #system_conf{}} | {error, any()}).
 join_cluster(RemoteManagerNodes,
-             #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf) ->
+             #?SYSTEM_CONF{cluster_id = ClusterId,
+                           dc_id = DCId,
+                           n = N, r = R, w = W, d = D,
+                           bit_of_ring = BitOfRing,
+                           num_of_dc_replicas = NumOfReplicas,
+                           num_of_rack_replicas = NumOfRaclReplicas
+                          }) ->
     %% update cluster info in order to
-    %  communicate with remote-cluster(s)
+    %%    communicate with remote-cluster(s)
     case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
         not_found ->
-            case leo_redundant_manager_tbl_cluster_info:update(RemoteSystemConf) of
+            case leo_redundant_manager_tbl_cluster_info:update(
+                   #cluster_info{cluster_id = ClusterId,
+                                 dc_id = DCId,
+                                 n = N, r = R, w = W, d = D,
+                                 bit_of_ring = BitOfRing,
+                                 num_of_dc_replicas = NumOfReplicas,
+                                 num_of_rack_replicas = NumOfRaclReplicas}) of
                 ok ->
                     %% update info of remote-managers
                     ok = update_cluster_member(RemoteManagerNodes, ClusterId),
