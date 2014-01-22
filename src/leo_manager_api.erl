@@ -49,7 +49,9 @@
         end).
 
 %% API
--export([get_system_config/0, get_system_status/0,
+-export([load_system_config/0,
+         load_system_config_with_store_data/0,
+         get_system_config/0, get_system_status/0,
          get_members/0, get_members_of_all_versions/0,
          update_manager_nodes/1,
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
@@ -83,6 +85,44 @@
 %%----------------------------------------------------------------------
 %% API-Function(s) - retrieve system information.
 %%----------------------------------------------------------------------
+%% @doc load a system config file
+%%
+load_system_config() ->
+    {ok, Props} = application:get_env(leo_manager, system),
+    SystemConf = #?SYSTEM_CONF{
+                     cluster_id = leo_misc:get_value(cluster_id, Props),
+                     dc_id = leo_misc:get_value(dc_id, Props),
+                     n = leo_misc:get_value(n, Props, 1),
+                     w = leo_misc:get_value(w, Props, 1),
+                     r = leo_misc:get_value(r, Props, 1),
+                     d = leo_misc:get_value(d, Props, 1),
+                     bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
+                     num_of_dc_replicas   = leo_misc:get_value(num_of_dc_replicas,   Props, 0),
+                     num_of_rack_replicas = leo_misc:get_value(num_of_rack_replicas, Props, 0)
+                    },
+    SystemConf.
+
+
+%% @doc load a system config file. a system config file store to mnesia.
+%%
+-spec(load_system_config_with_store_data() ->
+             {ok, #?SYSTEM_CONF{}} | {error, any()}).
+load_system_config_with_store_data() ->
+    SystemConf = load_system_config(),
+
+    case leo_redundant_manager_tbl_conf:update(SystemConf) of
+        ok ->
+            case leo_redundant_manager_tbl_cluster_info:update(SystemConf) of
+                ok ->
+                    {ok, SystemConf};
+                Error ->
+                    Error
+            end;
+        Error ->
+            Error
+    end.
+
+
 %% @doc Retrieve system configuration from mnesia(localdb).
 %%
 -spec(get_system_config() ->

@@ -48,6 +48,10 @@ transform() ->
             catch leo_s3_bucket_transform_handler:transform()
     end,
 
+    %% data migration - system-conf
+    ok = leo_system_conf_tbl_transformer:transform(),
+    {ok, _} = leo_manager_api:load_system_config_with_store_data(),
+
     %% data migration - members
     {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
     ok = leo_members_tbl_transformer:transform(ReplicaNodes),

@@ -104,7 +104,7 @@ start_link() ->
             ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
 
             %% Launch Redundant-manager
-            SystemConf = load_system_config(),
+            SystemConf = leo_manager_api:load_system_config(),
             ChildSpec  = case Mode of
                              master ->
                                  {leo_redundant_manager_sup,
@@ -242,7 +242,7 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
-                SystemConf = load_system_config(),
+                SystemConf = leo_manager_api:load_system_config(),
                 leo_redundant_manager_tbl_conf:create_table(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_cluster_stat:create_table(disc_copies, Nodes_1),
@@ -254,7 +254,7 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
 
                 %% Load from system-config and store it into the mnesia
-                {ok, _} = load_system_config_with_store_data(),
+                {ok, _} = leo_manager_api:load_system_config_with_store_data(),
 
                 %% Update available commands
                 ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
@@ -345,43 +345,3 @@ log_file_appender([], Acc) ->
 log_file_appender([{Type, _}|T], Acc) when Type == file ->
     log_file_appender(T, [{?LOG_ID_FILE_ERROR, ?LOG_APPENDER_FILE}|
                           [{?LOG_ID_FILE_INFO, ?LOG_APPENDER_FILE}|Acc]]).
-
-
-%% @doc load a system config file
-%% @end
-%% @private
-load_system_config() ->
-    {ok, Props} = application:get_env(leo_manager, system),
-    SystemConf = #?SYSTEM_CONF{
-                     cluster_id = leo_misc:get_value(cluster_id, Props),
-                     dc_id = leo_misc:get_value(dc_id, Props),
-                     n = leo_misc:get_value(n, Props, 1),
-                     w = leo_misc:get_value(w, Props, 1),
-                     r = leo_misc:get_value(r, Props, 1),
-                     d = leo_misc:get_value(d, Props, 1),
-                     bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
-                     num_of_dc_replicas   = leo_misc:get_value(num_of_dc_replicas,   Props, 0),
-                     num_of_rack_replicas = leo_misc:get_value(num_of_rack_replicas, Props, 0)
-                    },
-    SystemConf.
-
-
-%% @doc load a system config file. a system config file store to mnesia.
-%% @end
-%% @private
--spec(load_system_config_with_store_data() ->
-             {ok, #?SYSTEM_CONF{}} | {error, any()}).
-load_system_config_with_store_data() ->
-    SystemConf = load_system_config(),
-
-    case leo_redundant_manager_tbl_conf:update(SystemConf) of
-        ok ->
-            case leo_redundant_manager_tbl_cluster_info:update(SystemConf) of
-                ok ->
-                    {ok, SystemConf};
-                Error ->
-                    Error
-            end;
-        Error ->
-            Error
-    end.
