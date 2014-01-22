@@ -159,6 +159,28 @@
 
 
 %% --------------------------------------------------------------------
+%% MANAGER - System
+%% --------------------------------------------------------------------
+%% @doc DC Id
+{mapping,
+ "system.dc_id",
+ "leo_manager.system",
+ [
+  {datatype, string},
+  {default, "dc_1"}
+ ]}.
+
+%% @doc Cluster Id
+{mapping,
+ "system.cluster_id",
+ "leo_manager.system",
+ [
+  {datatype, string},
+  {default, "cluster_1"}
+ ]}.
+
+
+%% --------------------------------------------------------------------
 %% MANAGER - Consistency Level
 %% --------------------------------------------------------------------
 %% @doc A number of mq-server's processes
@@ -208,18 +230,22 @@
 
 {translation, "leo_manager.system",
  fun(Conf) ->
+         DCID = cuttlefish_util:conf_get_value("system.dc_id", Conf),
+         ClusterID = cuttlefish_util:conf_get_value("system.cluster_id", Conf),
          N  = cuttlefish_util:conf_get_value("consistency.num_of_replicas", Conf),
          W  = cuttlefish_util:conf_get_value("consistency.write", Conf),
          R  = cuttlefish_util:conf_get_value("consistency.read", Conf),
          D  = cuttlefish_util:conf_get_value("consistency.delete", Conf),
          L2 = cuttlefish_util:conf_get_value("consistency.rack_aware_replicas", Conf),
-         [{n, N},
+         [{dc_id, DCID},
+          {cluster_id, ClusterID},
+          {n, N},
           {w, W},
           {r, R},
           {d, D},
           {bit_of_ring, 128},
-          {level_1, 0 },
-          {level_2, L2}
+          {num_of_dc_replicas,   0 },
+          {num_of_rack_replicas, L2}
          ]
  end}.
 
@@ -331,6 +357,53 @@
   {default, "./snmp/snmpa_manager_0/LEO-MANAGER"}
  ]}.
 
+
+%% --------------------------------------------------------------------
+%% RPC
+%% --------------------------------------------------------------------
+%% @doc
+{mapping,
+ "rpc.nodename",
+ "leo_rpc.node",
+ [
+  {datatype, atom},
+  {default, 'node_0@127.0.0.1'}
+ ]}.
+
+{translation, "leo_rpc.node",
+ fun(Conf) ->
+         NodeName = cuttlefish_util:conf_get_value("nodename", Conf),
+         PortNum  = cuttlefish_util:conf_get_value("rpc.server.listen_port", Conf),
+         list_to_atom(lists:append([NodeName, ":", integer_to_list(PortNum)]))
+ end}.
+
+
+%% @doc
+{mapping,
+ "rpc.server.acceptors",
+ "leo_rpc.num_of_acceptors",
+ [
+  {datatype, integer},
+  {default, 64}
+ ]}.
+
+%% @doc
+{mapping,
+ "rpc.server.listen_port",
+ "leo_rpc.listen_port",
+ [
+  {datatype, integer},
+  {default, 13075}
+ ]}.
+
+%% @doc
+{mapping,
+ "rpc.server.listen_timeout",
+ "leo_rpc.listen_timeout",
+ [
+  {datatype, integer},
+  {default, 5000}
+ ]}.
 
 
 %%======================================================================
@@ -485,13 +558,13 @@
   {default, "256000"}
  ]}.
 
-%% @doc Raise the ETS table limit
-{mapping,
- "erlang.hidden_flag",
- "vm_args.-hidden",
- [
-  {default, ""}
- ]}.
+%% %% @doc Raise the ETS table limit
+%% {mapping,
+%%  "erlang.hidden_flag",
+%%  "vm_args.-hidden",
+%%  [
+%%   {default, ""}
+%%  ]}.
 
 %% @doc Raise the default erlang process limit
 {mapping, "process_limit", "vm_args.+P",

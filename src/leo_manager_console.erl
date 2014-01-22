@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -62,6 +62,8 @@ init([Formatter]) ->
 %%----------------------------------------------------------------------
 %% Operation-1
 %%----------------------------------------------------------------------
+%% Command: "help"
+%%
 handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter = Formatter} = State) ->
     Fun = fun() -> Formatter:help()
           end,
@@ -182,10 +184,15 @@ handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command,
 
 %% Command: "start"
 %%
-handle_call(_Socket, <<?CMD_START, ?CRLF>> = Command,
+handle_call(Socket, <<?CMD_START, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER -> Socket;
+                   _ -> null
+               end,
+
     Fun = fun() ->
-                  case start(Command) of
+                  case start(Socket_1, Command) of
                       ok ->
                           Formatter:ok();
                       {error, {bad_nodes, BadNodes}} ->
@@ -200,10 +207,15 @@ handle_call(_Socket, <<?CMD_START, ?CRLF>> = Command,
 
 %% Command: "rebalance"
 %%
-handle_call(_Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
+handle_call(Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER -> Socket;
+                   _ -> null
+               end,
+
     Fun = fun() ->
-                  case rebalance(Command) of
+                  case rebalance(Socket_1, Command) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -451,7 +463,25 @@ handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command,
     {reply, Reply, State};
 
 
-%% Command: "get-buckets"
+%% Command: "get-bucket ${access-key-id}"
+%%
+handle_call(_Socket, <<?CMD_GET_BUCKET_BY_ACCESS_KEY, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case get_bucket_by_access_key(Command, Option) of
+                      {ok, Buckets} ->
+                          Formatter:bucket_by_access_key(Buckets);
+                      not_found ->
+                          Formatter:error("Bucket not found");
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_GET_BUCKETS, Formatter, Fun),
+    {reply, Reply, State};
+
+
+%% Command: "chown-bucket ${bucket} ${new-access-key-id}"
 %%
 handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
@@ -464,22 +494,6 @@ handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Comma
                   end
           end,
     Reply = invoke(?CMD_CHANGE_BUCKET_OWNER, Formatter, Fun),
-    {reply, Reply, State};
-
-
-%% Command: "get-acl ${bucket}"
-%%
-handle_call(_Socket, <<?CMD_GET_ACL, ?SPACE, Option/binary>> = Command,
-            #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case get_acl(Command, Option) of
-                      {ok, ACLs}->
-                          Formatter:acls(ACLs);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_GET_ACL, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -628,7 +642,7 @@ handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = St
     {reply, Reply, State};
 
 
-%% Command: dump_ring ${NODE}"
+%% Command: "dump-ring ${NODE}"
 %%
 handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
@@ -641,6 +655,40 @@ handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
                   end
           end,
     Reply = invoke(?CMD_DUMP_RING, Formatter, Fun),
+    {reply, Reply, State};
+
+
+%%----------------------------------------------------------------------
+%% Operation-4
+%%----------------------------------------------------------------------
+%% Command: "join-cluster [${REMOTE_MANAGER_NODE}, ${REMOTE_MANAGER_NODE}, ...]"
+%%
+handle_call(_Socket, <<?CMD_JOIN_CLUSTER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case join_cluster(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_JOIN_CLUSTER, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "remove-cluster [${REMOTE_MANAGER_NODE}, ${REMOTE_MANAGER_NODE}, ...]"
+%%
+handle_call(_Socket, <<?CMD_REMOVE_CLUSTER, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case remove_cluster(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_REMOVE_CLUSTER, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -675,6 +723,7 @@ invoke(Command, Formatter, Fun) ->
     end.
 
 
+%% @doc Backup files of manager's mnesia
 %% @private
 -spec(backup_mnesia(binary(), binary()) ->
              ok | {error, any()}).
@@ -688,6 +737,7 @@ backup_mnesia(CmdBody, Option) ->
     end.
 
 
+%% @doc Restore mnesia from backup files
 %% @private
 -spec(restore_mnesia(binary(), binary()) ->
              ok | {error, any()}).
@@ -701,6 +751,7 @@ restore_mnesia(CmdBody, Option) ->
     end.
 
 
+%% @doc Update manager's node to alternate node
 %% @private
 -spec(update_manager_nodes(binary(), binary()) ->
              ok | {error, any()}).
@@ -725,6 +776,95 @@ dump_ring(CmdBody, Option) ->
         _ ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
+
+
+%% @doc Join a cluster
+%% @private
+join_cluster(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        Nodes ->
+            case join_cluster_1(Nodes) of
+                {ok, ClusterId} ->
+                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
+                Other ->
+                    Other
+            end
+    end.
+
+join_cluster_1([]) ->
+    {error, ?ERROR_COULD_NOT_CONNECT};
+join_cluster_1([Node|Rest]) ->
+    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    RPCNode = leo_rpc:node(),
+    Managers = case ?env_partner_of_manager_node() of
+                   [] -> [RPCNode];
+                   [Partner|_] ->
+                       case rpc:call(Partner, leo_rpc, node, []) of
+                           {_,_Cause} ->
+                               [RPCNode];
+                           Partner_1 ->
+                               [RPCNode, Partner_1]
+                       end
+               end,
+
+    case catch leo_rpc:call(list_to_atom(Node), leo_manager_api,
+                            join_cluster, [Managers, SystemConf]) of
+        {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
+            case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
+                not_found ->
+                    #?SYSTEM_CONF{dc_id = DCId,
+                                  n = N, r = R, w = W, d = D,
+                                  bit_of_ring = BitOfRing,
+                                  num_of_dc_replicas = NumOfReplicas,
+                                  num_of_rack_replicas = NumOfRaclReplicas
+                                 } = RemoteSystemConf,
+                    case leo_redundant_manager_tbl_cluster_info:update(
+                           #cluster_info{cluster_id = ClusterId,
+                                         dc_id = DCId,
+                                         n = N, r = R, w = W, d = D,
+                                         bit_of_ring = BitOfRing,
+                                         num_of_dc_replicas = NumOfReplicas,
+                                         num_of_rack_replicas = NumOfRaclReplicas}) of
+                        ok ->
+                            {ok, ClusterId};
+                        _Other ->
+                            {error, ?ERROR_FAIL_ACCESS_MNESIA}
+                    end;
+                {ok, _} ->
+                    {error, ?ERROR_ALREADY_HAS_SAME_CLUSTER};
+                _Other ->
+                    {error, ?ERROR_FAIL_ACCESS_MNESIA}
+            end;
+        _Error ->
+            join_cluster_1(Rest)
+    end.
+
+
+%% @doc Remove a cluster
+%% @private
+remove_cluster(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        Nodes ->
+            remove_cluster_1(Nodes)
+    end.
+
+remove_cluster_1([]) ->
+    {error, ?ERROR_COULD_NOT_CONNECT};
+remove_cluster_1([Node|Rest]) ->
+    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    case catch leo_rpc:call(list_to_atom(Node), leo_manager_api, remove_cluster, [SystemConf]) of
+        {ok, #?SYSTEM_CONF{cluster_id = ClusterId}} ->
+            leo_redundant_manager_tbl_cluster_info:delete(ClusterId);
+        _Error ->
+            remove_cluster_1(Rest)
+    end.
+
 
 %% @doc Retrieve version of the system
 %% @private
@@ -770,12 +910,29 @@ login(CmdBody, Option) ->
 %% @private
 -spec(status(binary(), binary()) ->
              {ok, any()} | {error, any()}).
-status(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+status(_CmdBody, Option) ->
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
 
     case (erlang:length(Token) == 0) of
         true ->
+            %% Reload and store system-conf
+            case ?env_mode_of_manager() of
+                'master' ->
+                    case leo_redundant_manager_tbl_conf:get() of
+                        {ok, SystemConf} ->
+                            case leo_manager_api:load_system_config() of
+                                SystemConf -> void;
+                                _ ->
+                                    leo_manager_api:load_system_config_with_store_data()
+                            end;
+                        _ ->
+                            void
+                    end;
+                _ ->
+                    void
+            end,
+
+            %% Retrieve the status
             status(node_list);
         false ->
             [Node|_] = Token,
@@ -783,7 +940,7 @@ status(CmdBody, Option) ->
     end.
 
 status(node_list) ->
-    case leo_manager_mnesia:get_system_config() of
+    case leo_redundant_manager_tbl_conf:get() of
         {ok, SystemConf} ->
             Version = case application:get_env(leo_manager, system_version) of
                           {ok, Vsn} -> Vsn;
@@ -837,31 +994,31 @@ status({node_state, Node}) ->
 
 %% @doc Launch the storage cluster
 %% @private
--spec(start(binary()) ->
+-spec(start(port()|null, binary()) ->
              ok | {error, any()}).
-start(CmdBody) ->
+start(Socket, CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     case leo_manager_mnesia:get_storage_nodes_all() of
         {ok, _} ->
             case leo_manager_api:get_system_status() of
                 ?STATE_STOP ->
-                    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+                    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
 
                     case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
-                        {ok, Nodes} when length(Nodes) >= SystemConf#system_conf.n ->
-                            case leo_manager_api:start() of
+                        {ok, Nodes} when length(Nodes) >= SystemConf#?SYSTEM_CONF.n ->
+                            case leo_manager_api:start(Socket) of
                                 ok ->
                                     ok;
                                 {error, timeout = Cause} ->
                                     {error, Cause};
                                 {error, BadNodes} ->
                                     {error, {bad_nodes, [N || {N,_} <- BadNodes]}}
-                                     %% lists:foldl(fun(Node, Acc) ->
-                                     %%                     Acc ++ [Node]
-                                     %%             end, [], BadNodes)}}
+                                    %% lists:foldl(fun(Node, Acc) ->
+                                    %%                     Acc ++ [Node]
+                                    %%             end, [], BadNodes)}}
                             end;
-                        {ok, Nodes} when length(Nodes) < SystemConf#system_conf.n ->
+                        {ok, Nodes} when length(Nodes) < SystemConf#?SYSTEM_CONF.n ->
                             {error, "Attached nodes less than # of replicas"};
                         not_found ->
                             %% status of all-nodes is 'suspend' or 'restarted'
@@ -883,7 +1040,7 @@ start(CmdBody) ->
              ok | {error, {atom(), string()}} | {error, any()}).
 detach(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
@@ -901,7 +1058,7 @@ detach(CmdBody, Option) ->
                 _ ->
                     %% allow to detach the node?
                     %% if it's ok then execute to detach it
-                    N = SystemConf#system_conf.n,
+                    N = SystemConf#?SYSTEM_CONF.n,
                     case allow_to_detach_node_1(N) of
                         ok ->
                             case allow_to_detach_node_2(N, NodeAtom) of
@@ -1028,11 +1185,12 @@ resume(CmdBody, Option) ->
 
 %% @doc Rebalance the storage cluster
 %% @private
--spec(rebalance(binary()) ->
+-spec(rebalance(port()|null, binary()) ->
              ok | {error, any()}).
-rebalance(CmdBody) ->
+rebalance(Socket, CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    case leo_manager_api:rebalance() of
+
+    case leo_manager_api:rebalance(Socket) of
         ok ->
             ok;
         {error, Cause} ->
@@ -1185,9 +1343,7 @@ compact(_,_,_, _) ->
 %% @private
 -spec(whereis(binary(), binary()) ->
              ok | {error, any()}).
-whereis(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
-
+whereis(_CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
@@ -1473,6 +1629,21 @@ get_buckets(CmdBody) ->
     end.
 
 
+%% @doc Retrieve a Buckets from the manager
+%% @private
+-spec(get_bucket_by_access_key(binary(), binary()) ->
+             ok | {error, any()}).
+get_bucket_by_access_key(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [AccessKey] ->
+            leo_s3_bucket:find_buckets_by_id(list_to_binary(AccessKey));
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
 %% @doc Change owner of a bucket
 %% @private
 -spec(change_bucket_owner(binary(), binary()) ->
@@ -1490,30 +1661,6 @@ change_bucket_owner(CmdBody, Option) ->
                     {error, ?ERROR_BUCKET_NOT_FOUND};
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
-            end;
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
-    end.
-
-
-%% @doc Get ACLs of the specified bucket in the manager
-%% @private
--spec(get_acl(binary(), binary()) ->
-             {ok, acls()} | {error, any()}).
-get_acl(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
-
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket] ->
-            case leo_s3_bucket:get_acls(list_to_binary(Bucket)) of
-                {ok, ACLs} ->
-                    {ok, ACLs};
-                not_found ->
-                    {ok, []};
-                {error, badarg} ->
-                    {error, ?ERROR_INVALID_BUCKET_FORMAT};
-                {error, _Cause} ->
-                    {error, ?ERROR_INVALID_ARGS}
             end;
         _ ->
             {error, ?ERROR_INVALID_ARGS}

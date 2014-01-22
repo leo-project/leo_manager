@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -44,7 +44,6 @@
 %% manager-related tables
 -define(TBL_STORAGE_NODES,  'leo_storage_nodes').
 -define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
--define(TBL_SYSTEM_CONF,    'leo_system_conf').
 -define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
 -define(TBL_HISTORIES,      'leo_histories').
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
@@ -55,60 +54,75 @@
 
 
 %% command-related
--define(COMMAND_ERROR,        "Command Error").
--define(COMMAND_DELIMITER,    " \r\n").
+-define(COMMAND_ERROR,     "Command Error").
+-define(COMMAND_DELIMITER, " \r\n").
 
--define(OK,                   "OK\r\n").
--define(ERROR,                "ERROR\r\n").
--define(CRLF,                 "\r\n").
--define(SPACE,                " ").
--define(STORED,               "STORED\r\n").
--define(NOT_STORED,           "NOT_STORED\r\n").
--define(DELETED,              "DELETED\r\n").
--define(NOT_FOUND,            "NOT FOUND\r\n").
--define(SERVER_ERROR,         "SERVER_ERROR").
--define(BYE,                  "BYE\r\n").
+-define(OK,           "OK\r\n").
+-define(ERROR,        "ERROR\r\n").
+-define(CRLF,         "\r\n").
+-define(SPACE,        " ").
+-define(SEPARATOR,    " | ").
+-define(STORED,       "STORED\r\n").
+-define(NOT_STORED,   "NOT_STORED\r\n").
+-define(DELETED,      "DELETED\r\n").
+-define(NOT_FOUND,    "NOT FOUND\r\n").
+-define(SERVER_ERROR, "SERVER_ERROR").
+-define(BYE,          "BYE\r\n").
 
--define(CMD_HELP,                "help").
--define(CMD_QUIT,                "quit").
--define(CMD_VERSION,             "version").
--define(CMD_STATUS,              "status").
--define(CMD_ATTACH,              "attach").
--define(CMD_DETACH,              "detach").
--define(CMD_SUSPEND,             "suspend").
--define(CMD_RESUME,              "resume").
--define(CMD_START,               "start").
--define(CMD_REBALANCE,           "rebalance").
--define(CMD_COMPACT,             "compact").
--define(CMD_CREATE_USER,         "create-user").
--define(CMD_UPDATE_USER_ROLE,    "update-user-role").
--define(CMD_UPDATE_USER_PW,      "update-user-password").
--define(CMD_DELETE_USER,         "delete-user").
--define(CMD_GET_USERS,           "get-users").
--define(CMD_ADD_ENDPOINT,        "add-endpoint").
--define(CMD_SET_ENDPOINT,        "set-endpoint").
--define(CMD_DEL_ENDPOINT,        "delete-endpoint").
--define(CMD_GET_ENDPOINTS,       "get-endpoints").
--define(CMD_ADD_BUCKET,          "add-bucket").
--define(CMD_GET_BUCKETS,         "get-buckets").
--define(CMD_DELETE_BUCKET,       "delete-bucket").
--define(CMD_CHANGE_BUCKET_OWNER, "chown-bucket").
--define(CMD_UPDATE_ACL,          "update-acl").
--define(CMD_GET_ACL,             "get-acl").
--define(CMD_DU,                  "du").
--define(CMD_WHEREIS,             "whereis").
--define(CMD_RECOVER,             "recover").
--define(CMD_HISTORY,             "history").
--define(CMD_DUMP_RING,           "dump-ring").
--define(CMD_PURGE,               "purge").
--define(CMD_REMOVE,              "remove").
--define(CMD_BACKUP_MNESIA,       "backup-mnesia").
--define(CMD_RESTORE_MNESIA,      "restore-mnesia").
--define(CMD_UPDATE_MANAGERS,     "update-managers").
--define(LOGIN,                   "login").
--define(AUTHORIZED,              <<"_authorized_\r\n">>).
--define(USER_ID,                 <<"_user_id_\r\n">>).
--define(PASSWORD,                <<"_password_\r\n">>).
+%% Common Commands
+-define(CMD_HELP,    "help").
+-define(CMD_QUIT,    "quit").
+-define(CMD_VERSION, "version").
+-define(CMD_STATUS,  "status").
+
+%% For S3-API
+-define(CMD_CREATE_USER,      "create-user").
+-define(CMD_UPDATE_USER_ROLE, "update-user-role").
+-define(CMD_UPDATE_USER_PW,   "update-user-password").
+-define(CMD_DELETE_USER,      "delete-user").
+-define(CMD_GET_USERS,        "get-users").
+-define(CMD_ADD_ENDPOINT,     "add-endpoint").
+-define(CMD_SET_ENDPOINT,     "set-endpoint").
+-define(CMD_DEL_ENDPOINT,     "delete-endpoint").
+-define(CMD_GET_ENDPOINTS,    "get-endpoints").
+-define(CMD_ADD_BUCKET,       "add-bucket").
+-define(CMD_GET_BUCKETS,      "get-buckets").
+-define(CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket").
+-define(CMD_DELETE_BUCKET,            "delete-bucket").
+-define(CMD_CHANGE_BUCKET_OWNER,      "chown-bucket").
+-define(CMD_UPDATE_ACL,               "update-acl").
+
+%% For Storage
+-define(CMD_ATTACH,    "attach").
+-define(CMD_DETACH,    "detach").
+-define(CMD_SUSPEND,   "suspend").
+-define(CMD_RESUME,    "resume").
+-define(CMD_START,     "start").
+-define(CMD_REBALANCE, "rebalance").
+-define(CMD_COMPACT,   "compact").
+-define(CMD_DU,        "du").
+-define(CMD_WHEREIS,   "whereis").
+
+%% For Gateway
+-define(CMD_PURGE,           "purge").
+-define(CMD_REMOVE,          "remove").
+-define(CMD_BACKUP_MNESIA,   "backup-mnesia").
+-define(CMD_RESTORE_MNESIA,  "restore-mnesia").
+-define(CMD_UPDATE_MANAGERS, "update-managers").
+
+%% For Maintenance
+-define(CMD_RECOVER,   "recover").
+-define(CMD_HISTORY,   "history").
+-define(CMD_DUMP_RING, "dump-ring").
+
+%% For MDC-Replication
+-define(CMD_JOIN_CLUSTER,   "join-cluster").
+-define(CMD_REMOVE_CLUSTER, "remove-cluster").
+
+-define(LOGIN,      "login").
+-define(AUTHORIZED, <<"_authorized_\r\n">>).
+-define(USER_ID,    <<"_user_id_\r\n">>).
+-define(PASSWORD,   <<"_password_\r\n">>).
 
 -define(COMMANDS, [{?CMD_HELP,      "help"},
                    {?CMD_QUIT,      "quit"},
@@ -153,17 +167,20 @@
                    {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
                    %% - bucket-related
-                   {?CMD_ADD_BUCKET,          "add-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_DELETE_BUCKET,       "delete-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_GET_BUCKETS,         "get-buckets"},
-                   {?CMD_CHANGE_BUCKET_OWNER, "chown-bucket ${bucket} ${new-access-key-id}"},
+                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_DELETE_BUCKET, "delete-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_GET_BUCKETS,   "get-buckets"},
+                   {?CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket ${access-key-id}"},
+                   {?CMD_CHANGE_BUCKET_OWNER,      "chown-bucket ${bucket} ${new-access-key-id}"},
                    %% - acl-related
                    {?CMD_UPDATE_ACL, "update-acl ${bucket} ${access-key-id} private|public-read|public-read-write"},
-                   {?CMD_GET_ACL,    "get-acl ${bucket}"},
+                   %% - multi-dc replication
+                   {?CMD_JOIN_CLUSTER,   "join-cluster ${remote-manager-master} ${remote-manager-slave}"},
+                   {?CMD_REMOVE_CLUSTER, "remove-cluster ${remote-manager-master} ${remote-manager-slave}"},
                    %% for Manager
-                   {?CMD_UPDATE_MANAGERS,  "update-managers ${manager-master} ${manager-slave}"},
-                   {?CMD_BACKUP_MNESIA,    "backup-mnesia ${backupfilepath}"},
-                   {?CMD_RESTORE_MNESIA,   "restore-mnesia ${backupfilepath}"}
+                   {?CMD_UPDATE_MANAGERS, "update-managers ${manager-master} ${manager-slave}"},
+                   {?CMD_BACKUP_MNESIA,   "backup-mnesia ${backupfilepath}"},
+                   {?CMD_RESTORE_MNESIA,  "restore-mnesia ${backupfilepath}"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),
@@ -240,6 +257,8 @@
 -define(ERROR_FAIL_TO_REMOVE_NODE,       "Fail to remove a node").
 -define(ERROR_FAIL_TO_SYNCHRONIZE_RING,  "Fail to synchronize RING").
 -define(ERROR_FAIL_TO_UPDATE_ACL,        "Fail to update acl of a bucket").
+-define(ERROR_FAIL_ACCESS_MNESIA,        "Fail to access mnesia").
+-define(ERROR_ALREADY_HAS_SAME_CLUSTER,  "Already has a same neme of cluster").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').
@@ -405,4 +424,3 @@
             _ ->
                 ?DEF_QUEUE_DIR
         end).
-

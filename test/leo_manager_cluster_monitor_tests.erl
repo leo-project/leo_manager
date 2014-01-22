@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -103,7 +103,7 @@ all_(Node) ->
                 end),
     meck:expect(leo_manager_mnesia, get_system_config,
                 fun() ->
-                        {ok, #system_conf{}}
+                        {ok, #?SYSTEM_CONF{}}
                 end),
 
     meck:new(leo_redundant_manager_api),

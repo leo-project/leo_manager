@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -28,6 +28,7 @@
 -author('Yosuke Hara').
 
 -include("leo_manager.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 -export([transform/0]).
 
@@ -50,8 +51,17 @@ transform() ->
 
     %% data migration - members
     {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
-    ok = leo_members_table_transformer:transform(ReplicaNodes),
+    ok = leo_members_tbl_transformer:transform(ReplicaNodes),
+
+    %% mdc-related
+    leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, ReplicaNodes),
+    leo_redundant_manager_tbl_cluster_stat:create_table(disc_copies, ReplicaNodes),
+    leo_redundant_manager_tbl_cluster_mgr:create_table(disc_copies, ReplicaNodes),
+    leo_redundant_manager_tbl_cluster_member:create_table(disc_copies, ReplicaNodes),
+
+    %% data migration - system-conf
+    ok = leo_system_conf_tbl_transformer:transform(),
 
     %% data migration - ring
-    ok = leo_ring_table_transformer:transform(),
+    ok = leo_ring_tbl_transformer:transform(),
     ok.

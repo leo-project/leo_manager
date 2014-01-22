@@ -2,7 +2,7 @@
 %%
 %% Leo Manaegr
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -104,19 +104,27 @@ start_link() ->
             ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
 
             %% Launch Redundant-manager
-            SystemConf = load_system_config(),
-            ChildSpec  = {leo_redundant_manager_sup,
-                          {leo_redundant_manager_sup, start_link,
-                           [Mode, ReplicaNodes_1, ?env_queue_dir(leo_manager),
-                            [{n,           SystemConf#system_conf.n},
-                             {r,           SystemConf#system_conf.r},
-                             {w,           SystemConf#system_conf.w},
-                             {d,           SystemConf#system_conf.d},
-                             {bit_of_ring, SystemConf#system_conf.bit_of_ring},
-                             {level_1,     SystemConf#system_conf.level_1},
-                             {level_2,     SystemConf#system_conf.level_2}
-                            ]]},
-                          permanent, 2000, supervisor, [leo_redundant_manager_sup]},
+            SystemConf = leo_manager_api:load_system_config(),
+            ChildSpec  = case Mode of
+                             master ->
+                                 {leo_redundant_manager_sup,
+                                  {leo_redundant_manager_sup, start_link,
+                                   [Mode, ReplicaNodes_1, ?env_queue_dir(leo_manager),
+                                    [{n,           SystemConf#?SYSTEM_CONF.n},
+                                     {r,           SystemConf#?SYSTEM_CONF.r},
+                                     {w,           SystemConf#?SYSTEM_CONF.w},
+                                     {d,           SystemConf#?SYSTEM_CONF.d},
+                                     {bit_of_ring, SystemConf#?SYSTEM_CONF.bit_of_ring},
+                                     {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
+                                     {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
+                                    ]]},
+                                  permanent, 2000, supervisor, [leo_redundant_manager_sup]};
+                             _ ->
+                                 {leo_redundant_manager_sup,
+                                  {leo_redundant_manager_sup, start_link,
+                                   [Mode, ReplicaNodes_1, ?env_queue_dir(leo_manager)]},
+                                  permanent, 2000, supervisor, [leo_redundant_manager_sup]}
+                         end,
             {ok, _} = supervisor:start_child(Pid, ChildSpec),
 
             %% Launch S3Libs:Auth/Bucket/EndPoint
@@ -125,6 +133,9 @@ start_link() ->
                 true  ->
                     ok = leo_s3_libs:start(master, [])
             end,
+
+            %% launch leo_rpc's server
+            ok = application:start(leo_rpc),
 
             %% Launch Mnesia and create that tables
             {ok, Dir} = application:get_env(mnesia, dir),
@@ -225,20 +236,25 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 rpc:multicall(Nodes_1, application, start, [mnesia], ?DEF_TIMEOUT),
 
                 %% create table into the mnesia
-                leo_manager_mnesia:create_system_config(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
-                leo_redundant_manager_table_ring:create_ring_current(disc_copies, Nodes_1),
-                leo_redundant_manager_table_ring:create_ring_prev(disc_copies, Nodes_1),
-                leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
-                leo_redundant_manager_table_member:create_members(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
+                SystemConf = leo_manager_api:load_system_config(),
+                leo_redundant_manager_tbl_conf:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_cluster_stat:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_cluster_mgr:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_cluster_member:create_table(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_ring:create_table_current(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_ring:create_table_prev(disc_copies, Nodes_1),
+                leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
+                leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
 
                 %% Load from system-config and store it into the mnesia
-                {ok, _} = load_system_config_with_store_data(),
+                {ok, _} = leo_manager_api:load_system_config_with_store_data(),
 
                 %% Update available commands
                 ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
@@ -329,35 +345,3 @@ log_file_appender([], Acc) ->
 log_file_appender([{Type, _}|T], Acc) when Type == file ->
     log_file_appender(T, [{?LOG_ID_FILE_ERROR, ?LOG_APPENDER_FILE}|
                           [{?LOG_ID_FILE_INFO, ?LOG_APPENDER_FILE}|Acc]]).
-
-
-%% @doc load a system config file
-%% @end
-%% @private
-load_system_config() ->
-    {ok, Props} = application:get_env(leo_manager, system),
-    SystemConf = #system_conf{n = leo_misc:get_value(n, Props, 1),
-                              w = leo_misc:get_value(w, Props, 1),
-                              r = leo_misc:get_value(r, Props, 1),
-                              d = leo_misc:get_value(d, Props, 1),
-                              bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
-                              level_1 = leo_misc:get_value(level_1, Props, 0),
-                              level_2 = leo_misc:get_value(level_2, Props, 0)
-                             },
-    SystemConf.
-
-
-%% @doc load a system config file. a system config file store to mnesia.
-%% @end
-%% @private
--spec(load_system_config_with_store_data() ->
-             {ok, #system_conf{}} | {error, any()}).
-load_system_config_with_store_data() ->
-    SystemConf = load_system_config(),
-
-    case leo_manager_mnesia:update_system_config(SystemConf) of
-        ok ->
-            {ok, SystemConf};
-        Error ->
-            Error
-    end.

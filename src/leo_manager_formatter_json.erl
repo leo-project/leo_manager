@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -30,13 +30,15 @@
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
+-include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, credential/2, users/1, endpoints/1, buckets/1,
+         compact_status/1, du/2, credential/2, users/1, endpoints/1,
+         buckets/1, bucket_by_access_key/1,
          acls/1, whereis/1, histories/1
         ]).
 
@@ -159,13 +161,15 @@ system_info_and_nodes_stat(Props) ->
 
     gen_json({[{<<"system_info">>,
                 {[{<<"version">>,        list_to_binary(Version)},
-                  {<<"n">>,              list_to_binary(integer_to_list(SystemConf#system_conf.n))},
-                  {<<"r">>,              list_to_binary(integer_to_list(SystemConf#system_conf.r))},
-                  {<<"w">>,              list_to_binary(integer_to_list(SystemConf#system_conf.w))},
-                  {<<"d">>,              list_to_binary(integer_to_list(SystemConf#system_conf.d))},
-                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#system_conf.level_1))},
-                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#system_conf.level_2))},
-                  {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#system_conf.bit_of_ring))},
+                  {<<"cluster_id">>,     list_to_binary(SystemConf#?SYSTEM_CONF.cluster_id)},
+                  {<<"dc_id">>,          list_to_binary(SystemConf#?SYSTEM_CONF.dc_id)},
+                  {<<"n">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.n))},
+                  {<<"r">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.r))},
+                  {<<"w">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.w))},
+                  {<<"d">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.d))},
+                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_dc_replicas))},
+                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_rack_replicas))},
+                  {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.bit_of_ring))},
                   {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
                   {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
                  ]}},
@@ -391,14 +395,36 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    JSON = lists:map(fun({Bucket, #user_credential{user_id = Owner}, Created1}) ->
-                             Created2  = case (Created1 > 0) of
-                                             true  -> leo_date:date_format(Created1);
-                                             false -> []
-                                         end,
-                             {[{<<"bucket">>,     Bucket},
-                               {<<"owner">>,      list_to_binary(Owner)},
-                               {<<"created_at">>, list_to_binary(Created2)}
+    JSON = lists:map(fun({Bucket, #user_credential{user_id = Owner}, Permissions, CreatedAt}) ->
+                             CreatedAt_1  = case (CreatedAt > 0) of
+                                                true  -> leo_date:date_format(CreatedAt);
+                                                false -> []
+                                            end,
+                             PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions], ","),
+                             {[{<<"bucket">>,      Bucket},
+                               {<<"owner">>,       list_to_binary(Owner)},
+                               {<<"permissions">>, list_to_binary(PermissionsStr)},
+                               {<<"created_at">>,  list_to_binary(CreatedAt_1)}
+                              ]}
+                     end, Buckets),
+    gen_json({[{<<"buckets">>, JSON}]}).
+
+-spec(bucket_by_access_key(list(#?BUCKET{})) ->
+             string()).
+bucket_by_access_key(Buckets) ->
+    JSON = lists:map(fun(#?BUCKET{name = Bucket,
+                                  acls = Permissions,
+                                  created_at = CreatedAt}) ->
+                             PermissionsStr = string:join([atom_to_list(Item)
+                                                           || #bucket_acl_info{permissions = [Item|_]}
+                                                                  <- Permissions], ","),
+                             CreatedAt_1  = case (CreatedAt > 0) of
+                                                true  -> leo_date:date_format(CreatedAt);
+                                                false -> []
+                                            end,
+                             {[{<<"bucket">>,      Bucket},
+                               {<<"permissions">>, list_to_binary(PermissionsStr)},
+                               {<<"created_at">>,  list_to_binary(CreatedAt_1)}
                               ]}
                      end, Buckets),
     gen_json({[{<<"buckets">>, JSON}]}).
@@ -465,4 +491,3 @@ gen_json(JSON) ->
         Result ->
             <<Result/binary, ?CRLF>>
     end.
-

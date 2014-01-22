@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -152,9 +152,9 @@ handle_call(stop, _From, State) ->
 
 
 handle_call({register, RegistrationInfo}, _From, {Refs, Htbl, Pids} = Arg) ->
-    ?info("handle_call - register", "requested-times:~w, node:~w",
-          [RegistrationInfo#registration.times,
-           RegistrationInfo#registration.node]),
+    ?debug("handle_call - register", "requested-times:~w, node:~w",
+           [RegistrationInfo#registration.times,
+            RegistrationInfo#registration.node]),
     #registration{pid   = Pid,
                   node  = Node,
                   type  = TypeOfNode} = RegistrationInfo,
@@ -356,7 +356,6 @@ get_remote_node_proc_fun(storage, Node) ->
 
 get_remote_node_proc_fun(gateway, Node) ->
     timer:sleep(50),
-
     case leo_misc:node_existence(Node) of
         true ->
             Mod = leo_gateway_api,

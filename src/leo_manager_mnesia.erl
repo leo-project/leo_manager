@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -37,7 +37,6 @@
 %% API
 -export([create_storage_nodes/2,
          create_gateway_nodes/2,
-         create_system_config/2,
          create_rebalance_info/2,
          create_histories/2,
          create_available_commands/2,
@@ -47,7 +46,6 @@
          get_storage_nodes_by_status/1,
          get_gateway_nodes_all/0,
          get_gateway_node_by_name/1,
-         get_system_config/0,
          get_rebalance_info_all/0,
          get_rebalance_info_by_node/1,
          get_histories_all/0,
@@ -57,7 +55,6 @@
          update_storage_node_status/1,
          update_storage_node_status/2,
          update_gateway_node/1,
-         update_system_config/1,
          update_rebalance_info/1,
          insert_history/1,
          insert_available_command/2,
@@ -116,30 +113,6 @@ create_gateway_nodes(Mode, Nodes) ->
          {ring_hash_old, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
          {when_is,       {integer,  undefined},  false, undefined, undefined, undefined, integer  },
          {error,         {integer,  undefined},  false, undefined, undefined, undefined, integer  }
-        ]}
-      ]).
-
-
-%% @doc Create a table of system-configutation
-%%
--spec(create_system_config(atom(), list()) ->
-             ok).
-create_system_config(Mode, Nodes) ->
-    mnesia:create_table(
-      ?TBL_SYSTEM_CONF,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, system_conf},
-       {attributes, record_info(fields, system_conf)},
-       {user_properties,
-        [{version,     {integer,   undefined},  false, primary,   undefined, identity,  integer},
-         {n,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {r,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {w,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {d,           {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {bit_of_ring, {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {level_1,     {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {level_2,     {integer,   undefined},  false, undefined, undefined, undefined, integer}
         ]}
       ]).
 
@@ -299,30 +272,6 @@ get_gateway_node_by_name(Node) ->
                 end,
             leo_mnesia:read(F)
     end.
-
-
-%% @doc Retrieve system configuration
-%%
--spec(get_system_config() ->
-             {ok, #system_conf{}} | not_found | {error, any()}).
-get_system_config() ->
-    Tbl = ?TBL_SYSTEM_CONF,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            F = fun() ->
-                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
-                        Q2 = qlc:sort(Q1, [{order, descending}]),
-                        qlc:e(Q2)
-                end,
-            get_system_config(leo_mnesia:read(F))
-    end.
-get_system_config({ok, [H|_]}) ->
-    {ok, H};
-get_system_config(Other) ->
-    Other.
 
 
 %% @doc Retrieve rebalance info
@@ -519,22 +468,6 @@ update_gateway_node(NodeState) ->
     end.
 
 
-%% @doc Modify system-configuration
-%%
--spec(update_system_config(#system_conf{}) ->
-             ok | {error, any()}).
-update_system_config(SystemConfig) ->
-    Tbl = ?TBL_SYSTEM_CONF,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            F = fun()-> mnesia:write(Tbl, SystemConfig, write) end,
-            leo_mnesia:write(F)
-    end.
-
-
 %% @doc Modify rebalance-info
 %%
 -spec(update_rebalance_info(#rebalance_info{}) ->
@@ -723,7 +656,7 @@ validate_restored_tables([T|Rest], ExpectedTableSet) ->
 %% @doc Update available commands
 %%
 -spec(update_available_commands(atom | list()) ->
-          ok).
+             ok).
 update_available_commands(AvailableCommands) ->
     {atomic,ok} = mnesia:clear_table(?TBL_AVAILABLE_CMDS),
     case AvailableCommands of

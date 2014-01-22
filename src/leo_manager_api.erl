@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2013 Rakuten, Inc.
+%% Copyright (c) 2012-2014 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -49,14 +49,16 @@
         end).
 
 %% API
--export([get_system_config/0, get_system_status/0,
+-export([load_system_config/0,
+         load_system_config_with_store_data/0,
+         get_system_config/0, get_system_status/0,
          get_members/0, get_members_of_all_versions/0,
          update_manager_nodes/1,
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
 
 -export([attach/1, attach/4, detach/1, suspend/1, resume/1,
          distribute_members/1, distribute_members/2,
-         start/0, rebalance/0]).
+         start/1, rebalance/1]).
 
 -export([register/4, register/7,
          notify/3, notify/4, purge/1, remove/1,
@@ -65,6 +67,9 @@
          set_endpoint/1, delete_endpoint/1, delete_bucket/2,
          update_acl/3
         ]).
+
+-export([join_cluster/2, update_cluster_member/2,
+         remove_cluster/1]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
@@ -80,14 +85,65 @@
 %%----------------------------------------------------------------------
 %% API-Function(s) - retrieve system information.
 %%----------------------------------------------------------------------
+%% @doc load a system config file
+%%
+load_system_config() ->
+    {ok, Props} = application:get_env(leo_manager, system),
+    SystemConf = #?SYSTEM_CONF{
+                     cluster_id = leo_misc:get_value(cluster_id, Props, []),
+                     dc_id = leo_misc:get_value(dc_id, Props, []),
+                     n = leo_misc:get_value(n, Props, 1),
+                     w = leo_misc:get_value(w, Props, 1),
+                     r = leo_misc:get_value(r, Props, 1),
+                     d = leo_misc:get_value(d, Props, 1),
+                     bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
+                     num_of_dc_replicas   = leo_misc:get_value(num_of_dc_replicas,   Props, 0),
+                     num_of_rack_replicas = leo_misc:get_value(num_of_rack_replicas, Props, 0)
+                    },
+    SystemConf.
+
+
+%% @doc load a system config file. a system config file store to mnesia.
+%%
+-spec(load_system_config_with_store_data() ->
+             {ok, #?SYSTEM_CONF{}} | {error, any()}).
+load_system_config_with_store_data() ->
+    SystemConf = load_system_config(),
+
+    case leo_redundant_manager_tbl_conf:update(SystemConf) of
+        ok ->
+            #?SYSTEM_CONF{cluster_id = ClusterId,
+                          dc_id = DCId,
+                          n = N, r = R, w = W, d = D,
+                          bit_of_ring = BitOfRing,
+                          num_of_dc_replicas = NumOfReplicas,
+                          num_of_rack_replicas = NumOfRaclReplicas
+                         } = SystemConf,
+            case leo_redundant_manager_tbl_cluster_info:update(
+                   #cluster_info{cluster_id = ClusterId,
+                                 dc_id = DCId,
+                                 n = N, r = R, w = W, d = D,
+                                 bit_of_ring = BitOfRing,
+                                 num_of_dc_replicas = NumOfReplicas,
+                                 num_of_rack_replicas = NumOfRaclReplicas}) of
+                ok ->
+                    {ok, SystemConf};
+                Error ->
+                    Error
+            end;
+        Error ->
+            Error
+    end.
+
+
 %% @doc Retrieve system configuration from mnesia(localdb).
 %%
 -spec(get_system_config() ->
-             {ok, #system_conf{}} |
+             {ok, #?SYSTEM_CONF{}} |
              atom() |
              {error, any()}).
 get_system_config() ->
-    leo_manager_mnesia:get_system_config().
+    leo_redundant_manager_tbl_conf:get().
 
 
 -spec(get_system_status() ->
@@ -462,29 +518,26 @@ update_manager_nodes(_Managers,_Error) ->
 
 %% @doc Launch the leo-storage, but exclude Gateway(s).
 %%
--spec(start() ->
+-spec(start(port()) ->
              ok | {error, any()}).
-start() ->
+start(Socket) ->
     %% Create current and previous RING(routing-table)
     case leo_redundant_manager_api:create() of
         {ok, Members, _Chksums} ->
-            %% Distribute members-list to all storage nodes.
-            Nodes = lists:map(fun(#member{node = Node}) ->
-                                      Node
-                              end, Members),
-
             %% Retrieve system-configuration
             %% Then launch storage-cluster
-            case leo_manager_mnesia:get_system_config() of
+            Nodes = [N || #member{node = N} <- Members],
+
+            case leo_redundant_manager_tbl_conf:get() of
                 {ok, SystemConf} ->
                     ok = start_1(self(), Nodes, Members, SystemConf),
-                    start_2(length(Members),[]);
+                    start_2(Socket, 0, length(Members));
                 {error, Cause} ->
-                    ?error("start/0", "cause:~p", [Cause]),
+                    ?error("start/1", "cause:~p", [Cause]),
                     {error, ?ERROR_COULD_NOT_GET_CONF}
             end;
         {error, Cause} ->
-            ?error("start/0", "cause:~p", [Cause]),
+            ?error("start/1", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_CREATE_RING}
     end.
 
@@ -507,34 +560,58 @@ start_1(Pid, [Node|Rest], Members, SystemConf) ->
                           timeout = Cause ->
                               {error, {Node, Cause}}
                       end,
-                  erlang:send(Pid, Reply)
+              erlang:send(Pid, Reply)
       end),
     start_1(Pid, Rest, Members, SystemConf).
 
 
 %% @doc Check results and update an object of node-status
 %% @private
-start_2(0, []) ->
+start_2(_Socket, TotalMembers, TotalMembers) ->
     ok;
-start_2(0, Errors) ->
-    {error, Errors};
-start_2(NumOfNodes, Errors) ->
+start_2(Socket, NumOfNodes, TotalMembers) ->
     receive
-        {ok, {Node, {RingHashCur, RingHashPrev}}} ->
-            leo_manager_mnesia:update_storage_node_status(
-              update,
-              #node_state{node          = Node,
-                          state         = ?STATE_RUNNING,
-                          ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                          ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
-                          when_is       = leo_date:now()}),
-            start_2(NumOfNodes - 1, Errors);
-        {error, {Node, Cause}} ->
-            start_2(NumOfNodes - 1, [{Node, Cause}|Errors])
+        Msg ->
+            {Node_1, State} =
+                case Msg of
+                    {ok, {Node, {RingHashCur, RingHashPrev}}} ->
+                        leo_manager_mnesia:update_storage_node_status(
+                          update,
+                          #node_state{node          = Node,
+                                      state         = ?STATE_RUNNING,
+                                      ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                      ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
+                                      when_is       = leo_date:now()}),
+                        {Node, <<"OK">>};
+                    {error, {Node, Cause}} ->
+                        ?error("start_2/3", "node:~w, cause:~p", [Node, Cause]),
+                        leo_manager_mnesia:update_storage_node_status(
+                          update,
+                          #node_state{node    = Node,
+                                      state   = ?STATE_STOP,
+                                      when_is = leo_date:now()}),
+                        {Node, <<"ERROR">>}
+                end,
+
+            NewNumOfNodes = NumOfNodes + 1,
+            Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),
+            SendMsg = lists:append([string:right(Ratio, 5), " - ", atom_to_list(Node_1)]),
+            ok = output_message_to_console(Socket, State, list_to_binary(SendMsg)),
+            start_2(Socket, NewNumOfNodes, TotalMembers)
     after
-        ?DEF_TIMEOUT ->
-            {error, timeout}
+        infinity ->
+            ok
     end.
+
+
+%% Output a message to the console
+%% @private
+-spec(output_message_to_console(port()|[], binary(), binary()) ->
+             ok).
+output_message_to_console(null, _State,_MsgBin) ->
+    ok;
+output_message_to_console(Socket, State, MsgBin) ->
+    ok = gen_tcp:send(Socket, << State/binary, MsgBin/binary, "\r\n" >>).
 
 
 %% @doc Do Rebalance which affect all storage-nodes in operation.
@@ -543,9 +620,9 @@ start_2(NumOfNodes, Errors) ->
 %%     2. Distribute every storage node from manager
 %%     3. Confirm callback.
 %%
--spec(rebalance() ->
+-spec(rebalance(port()|null) ->
              ok | {error, any()}).
-rebalance() ->
+rebalance(Socket) ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, Members_1} ->
             {State, Nodes} =
@@ -568,14 +645,15 @@ rebalance() ->
                 {ok, RetRebalance} ->
                     case get_members_of_all_versions() of
                         {ok, {MembersCur, MembersPrev}} ->
-                            {ok, SystemConf}  = leo_manager_mnesia:get_system_config(),
+                            {ok, SystemConf}  = leo_redundant_manager_tbl_conf:get(),
                             RebalanceProcInfo = #rebalance_proc_info{members_cur    = MembersCur,
                                                                      members_prev   = MembersPrev,
                                                                      system_conf    = SystemConf,
                                                                      rebalance_list = RetRebalance},
                             case rebalance_3(Nodes, RebalanceProcInfo) of
                                 ok ->
-                                    rebalance_4(MembersCur, RebalanceProcInfo);
+                                    ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
+                                    rebalance_4_loop(Socket, 0, length(MembersCur));
                                 {error, Cause}->
                                     {error, Cause}
                             end;
@@ -695,10 +773,10 @@ rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
     end.
 
 %% @private
-rebalance_4([],_) ->
+rebalance_4(_Pid, [],_) ->
     ok;
-rebalance_4([#member{node  = Node,
-                     state = ?STATE_RUNNING}|T], RebalanceProcInfo) ->
+rebalance_4( Pid, [#member{node  = Node,
+                           state = ?STATE_RUNNING}|T], RebalanceProcInfo) ->
     MembersCur    = RebalanceProcInfo#rebalance_proc_info.members_cur,
     MembersPrev   = RebalanceProcInfo#rebalance_proc_info.members_prev,
     RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
@@ -722,23 +800,53 @@ rebalance_4([#member{node  = Node,
                         timeout = Cause ->
                             {error, Cause}
                     end,
-              case Ret of
-                  ok -> void;
-                  {error, _Cause} ->
-                      %% Enqueue a message (fail distribution of rebalance-info)
-                      ok = leo_manager_mq_client:publish(
-                             ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList_1)
-              end
+              erlang:send(Pid, {Ret, Node, RebalanceList_1})
       end),
-    timer:sleep(250),
-    rebalance_4(T, RebalanceProcInfo);
+    rebalance_4(Pid, T, RebalanceProcInfo);
 
-rebalance_4([#member{node = Node}|T], RebalanceProcInfo) ->
-    %% Enqueue a message (fail distribution of rebalance-info)
-    ok = leo_manager_mq_client:publish(
-           ?QUEUE_ID_FAIL_REBALANCE, Node,
-           RebalanceProcInfo#rebalance_proc_info.rebalance_list),
-    rebalance_4(T, RebalanceProcInfo).
+rebalance_4(Pid, [#member{node = Node}|T], RebalanceProcInfo) ->
+    RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
+    RebalanceList_1 = leo_misc:get_value(Node, RebalanceList, []),
+    erlang:send(Pid, {ok, Node, RebalanceList_1}),
+    rebalance_4(Pid, T, RebalanceProcInfo).
+
+
+%% @doc receive the results of rebalance
+%% @private
+rebalance_4_loop(_Socket, TotalMembers, TotalMembers) ->
+    ok;
+rebalance_4_loop(Socket, NumOfNodes, TotalMembers) ->
+    receive
+        Msg ->
+            {Node_1, State} =
+                case Msg of
+                    {ok, Node, _RebalanceList} ->
+                        {Node, <<"OK">>};
+                    OtherMsg ->
+                        %% Enqueue a message (fail distribution of rebalance-info)
+                        {Ret, Node, RebalanceList} = OtherMsg,
+                        ok = leo_manager_mq_client:publish(
+                               ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList),
+
+                        %% Judge the result of rebalance
+                        case Ret of
+                            pending ->
+                                {Node, <<"PENDING">>};
+                            {error, Cause} ->
+                                ?error("rebalance_4_loop/3", "node:~w, cause:~p", [Node, Cause]),
+                                {Node, <<"ERROR">>}
+                        end
+                end,
+            %% output a message
+            NewNumOfNodes = NumOfNodes + 1,
+            Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),
+            SendMsg = lists:append([string:right(Ratio, 5), " - ", atom_to_list(Node_1)]),
+            ok = output_message_to_console(Socket, State, list_to_binary(SendMsg)),
+            rebalance_4_loop(Socket, NewNumOfNodes, TotalMembers)
+    after
+        infinity ->
+            ok
+    end.
 
 
 %% @private
@@ -1267,14 +1375,16 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
 
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER ->
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
-    Options = [{n, SystemConf#system_conf.n},
-               {r, SystemConf#system_conf.r},
-               {w, SystemConf#system_conf.w},
-               {d, SystemConf#system_conf.d},
-               {bit_of_ring, SystemConf#system_conf.bit_of_ring},
-               {level_1, SystemConf#system_conf.level_1},
-               {level_2, SystemConf#system_conf.level_2}
+    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    Options = [{cluster_id, SystemConf#?SYSTEM_CONF.cluster_id},
+               {dc_id,      SystemConf#?SYSTEM_CONF.dc_id},
+               {n, SystemConf#?SYSTEM_CONF.n},
+               {r, SystemConf#?SYSTEM_CONF.r},
+               {w, SystemConf#?SYSTEM_CONF.w},
+               {d, SystemConf#?SYSTEM_CONF.d},
+               {bit_of_ring,          SystemConf#?SYSTEM_CONF.bit_of_ring},
+               {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
+               {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
               ],
     MembersCur  = leo_misc:get_value(?VER_CUR,  MembersList),
     MembersPrev = leo_misc:get_value(?VER_PREV, MembersList),
@@ -1628,6 +1738,69 @@ rpc_call_for_gateway(Method, Args) ->
     end.
 
 
+%% @doc Join a cluster (MDC-Replication)
+%%
+-spec(join_cluster(list(atom()), #system_conf{}) ->
+             {ok, #system_conf{}} | {error, any()}).
+join_cluster(RemoteManagerNodes,
+             #?SYSTEM_CONF{cluster_id = ClusterId,
+                           dc_id = DCId,
+                           n = N, r = R, w = W, d = D,
+                           bit_of_ring = BitOfRing,
+                           num_of_dc_replicas = NumOfReplicas,
+                           num_of_rack_replicas = NumOfRaclReplicas
+                          }) ->
+    %% update cluster info in order to
+    %%    communicate with remote-cluster(s)
+    case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
+        not_found ->
+            case leo_redundant_manager_tbl_cluster_info:update(
+                   #cluster_info{cluster_id = ClusterId,
+                                 dc_id = DCId,
+                                 n = N, r = R, w = W, d = D,
+                                 bit_of_ring = BitOfRing,
+                                 num_of_dc_replicas = NumOfReplicas,
+                                 num_of_rack_replicas = NumOfRaclReplicas}) of
+                ok ->
+                    %% update info of remote-managers
+                    ok = update_cluster_member(RemoteManagerNodes, ClusterId),
+                    %% retrieve the system-conf of current cluster
+                    leo_redundant_manager_tbl_conf:get();
+                Error ->
+                    Error
+            end;
+        {ok,_} ->
+            {error, ?ERROR_ALREADY_HAS_SAME_CLUSTER};
+        Error ->
+            Error
+    end.
+
+
+%% @doc Update cluster members for MDC-replication
+%%
+-spec(update_cluster_member(list(atom()), atom()) ->
+             ok).
+update_cluster_member([],_ClusterId) ->
+    ok;
+update_cluster_member([Node|Rest], ClusterId) ->
+    case leo_redundant_manager_tbl_cluster_mgr:update(
+           #cluster_manager{node = Node,
+                            cluster_id = ClusterId}) of
+        ok ->
+            update_cluster_member(Rest, ClusterId);
+        Other ->
+            Other
+    end.
+
+
+%% @doc Remove a cluster (MDC-Replication)
+%%
+-spec(remove_cluster(#system_conf{}) ->
+             {ok, #system_conf{}} | {error, any()}).
+remove_cluster(#?SYSTEM_CONF{cluster_id = ClusterId}) ->
+    leo_redundant_manager_tbl_cluster_info:delete(ClusterId).
+
+
 %% @doc Is allow distribute to a command
 %% @private
 -spec(is_allow_to_distribute_command() ->
@@ -1638,7 +1811,7 @@ is_allow_to_distribute_command() ->
 -spec(is_allow_to_distribute_command(atom()) ->
              boolean()).
 is_allow_to_distribute_command(Node) ->
-    {ok, SystemConf} = leo_manager_mnesia:get_system_config(),
+    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
     {ok, Members_1}  = leo_redundant_manager_api:get_members(),
     {Total, Active, Members_2} =
         lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
@@ -1654,8 +1827,8 @@ is_allow_to_distribute_command(Node) ->
                             {Num1+1, Num2, M}
                     end, {0,0,[]}, Members_1),
 
-    NVal = SystemConf#system_conf.n,
-    Diff = case (SystemConf#system_conf.n < 2) of
+    NVal = SystemConf#?SYSTEM_CONF.n,
+    Diff = case (SystemConf#?SYSTEM_CONF.n < 2) of
                true  -> 0;
                false -> NVal - (NVal - 1)
            end,
