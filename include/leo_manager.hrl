@@ -33,9 +33,11 @@
 -ifdef(TEST).
 -define(DEF_TIMEOUT,           1000). %% 1sec
 -define(DEF_MONITOR_INTERVAL,  3000). %% 3sec
+-define(DEF_PROC_INTERVAL,      100). %% 100ms
 -else.
 -define(DEF_TIMEOUT,         120000). %% 120sec
 -define(DEF_MONITOR_INTERVAL, 20000). %%  20sec
+-define(DEF_PROC_INTERVAL,      250). %% 100ms
 -endif.
 
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").

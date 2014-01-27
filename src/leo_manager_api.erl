@@ -553,7 +553,7 @@ start_1(_,[],_,_) ->
 start_1(Pid, [Node|Rest], Members, SystemConf) ->
     spawn(
       fun() ->
-              timer:sleep(erlang:phash2(leo_date:clock(), 250)),
+              timer:sleep(erlang:phash2(leo_date:clock(), ?DEF_PROC_INTERVAL)),
               Reply = case rpc:call(Node, ?API_STORAGE, start,
                                     [Members, Members, SystemConf], ?DEF_TIMEOUT) of
                           {ok, Ret} ->
@@ -636,6 +636,8 @@ output_message_to_console(Socket, State, MsgBin) ->
 rebalance(Socket) ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, Members_1} ->
+            ok = output_message_to_console(
+                   Socket, <<"Generating rebalance-list...">>),
             {State, Nodes} =
                 lists:foldl(
                   fun(#member{state = ?STATE_RUNNING },{false, AccN}) ->
@@ -654,6 +656,9 @@ rebalance(Socket) ->
 
             case rebalance_1(State, Nodes) of
                 {ok, RetRebalance} ->
+                    ok = output_message_to_console(
+                           Socket, <<"Generated rebalance-list">>),
+
                     case get_members_of_all_versions() of
                         {ok, {MembersCur, MembersPrev}} ->
                             {ok, SystemConf}  = leo_redundant_manager_tbl_conf:get(),
@@ -663,6 +668,8 @@ rebalance(Socket) ->
                                                                      rebalance_list = RetRebalance},
                             case rebalance_3(Nodes, RebalanceProcInfo) of
                                 ok ->
+                                    ok = output_message_to_console(
+                                           Socket, <<"Distributing rebalance-list to the storage nodes">>),
                                     ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
                                     rebalance_4_loop(Socket, 0, length(MembersCur));
                                 {error, Cause}->
@@ -795,6 +802,7 @@ rebalance_4( Pid, [#member{node  = Node,
 
     spawn(
       fun() ->
+              timer:sleep(erlang:phash2(leo_date:clock(), ?DEF_PROC_INTERVAL)),
               Ret = case catch rpc:call(Node, ?API_STORAGE, rebalance,
                                         [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
                         {ok, Hashes} ->
