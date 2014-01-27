@@ -806,13 +806,10 @@ rebalance_4( Pid, [#member{node  = Node,
               Ret = case catch rpc:call(Node, ?API_STORAGE, rebalance,
                                         [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
                         {ok, Hashes} ->
-                            {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
-                            _ = leo_manager_mnesia:update_storage_node_status(
-                                  update_chksum,
-                                  #node_state{
-                                     node = Node,
-                                     ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                     ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
+                            ok = synchronize_2(Node, Hashes),
+
+                            SleepTime = erlang:phash2(leo_date:clock(), ?DEF_PROC_INTERVAL) + 10000,
+                            timer:apply_after(SleepTime, ?MODULE, synchronize, [?CHECKSUM_RING, Node]),
                             ok;
                         {_, Cause} ->
                             {error, Cause};
@@ -1523,7 +1520,8 @@ synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
 
     case rpc:call(Node, leo_redundant_manager_api, checksum,
                   [?CHECKSUM_RING], ?DEF_TIMEOUT) of
-        {ok, {R_RingHashCur, R_RingHashPrev}} ->
+        {ok, {R_RingHashCur, R_RingHashPrev} = Hashes} ->
+            ok = synchronize_2(Node, [{?CHECKSUM_RING, Hashes}]),
             CheckHash = case Type of
                             ?SYNC_TARGET_RING_CUR  when L_RingHashCur  == R_RingHashCur  -> true;
                             ?SYNC_TARGET_RING_PREV when L_RingHashPrev == R_RingHashPrev -> true;
