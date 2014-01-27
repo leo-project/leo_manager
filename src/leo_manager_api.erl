@@ -522,8 +522,12 @@ update_manager_nodes(_Managers,_Error) ->
              ok | {error, any()}).
 start(Socket) ->
     %% Create current and previous RING(routing-table)
+    ok = output_message_to_console(Socket, <<"Generating RING...">>),
+
     case leo_redundant_manager_api:create() of
         {ok, Members, _Chksums} ->
+            ok = output_message_to_console(Socket, <<"Generated RING">>),
+
             %% Retrieve system-configuration
             %% Then launch storage-cluster
             Nodes = [N || #member{node = N} <- Members],
@@ -549,6 +553,7 @@ start_1(_,[],_,_) ->
 start_1(Pid, [Node|Rest], Members, SystemConf) ->
     spawn(
       fun() ->
+              timer:sleep(erlang:phash2(leo_date:clock(), 250)),
               Reply = case rpc:call(Node, ?API_STORAGE, start,
                                     [Members, Members, SystemConf], ?DEF_TIMEOUT) of
                           {ok, Ret} ->
@@ -606,6 +611,12 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
 
 %% Output a message to the console
 %% @private
+
+output_message_to_console(null,_MsgBin) ->
+    ok;
+output_message_to_console(Socket, MsgBin) ->
+    ok = gen_tcp:send(Socket, << MsgBin/binary, "\r\n" >>).
+
 -spec(output_message_to_console(port()|[], binary(), binary()) ->
              ok).
 output_message_to_console(null, _State,_MsgBin) ->
