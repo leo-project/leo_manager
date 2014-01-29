@@ -807,9 +807,6 @@ rebalance_4( Pid, [#member{node  = Node,
                                         [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
                         {ok, Hashes} ->
                             ok = synchronize_2(Node, Hashes),
-
-                            SleepTime = erlang:phash2(leo_date:clock(), ?DEF_PROC_INTERVAL) + 10000,
-                            timer:apply_after(SleepTime, ?MODULE, synchronize, [?CHECKSUM_RING, Node]),
                             ok;
                         {_, Cause} ->
                             {error, Cause};
@@ -1387,7 +1384,36 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
             {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
-    end.
+    end;
+
+%% @doc Compare local ring checksum with remote it
+%%
+synchronize(Node) when is_atom(Node) ->
+    case leo_redundant_manager_api:checksum(ring) of
+        {ok, {RingHashCur, RingHashPrev}} ->
+            case leo_manager_mnesia:get_storage_node_by_name(Node) of
+                {ok, [#node_state{ring_hash_new = RingHashCurHex,
+                                  ring_hash_old = RingHashPrevHex}|_]} ->
+                    RingHashCur_1  = leo_hex:hex_to_integer(RingHashCurHex),
+                    RingHashPrev_1 = leo_hex:hex_to_integer(RingHashPrevHex),
+
+                    case (RingHashCur  /= RingHashCur_1 orelse
+                          RingHashPrev /= RingHashPrev_1) of
+                        true ->
+                            synchronize(?CHECKSUM_RING, Node);
+                        false ->
+                            void
+                    end;
+                _ ->
+                    void
+            end;
+        _ ->
+            void
+    end,
+    ok;
+synchronize(_) ->
+    {error, ?ERROR_INVALID_ARGS}.
+
 
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER ->

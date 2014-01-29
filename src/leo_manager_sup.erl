@@ -105,11 +105,15 @@ start_link() ->
 
             %% Launch Redundant-manager
             SystemConf = leo_manager_api:load_system_config(),
+            MembershipCallback = fun leo_manager_api:synchronize/1,
+
             ChildSpec  = case Mode of
                              master ->
                                  {leo_redundant_manager_sup,
                                   {leo_redundant_manager_sup, start_link,
-                                   [Mode, ReplicaNodes_1, ?env_queue_dir(leo_manager),
+                                   [Mode,
+                                    ReplicaNodes_1,
+                                    ?env_queue_dir(leo_manager),
                                     [{n,           SystemConf#?SYSTEM_CONF.n},
                                      {r,           SystemConf#?SYSTEM_CONF.r},
                                      {w,           SystemConf#?SYSTEM_CONF.w},
@@ -117,12 +121,21 @@ start_link() ->
                                      {bit_of_ring, SystemConf#?SYSTEM_CONF.bit_of_ring},
                                      {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
                                      {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
-                                    ]]},
+                                    ],
+                                    MembershipCallback
+                                   ]
+                                  },
                                   permanent, 2000, supervisor, [leo_redundant_manager_sup]};
                              _ ->
                                  {leo_redundant_manager_sup,
                                   {leo_redundant_manager_sup, start_link,
-                                   [Mode, ReplicaNodes_1, ?env_queue_dir(leo_manager)]},
+                                   [Mode,
+                                    ReplicaNodes_1,
+                                    ?env_queue_dir(leo_manager),
+                                    [],
+                                    MembershipCallback
+                                   ]
+                                  },
                                   permanent, 2000, supervisor, [leo_redundant_manager_sup]}
                          end,
             {ok, _} = supervisor:start_child(Pid, ChildSpec),
