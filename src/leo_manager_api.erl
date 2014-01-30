@@ -174,8 +174,10 @@ get_members_of_all_versions() ->
             case leo_redundant_manager_api:get_members(?VER_PREV) of
                 {ok, MembersPrev} ->
                     {ok, {MembersCur, MembersPrev}};
-                not_found ->
-                    {error, not_found};
+                not_found = Cause ->
+                    {error, Cause};
+                {error, not_found = Cause} ->
+                    {error, Cause};
                 {error, Cause} ->
                     ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
                     {error, Cause}
@@ -1389,7 +1391,7 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
 %% @doc Compare local ring checksum with remote it
 %%
 synchronize(Node) when is_atom(Node) ->
-    case leo_redundant_manager_api:checksum(ring) of
+    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
         {ok, {RingHashCur, RingHashPrev}} ->
             case leo_manager_mnesia:get_storage_node_by_name(Node) of
                 {ok, [#node_state{ring_hash_new = RingHashCurHex,
