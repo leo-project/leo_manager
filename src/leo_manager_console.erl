@@ -37,7 +37,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
--export([start_link/2, stop/0]).
+-export([start_link/2, start_link/3, stop/0]).
 -export([init/1, handle_call/3]).
 
 
@@ -45,8 +45,10 @@
 %% API
 %%----------------------------------------------------------------------
 start_link(Formatter, Params) ->
-    tcp_server:start_link(?MODULE, [Formatter], Params).
+    start_link(Formatter, Params, undefined).
 
+start_link(Formatter, Params, PluginMod) ->
+    tcp_server:start_link(?MODULE, [Formatter, PluginMod], Params).
 
 stop() ->
     tcp_server:stop().
@@ -55,8 +57,10 @@ stop() ->
 %%----------------------------------------------------------------------
 %% Callback function(s)
 %%----------------------------------------------------------------------
-init([Formatter]) ->
-    {ok, #state{formatter = Formatter}}.
+init([Formatter, PluginMod]) ->
+    {ok, #state{formatter  = Formatter,
+                plugin_mod = PluginMod
+               }}.
 
 
 %%----------------------------------------------------------------------
@@ -702,9 +706,13 @@ handle_call(_Socket, <<?CRLF>>, State) ->
     {reply, "", State};
 
 
-handle_call(_Socket, _Data, #state{formatter = Formatter} = State) ->
+handle_call(_Socket, _Data, #state{formatter = Formatter,
+                                   plugin_mod = undefined} = State) ->
     Reply = Formatter:error(?ERROR_NOT_SPECIFIED_COMMAND),
-    {reply, Reply, State}.
+    {reply, Reply, State};
+
+handle_call(Socket, Data, #state{plugin_mod = PluginMod} = State) ->
+    PluginMod:call(Socket, Data, State).
 
 
 %%----------------------------------------------------------------------

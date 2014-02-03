@@ -301,13 +301,15 @@
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
                 user_id = []      :: string(),
-                password = []     :: string()
+                password = []     :: string(),
+                plugin_mod        :: atom()
                }).
 -else.
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
                 user_id = []      :: string(),
-                password = []     :: string()
+                password = []     :: string(),
+                plugin_mod        :: atom()
                }).
 -endif.
 
@@ -345,6 +347,12 @@
         case application:get_env(leo_manager, manager_partners) of
             {ok, EnvPartnerOfManagerNode} -> EnvPartnerOfManagerNode;
             _ -> []
+        end).
+
+-define(env_plugin_mod(),
+        case application:get_env(leo_manager, plugin_mod) of
+            {ok, EnvPluginMod} -> EnvPluginMod;
+            _ -> undefined
         end).
 
 -define(env_listening_port_cui(),

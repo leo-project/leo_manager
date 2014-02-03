@@ -40,13 +40,13 @@ behaviour_info(_Other) ->
 
 
 %% External APIs
-start_link(Module, Args, Option) ->
+start_link(Module, Args, Params) ->
     case Module:init(Args) of
         {ok, State}  ->
-            case gen_tcp:listen(Option#tcp_server_params.port,
-                                Option#tcp_server_params.listen) of
+            case gen_tcp:listen(Params#tcp_server_params.port,
+                                Params#tcp_server_params.listen) of
                 {ok, Socket} ->
-                    add_listener(Socket, State, Module, Option);
+                    add_listener(Socket, State, Module, Params);
                 {error, Reason} ->
                     {error, Reason}
             end;
@@ -64,15 +64,15 @@ stop() ->
 %% ---------------------------------------------------------------------
 %% Internal Functions
 %% ---------------------------------------------------------------------
-add_listener(Socket, State, Module, Option) ->
-    Index = Option#tcp_server_params.num_of_listeners,
-    add_listener(Index, Socket, State, Module, Option).
+add_listener(Socket, State, Module, Params) ->
+    Index = Params#tcp_server_params.num_of_listeners,
+    add_listener(Index, Socket, State, Module, Params).
 
 add_listener(0,_,_,_,_) ->
     ok;
-add_listener(Index, Socket, State, Module, Option) ->
+add_listener(Index, Socket, State, Module, Params) ->
     AcceptorName = list_to_atom(
-                     lists:append([Option#tcp_server_params.prefix_of_name,
+                     lists:append([Params#tcp_server_params.prefix_of_name,
                                    integer_to_list(Index)])),
     ChildSpec = {AcceptorName,
                  {tcp_server_acceptor,
@@ -80,11 +80,11 @@ add_listener(Index, Socket, State, Module, Option) ->
                                Socket,
                                State,
                                Module,
-                               Option]},
+                               Params]},
                  permanent,
-                 Option#tcp_server_params.shutdown,
+                 Params#tcp_server_params.shutdown,
                  worker,
                  [tcp_server_acceptor]},
     {ok, _Pid} = supervisor:start_child(tcp_server_sup, ChildSpec),
-    add_listener(Index - 1, Socket, State, Module, Option).
+    add_listener(Index - 1, Socket, State, Module, Params).
 
