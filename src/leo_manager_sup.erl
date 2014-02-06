@@ -85,9 +85,9 @@ start_link() ->
             JSON_Console = #tcp_server_params{prefix_of_name  = "tcp_server_json_",
                                               port = ?env_listening_port_json(),
                                               num_of_listeners = ?env_num_of_acceptors_json()},
-            PluginMod = ?env_plugin_mod(),
-            ok = leo_manager_console:start_link(leo_manager_formatter_text, CUI_Console,  PluginMod),
-            ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console, PluginMod),
+            PluginModConsole = ?env_plugin_mod_console(),
+            ok = leo_manager_console:start_link(leo_manager_formatter_text, CUI_Console,  PluginModConsole),
+            ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console, PluginModConsole),
 
             %% Launch Logger
             ok = leo_logger_client_message:new(
@@ -106,37 +106,37 @@ start_link() ->
             SystemConf = leo_manager_api:load_system_config(),
             MembershipCallback = fun leo_manager_api:synchronize/1,
 
-            ChildSpec  = case Mode of
-                             master ->
-                                 {leo_redundant_manager_sup,
-                                  {leo_redundant_manager_sup, start_link,
-                                   [Mode,
-                                    ReplicaNodes_1,
-                                    ?env_queue_dir(leo_manager),
-                                    [{n,           SystemConf#?SYSTEM_CONF.n},
-                                     {r,           SystemConf#?SYSTEM_CONF.r},
-                                     {w,           SystemConf#?SYSTEM_CONF.w},
-                                     {d,           SystemConf#?SYSTEM_CONF.d},
-                                     {bit_of_ring, SystemConf#?SYSTEM_CONF.bit_of_ring},
-                                     {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
-                                     {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
-                                    ],
-                                    MembershipCallback
-                                   ]
-                                  },
-                                  permanent, 2000, supervisor, [leo_redundant_manager_sup]};
-                             _ ->
-                                 {leo_redundant_manager_sup,
-                                  {leo_redundant_manager_sup, start_link,
-                                   [Mode,
-                                    ReplicaNodes_1,
-                                    ?env_queue_dir(leo_manager),
-                                    [],
-                                    MembershipCallback
-                                   ]
-                                  },
-                                  permanent, 2000, supervisor, [leo_redundant_manager_sup]}
-                         end,
+            ChildSpec = case Mode of
+                            master ->
+                                {leo_redundant_manager_sup,
+                                 {leo_redundant_manager_sup, start_link,
+                                  [Mode,
+                                   ReplicaNodes_1,
+                                   ?env_queue_dir(leo_manager),
+                                   [{n,           SystemConf#?SYSTEM_CONF.n},
+                                    {r,           SystemConf#?SYSTEM_CONF.r},
+                                    {w,           SystemConf#?SYSTEM_CONF.w},
+                                    {d,           SystemConf#?SYSTEM_CONF.d},
+                                    {bit_of_ring, SystemConf#?SYSTEM_CONF.bit_of_ring},
+                                    {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
+                                    {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
+                                   ],
+                                   MembershipCallback
+                                  ]
+                                 },
+                                 permanent, 2000, supervisor, [leo_redundant_manager_sup]};
+                            _ ->
+                                {leo_redundant_manager_sup,
+                                 {leo_redundant_manager_sup, start_link,
+                                  [Mode,
+                                   ReplicaNodes_1,
+                                   ?env_queue_dir(leo_manager),
+                                   [],
+                                   MembershipCallback
+                                  ]
+                                 },
+                                 permanent, 2000, supervisor, [leo_redundant_manager_sup]}
+                        end,
             {ok, _} = supervisor:start_child(Pid, ChildSpec),
 
             %% Launch S3Libs:Auth/Bucket/EndPoint
@@ -299,6 +299,12 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                         leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2);
                     false ->
                         void
+                end,
+
+                %% Call plugin-mod for creating mnesia-table(s)
+                case ?env_plugin_mod_mnesia() of
+                    undefined -> void;
+                    PluginModMneisa -> catch PluginModMneisa:call(disc_copies, Nodes_1)
                 end,
                 ok
             catch _:Reason ->

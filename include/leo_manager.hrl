@@ -349,12 +349,6 @@
             _ -> []
         end).
 
--define(env_plugin_mod(),
-        case application:get_env(leo_manager, plugin_mod) of
-            {ok, EnvPluginMod} -> EnvPluginMod;
-            _ -> undefined
-        end).
-
 -define(env_listening_port_cui(),
         case application:get_env(leo_manager, port_cui) of
             {ok, EnvCUIListeningPort} -> EnvCUIListeningPort;
@@ -433,4 +427,19 @@
                 _EnvQueueDir;
             _ ->
                 ?DEF_QUEUE_DIR
+        end).
+
+
+%% @doc Plugin-related macros
+%%
+-define(env_plugin_mod_console(),
+        case application:get_env(leo_manager, plugin_mod_console) of
+            {ok, EnvPluginModConsole} -> EnvPluginModConsole;
+            _ -> undefined
+        end).
+
+-define(env_plugin_mod_mnesia(),
+        case application:get_env(leo_manager, plugin_mod_mnesia) of
+            {ok, EnvPluginModMnesia} -> EnvPluginModMnesia;
+            _ -> undefined
         end).
