@@ -68,9 +68,8 @@ transform() ->
     %% call plugin-mod for creating mnesia-table(s)
     case ?env_plugin_mod_mnesia() of
         undefined ->
-            ?debugVal(undefined),
             void;
-        PluginModMnesia -> ?debugVal(PluginModMnesia),
-                           catch PluginModMnesia:call(disc_copies, ReplicaNodes)
+        PluginModMnesia ->
+            catch PluginModMnesia:call(disc_copies, ReplicaNodes)
     end,
     ok.
