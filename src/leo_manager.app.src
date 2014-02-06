@@ -23,19 +23,28 @@
 {application, leo_manager,
  [
   {description, "LeoFS Manager"},
-  {vsn, "1.0.0-pre2"},
+  {vsn, "1.0.0-pre3"},
   {id,  "leo_manager"},
   {registered,   []},
   {applications, [kernel, stdlib, crypto]},
   {mod, {leo_manager_app, []}},
-  {env, [{system, [{n, 2},
+  {env, [{system, [{n, 1},
                    {w, 1},
                    {r, 1},
                    {d, 1},
                    {bit_of_ring, 128}
                   ]},
+         {manager_mode,master},
+         {manager_partners,[]},
+         {port_cui, 10010},
+         {port_json,10020},
+         {num_of_acceptors_cui,  3},
+         {num_of_acceptors_json,16},
+         {snmp_agent, "./snmp/snmpa_manager_0/LEO-MANAGER"},
+         {queue_dir,  "./work/queue"},
+         {log_dir,    "./log/erlang"},
          {log_level,    0},
-         {log_appender, [file]}
+         {log_appender, [{file,[{path,"./log/app"}]}]}
         ]}
  ]
 }.

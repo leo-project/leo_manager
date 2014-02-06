@@ -429,6 +429,8 @@
                 ?DEF_QUEUE_DIR
         end).
 
+-define(DEF_MNESIA_DIR, "./work/mnesia/127.0.0.1").
+
 
 %% @doc Plugin-related macros
 %%

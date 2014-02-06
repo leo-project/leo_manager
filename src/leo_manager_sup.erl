@@ -90,14 +90,20 @@ start_link() ->
             ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console, PluginModConsole),
 
             %% Launch Logger
+            LogDir   = ?env_log_dir(),
+            LogLevel = ?env_log_level(leo_manager),
             ok = leo_logger_client_message:new(
-                   ?env_log_dir(), ?env_log_level(leo_manager), log_file_appender()),
+                   LogDir, LogLevel, log_file_appender()),
 
             %% Launch Statistics
-            ok = leo_statistics_api:start_link(leo_manager),
-            ok = leo_statistics_metrics_vm:start_link(?STATISTICS_SYNC_INTERVAL),
-            ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_S),
-            ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_L),
+            case leo_statistics_api:start_link(leo_manager) of
+                ok ->
+                    ok = leo_statistics_metrics_vm:start_link(?STATISTICS_SYNC_INTERVAL),
+                    ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_S),
+                    ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_L);
+                {_, Cause} ->
+                    ?error("start_link/0", "cause:~p", [Cause])
+            end,
 
             %% Launch MQ
             ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
@@ -150,8 +156,11 @@ start_link() ->
             ok = application:start(leo_rpc),
 
             %% Launch Mnesia and create that tables
-            {ok, Dir} = application:get_env(mnesia, dir),
-            case filelib:fold_files(Dir, "\\.DCD$", false,
+            MnesiaDir = case application:get_env(mnesia, dir) of
+                            {ok, Dir} -> Dir;
+                            undefined -> ?DEF_MNESIA_DIR
+                        end,
+            case filelib:fold_files(MnesiaDir, "\\.DCD$", false,
                                     fun(X, Acc) ->
                                             [X|Acc]
                                     end, []) of
@@ -301,19 +310,13 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                         void
                 end,
 
-                %% Call plugin-mod for creating mnesia-table(s)
-                case ?env_plugin_mod_mnesia() of
-                    undefined -> void;
-                    PluginModMneisa -> catch PluginModMneisa:call(disc_copies, Nodes_1)
-                end,
-                ok
+                create_mnesia_tables_2()
             catch _:Reason ->
                     ?error("create_mnesia_tables_1/2", "cause:~p", [Reason])
             end,
             ok;
         {error,{_,{already_exists, _}}} ->
-            create_mnesia_tables_2(),
-            ok;
+            create_mnesia_tables_2();
         {_, Cause} ->
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes]),
             ?error("create_mnesia_tables_1/2", "cause:~p", [Cause]),
@@ -350,7 +353,8 @@ create_mnesia_tables_2() ->
 log_file_appender() ->
     case application:get_env(leo_manager, log_appender) of
         undefined   -> log_file_appender([], []);
-        {ok, Value} -> log_file_appender(Value, [])
+        {ok, Value} -> ?debugVal(Value),
+                       log_file_appender(Value, [])
     end.
 
 -spec(log_file_appender(list(), list()) ->

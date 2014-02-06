@@ -64,4 +64,13 @@ transform() ->
 
     %% data migration - ring
     ok = leo_ring_tbl_transformer:transform(),
+
+    %% call plugin-mod for creating mnesia-table(s)
+    case ?env_plugin_mod_mnesia() of
+        undefined ->
+            ?debugVal(undefined),
+            void;
+        PluginModMnesia -> ?debugVal(PluginModMnesia),
+                           catch PluginModMnesia:call(disc_copies, ReplicaNodes)
+    end,
     ok.
