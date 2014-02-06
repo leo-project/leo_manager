@@ -97,10 +97,10 @@
  "leo_manager.system_version",
  [
   {datatype, string},
-  {default, "undefined"}
+  {default, "1.0.0-pre3"}
  ]}.
 
-%% @doc Mode of Manager: [master, slave]
+%% @doc Mode of Manager: [master|slave]
 {mapping,
  "manager.mode",
  "leo_manager.manager_mode",
