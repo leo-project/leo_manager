@@ -712,7 +712,7 @@ handle_call(_Socket, _Data, #state{formatter = Formatter,
     {reply, Reply, State};
 
 handle_call(Socket, Data, #state{plugin_mod = PluginMod} = State) ->
-    PluginMod:call(Socket, Data, State).
+    PluginMod:handle_call(Socket, Data, State).
 
 
 %%----------------------------------------------------------------------
