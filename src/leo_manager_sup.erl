@@ -242,7 +242,6 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
-                SystemConf = leo_manager_api:load_system_config(),
                 leo_redundant_manager_tbl_conf:create_table(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, Nodes_1),
                 leo_redundant_manager_tbl_cluster_stat:create_table(disc_copies, Nodes_1),
