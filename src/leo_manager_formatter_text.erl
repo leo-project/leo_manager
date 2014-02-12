@@ -108,13 +108,7 @@ help(PluginMod) ->
                                  ?CMD_UPDATE_ACL], []),
                            help("[Multi-DC Replication]\r\n",
                                 [?CMD_JOIN_CLUSTER,
-                                 ?CMD_REMOVE_CLUSTER], []),
-                           help("[Misc]\r\n",
-                                [?CMD_VERSION,
-                                 ?CMD_STATUS,
-                                 ?CMD_HISTORY,
-                                 ?CMD_DUMP_RING,
-                                 ?CMD_QUIT], [])]),
+                                 ?CMD_REMOVE_CLUSTER], [])]),
     Help_2 = case PluginMod of
                  undefined -> [];
                  _ ->
