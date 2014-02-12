@@ -120,7 +120,13 @@ help(PluginMod) ->
                  _ ->
                      PluginMod:help()
              end,
-    lists:append([Help_1, Help_2]).
+    Help_3 = lists:append([help("[Misc]\r\n",
+                                [?CMD_VERSION,
+                                 ?CMD_STATUS,
+                                 ?CMD_HISTORY,
+                                 ?CMD_DUMP_RING,
+                                 ?CMD_QUIT], [])]),
+    lists:append([Help_1, Help_2, Help_3]).
 
 
 %% @private
