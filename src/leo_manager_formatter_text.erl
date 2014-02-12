@@ -35,7 +35,7 @@
 -include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--export([ok/0, error/1, error/2, help/0, version/1,
+-export([ok/0, error/1, error/2, help/1, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
@@ -70,71 +70,80 @@ error(Node, Cause) ->
 
 %% @doc Format 'help'
 %%
--spec(help() ->
+-spec(help(undefined | atom()) ->
              string()).
-help() ->
-    lists:append([help("[Cluster Operation]\r\n",
-                       [?CMD_DETACH,
-                        ?CMD_SUSPEND,
-                        ?CMD_RESUME,
-                        ?CMD_START,
-                        ?CMD_REBALANCE,
-                        ?CMD_WHEREIS,
-                        ?CMD_RECOVER], []),
-                  help("[Storage Maintenance]\r\n",
-                       [?CMD_DU,
-                        ?CMD_COMPACT], []),
-                  help("[Gateway Maintenance]\r\n",
-                       [?CMD_PURGE,
-                        ?CMD_REMOVE], []),
-                  help("[Manager Maintenance]\r\n",
-                       [?CMD_UPDATE_MANAGERS,
-                        ?CMD_BACKUP_MNESIA,
-                        ?CMD_RESTORE_MNESIA], []),
-                  help("[S3-related Maintenance]\r\n",
-                       [?CMD_CREATE_USER,
-                        ?CMD_DELETE_USER,
-                        ?CMD_UPDATE_USER_ROLE,
-                        ?CMD_UPDATE_USER_PW,
-                        ?CMD_GET_USERS,
-                        ?CMD_ADD_ENDPOINT,
-                        ?CMD_DEL_ENDPOINT,
-                        ?CMD_GET_ENDPOINTS,
-                        ?CMD_ADD_BUCKET,
-                        ?CMD_DELETE_BUCKET,
-                        ?CMD_GET_BUCKETS,
-                        ?CMD_GET_BUCKET_BY_ACCESS_KEY,
-                        ?CMD_CHANGE_BUCKET_OWNER,
-                        ?CMD_UPDATE_ACL], []),
-                  help("[Multi-DC Replication]\r\n",
-                       [?CMD_JOIN_CLUSTER,
-                        ?CMD_REMOVE_CLUSTER], []),
-                  help("[Misc]\r\n",
-                       [?CMD_VERSION,
-                        ?CMD_STATUS,
-                        ?CMD_HISTORY,
-                        ?CMD_DUMP_RING,
-                        ?CMD_QUIT], [])]).
+help(PluginMod) ->
+    Help_1 = lists:append([help("[Cluster Operation]\r\n",
+                                [?CMD_DETACH,
+                                 ?CMD_SUSPEND,
+                                 ?CMD_RESUME,
+                                 ?CMD_START,
+                                 ?CMD_REBALANCE,
+                                 ?CMD_WHEREIS,
+                                 ?CMD_RECOVER], []),
+                           help("[Storage Maintenance]\r\n",
+                                [?CMD_DU,
+                                 ?CMD_COMPACT], []),
+                           help("[Gateway Maintenance]\r\n",
+                                [?CMD_PURGE,
+                                 ?CMD_REMOVE], []),
+                           help("[Manager Maintenance]\r\n",
+                                [?CMD_UPDATE_MANAGERS,
+                                 ?CMD_BACKUP_MNESIA,
+                                 ?CMD_RESTORE_MNESIA], []),
+                           help("[S3-related Maintenance]\r\n",
+                                [?CMD_CREATE_USER,
+                                 ?CMD_DELETE_USER,
+                                 ?CMD_UPDATE_USER_ROLE,
+                                 ?CMD_UPDATE_USER_PW,
+                                 ?CMD_GET_USERS,
+                                 ?CMD_ADD_ENDPOINT,
+                                 ?CMD_DEL_ENDPOINT,
+                                 ?CMD_GET_ENDPOINTS,
+                                 ?CMD_ADD_BUCKET,
+                                 ?CMD_DELETE_BUCKET,
+                                 ?CMD_GET_BUCKETS,
+                                 ?CMD_GET_BUCKET_BY_ACCESS_KEY,
+                                 ?CMD_CHANGE_BUCKET_OWNER,
+                                 ?CMD_UPDATE_ACL], []),
+                           help("[Multi-DC Replication]\r\n",
+                                [?CMD_JOIN_CLUSTER,
+                                 ?CMD_REMOVE_CLUSTER], []),
+                           help("[Misc]\r\n",
+                                [?CMD_VERSION,
+                                 ?CMD_STATUS,
+                                 ?CMD_HISTORY,
+                                 ?CMD_DUMP_RING,
+                                 ?CMD_QUIT], [])]),
+    Help_2 = case PluginMod of
+                 undefined -> [];
+                 _ ->
+                     PluginMod:help()
+             end,
+    lists:append([Help_1, Help_2]).
+
 
 %% @private
-help(Command) ->
-    case leo_manager_mnesia:get_available_command_by_name(Command) of
-        {ok, [#cmd_state{help = Help}|_]} ->
-            io_lib:format("~s\r\n",[Help]);
-        _ ->
-            []
-    end.
 help(_, [], []) ->
     [];
 help(Header, [], Acc) ->
     lists:append([[Header], Acc, [?CRLF]]);
 help(Header, [Command|Rest], Acc) ->
-    case help(Command) of
+    case get_formatted_help(Command) of
         [] ->
             help(Header, Rest, Acc);
         Res ->
             Acc1 = lists:append([Acc, [Res]]),
             help(Header, Rest, Acc1)
+    end.
+
+%% @private
+get_formatted_help(Command) ->
+    case leo_manager_mnesia:get_available_command_by_name(Command) of
+        {ok, [#cmd_state{help = Help}|_]} ->
+            io_lib:format("~s\r\n", [Help]);
+        _ ->
+            []
     end.
 
 
@@ -450,40 +459,44 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
                    Fun(LastStart), Fun(LastEnd)]);
 
 du(detail, StatsList) when is_list(StatsList) ->
-    Fun = fun(Stats, Acc) ->
-                  case Stats of
-                      {ok, #storage_stats{file_path   = FilePath,
-                                          compaction_histories = Histories,
-                                          total_sizes = TotalSize,
-                                          active_sizes = ActiveSize,
-                                          total_num  = Total,
-                                          active_num = Active}} ->
-                          {LatestStart1, LatestEnd1} = case length(Histories) of
-                                                           0 -> {?NULL_DATETIME, ?NULL_DATETIME};
-                                                           _ ->
-                                                               {StartComp, FinishComp} = hd(Histories),
-                                                               {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
-                                                       end,
-                          Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
+    Fun = fun({ok, #storage_stats{file_path   = FilePath,
+                                  compaction_histories = Histories,
+                                  total_sizes = TotalSize,
+                                  active_sizes = ActiveSize,
+                                  total_num  = Total,
+                                  active_num = Active}}, Acc) ->
+                  {LatestStart1, LatestEnd1} =
+                      case length(Histories) of
+                          0 -> {?NULL_DATETIME, ?NULL_DATETIME};
+                          _ ->
+                              {StartComp, FinishComp} = hd(Histories),
+                              {leo_date:date_format(StartComp),
+                               leo_date:date_format(FinishComp)}
+                      end,
+                  Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
-                          lists:append([Acc, io_lib:format(
-                                               lists:append(["              file path: ~s\r\n",
-                                                             " active number of objects: ~w\r\n",
-                                                             "  total number of objects: ~w\r\n",
-                                                             "   active size of objects: ~w\r\n"
-                                                             "    total size of objects: ~w\r\n",
-                                                             "     ratio of active size: ~w%\r\n",
-                                                             "    last compaction start: ~s\r\n"
-                                                             "      last compaction end: ~s\r\n\r\n"]),
-                                               [FilePath, Active, Total,
-                                                ActiveSize, TotalSize, Ratio,
-                                                LatestStart1, LatestEnd1])]);
-                      _Error ->
-                          Acc
-                  end
+                  lists:append([Acc,
+                                io_lib:format(
+                                  lists:append(["              file path: ~s\r\n",
+                                                " active number of objects: ~w\r\n",
+                                                "  total number of objects: ~w\r\n",
+                                                "   active size of objects: ~w\r\n"
+                                                "    total size of objects: ~w\r\n",
+                                                "     ratio of active size: ~w%\r\n",
+                                                "    last compaction start: ~s\r\n"
+                                                "      last compaction end: ~s\r\n\r\n"]),
+                                  [FilePath,
+                                   Active,
+                                   Total,
+                                   ActiveSize,
+                                   TotalSize,
+                                   Ratio,
+                                   LatestStart1,
+                                   LatestEnd1])]);
+             (_Error, Acc) ->
+                  Acc
           end,
     lists:append([lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList), "\r\n"]);
-
 du(_, _) ->
     [].
 
@@ -555,12 +568,18 @@ endpoints(EndPoints) ->
                           end, 8, EndPoints),
     Col2Len = 26,
 
-    Header = lists:append([string:left("endpoint", Col1Len), " | ", string:left("created at", Col2Len), "\r\n",
-                           lists:duplicate(Col1Len, "-"),    "-+-", lists:duplicate(Col2Len, "-"),      "\r\n"]),
+    Header = lists:append([string:left("endpoint", Col1Len),
+                           " | ",
+                           string:left("created at", Col2Len),
+                           "\r\n",
+                           lists:duplicate(Col1Len, "-"),
+                           "-+-", lists:duplicate(Col2Len, "-"),
+                           "\r\n"]),
     Fun = fun({endpoint, EP, Created}, Acc) ->
                   EndpointStr = binary_to_list(EP),
                   Acc ++ io_lib:format("~s | ~s\r\n",
-                                       [string:left(EndpointStr,Col1Len), leo_date:date_format(Created)])
+                                       [string:left(EndpointStr,Col1Len),
+                                        leo_date:date_format(Created)])
           end,
     lists:append([lists:foldl(Fun, Header, EndPoints), "\r\n"]).
 
@@ -635,9 +654,10 @@ bucket_by_access_key(Buckets) ->
         lists:foldl(fun(#?BUCKET{name = Bucket,
                                  acls = Permissions}, {C1, C2}) ->
                             BucketStr = binary_to_list(Bucket),
-                            PermissionsStr = string:join([atom_to_list(Item)
-                                                          || #bucket_acl_info{permissions = [Item|_]}
-                                                                 <- Permissions], ","),
+                            PermissionsStr = string:join(
+                                               [atom_to_list(Item)
+                                                || #bucket_acl_info{permissions = [Item|_]}
+                                                       <- Permissions], ","),
                             Len1 = length(BucketStr),
                             Len2 = length(PermissionsStr),
                             {case (Len1 > C1) of
@@ -770,7 +790,9 @@ histories(Histories) ->
                        command = Command,
                        created = Created}, Acc) ->
                   Acc ++ io_lib:format("~s | ~s | ~s\r\n",
-                                       [string:left(integer_to_list(Id), 4), leo_date:date_format(Created), Command])
+                                       [string:left(integer_to_list(Id), 4),
+                                        leo_date:date_format(Created),
+                                        Command])
           end,
     lists:foldl(Fun, "[Histories]\r\n", Histories).
 
@@ -812,7 +834,9 @@ acls(ACLs) ->
                                   1 ->
                                       "~s | ~s\r\n";
                                   N ->
-                                      lists:flatten(lists:append(["~s | ~s", lists:duplicate(N-1, ", ~s"), "\r\n"]))
+                                      lists:flatten(lists:append(["~s | ~s",
+                                                                  lists:duplicate(N-1, ", ~s"),
+                                                                  "\r\n"]))
                               end,
                   Acc ++ io_lib:format(FormatStr,
                                        [string:left(UserStr, Col1Len)] ++ Permissions)

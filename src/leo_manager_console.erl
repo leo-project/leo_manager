@@ -68,8 +68,10 @@ init([Formatter, PluginMod]) ->
 %%----------------------------------------------------------------------
 %% Command: "help"
 %%
-handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter = Formatter} = State) ->
-    Fun = fun() -> Formatter:help()
+handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter  = Formatter,
+                                                  plugin_mod = PluginMod} = State) ->
+    Fun = fun() ->
+                  Formatter:help(PluginMod)
           end,
     Reply = invoke(?CMD_HELP, Formatter, Fun),
     {reply, Reply, State};
