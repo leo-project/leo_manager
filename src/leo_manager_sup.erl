@@ -98,9 +98,7 @@ start_link() ->
             %% Launch Statistics
             case leo_statistics_api:start_link(leo_manager) of
                 ok ->
-                    ok = leo_statistics_metrics_vm:start_link(?STATISTICS_SYNC_INTERVAL),
-                    ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_S),
-                    ok = leo_statistics_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_L);
+                    leo_metrics_vm:start_link(timer:seconds(5));
                 {_, Cause} ->
                     ?error("start_link/0", "cause:~p", [Cause])
             end,
