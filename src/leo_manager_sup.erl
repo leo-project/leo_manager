@@ -96,12 +96,8 @@ start_link() ->
                    LogDir, LogLevel, log_file_appender()),
 
             %% Launch Statistics
-            case leo_statistics_api:start_link(leo_manager) of
-                ok ->
-                    leo_metrics_vm:start_link(timer:seconds(5));
-                {_, Cause} ->
-                    ?error("start_link/0", "cause:~p", [Cause])
-            end,
+            ok = leo_statistics_api:start_link(leo_manager),
+            ok = leo_metrics_vm:start_link(timer:seconds(10)),
 
             %% Launch MQ
             ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
@@ -306,7 +302,6 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                     false ->
                         void
                 end,
-
                 create_mnesia_tables_2()
             catch _:Reason ->
                     ?error("create_mnesia_tables_1/2", "cause:~p", [Reason])
@@ -350,8 +345,7 @@ create_mnesia_tables_2() ->
 log_file_appender() ->
     case application:get_env(leo_manager, log_appender) of
         undefined   -> log_file_appender([], []);
-        {ok, Value} -> ?debugVal(Value),
-                       log_file_appender(Value, [])
+        {ok, Value} -> log_file_appender(Value, [])
     end.
 
 -spec(log_file_appender(list(), list()) ->
