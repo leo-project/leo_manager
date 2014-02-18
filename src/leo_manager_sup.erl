@@ -97,7 +97,7 @@ start_link() ->
 
             %% Launch Statistics
             ok = leo_statistics_api:start_link(leo_manager),
-            ok = leo_metrics_vm:start_link(timer:seconds(10)),
+            ok = leo_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_10S),
 
             %% Launch MQ
             ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
