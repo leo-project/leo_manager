@@ -174,8 +174,10 @@ get_members_of_all_versions() ->
             case leo_redundant_manager_api:get_members(?VER_PREV) of
                 {ok, MembersPrev} ->
                     {ok, {MembersCur, MembersPrev}};
-                not_found ->
-                    {error, not_found};
+                not_found = Cause ->
+                    {error, Cause};
+                {error, not_found = Cause} ->
+                    {error, Cause};
                 {error, Cause} ->
                     ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
                     {error, Cause}
@@ -522,8 +524,12 @@ update_manager_nodes(_Managers,_Error) ->
              ok | {error, any()}).
 start(Socket) ->
     %% Create current and previous RING(routing-table)
+    ok = output_message_to_console(Socket, <<"Generating RING...">>),
+
     case leo_redundant_manager_api:create() of
         {ok, Members, _Chksums} ->
+            ok = output_message_to_console(Socket, <<"Generated RING">>),
+
             %% Retrieve system-configuration
             %% Then launch storage-cluster
             Nodes = [N || #member{node = N} <- Members],
@@ -549,6 +555,7 @@ start_1(_,[],_,_) ->
 start_1(Pid, [Node|Rest], Members, SystemConf) ->
     spawn(
       fun() ->
+              timer:sleep(erlang:phash2(leo_date:clock(), ?DEF_PROC_INTERVAL)),
               Reply = case rpc:call(Node, ?API_STORAGE, start,
                                     [Members, Members, SystemConf], ?DEF_TIMEOUT) of
                           {ok, Ret} ->
@@ -606,6 +613,12 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
 
 %% Output a message to the console
 %% @private
+
+output_message_to_console(null,_MsgBin) ->
+    ok;
+output_message_to_console(Socket, MsgBin) ->
+    ok = gen_tcp:send(Socket, << MsgBin/binary, "\r\n" >>).
+
 -spec(output_message_to_console(port()|[], binary(), binary()) ->
              ok).
 output_message_to_console(null, _State,_MsgBin) ->
@@ -625,6 +638,8 @@ output_message_to_console(Socket, State, MsgBin) ->
 rebalance(Socket) ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, Members_1} ->
+            ok = output_message_to_console(
+                   Socket, <<"Generating rebalance-list...">>),
             {State, Nodes} =
                 lists:foldl(
                   fun(#member{state = ?STATE_RUNNING },{false, AccN}) ->
@@ -643,6 +658,9 @@ rebalance(Socket) ->
 
             case rebalance_1(State, Nodes) of
                 {ok, RetRebalance} ->
+                    ok = output_message_to_console(
+                           Socket, <<"Generated rebalance-list">>),
+
                     case get_members_of_all_versions() of
                         {ok, {MembersCur, MembersPrev}} ->
                             {ok, SystemConf}  = leo_redundant_manager_tbl_conf:get(),
@@ -652,6 +670,8 @@ rebalance(Socket) ->
                                                                      rebalance_list = RetRebalance},
                             case rebalance_3(Nodes, RebalanceProcInfo) of
                                 ok ->
+                                    ok = output_message_to_console(
+                                           Socket, <<"Distributing rebalance-list to the storage nodes">>),
                                     ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
                                     rebalance_4_loop(Socket, 0, length(MembersCur));
                                 {error, Cause}->
@@ -784,16 +804,11 @@ rebalance_4( Pid, [#member{node  = Node,
 
     spawn(
       fun() ->
+              timer:sleep(erlang:phash2(leo_date:clock(), ?DEF_PROC_INTERVAL)),
               Ret = case catch rpc:call(Node, ?API_STORAGE, rebalance,
                                         [RebalanceList_1, MembersCur, MembersPrev], ?DEF_TIMEOUT) of
                         {ok, Hashes} ->
-                            {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
-                            _ = leo_manager_mnesia:update_storage_node_status(
-                                  update_chksum,
-                                  #node_state{
-                                     node = Node,
-                                     ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                     ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)}),
+                            ok = synchronize_2(Node, Hashes),
                             ok;
                         {_, Cause} ->
                             {error, Cause};
@@ -1371,7 +1386,36 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
             {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
-    end.
+    end;
+
+%% @doc Compare local ring checksum with remote it
+%%
+synchronize(Node) when is_atom(Node) ->
+    case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
+        {ok, {RingHashCur, RingHashPrev}} ->
+            case leo_manager_mnesia:get_storage_node_by_name(Node) of
+                {ok, [#node_state{ring_hash_new = RingHashCurHex,
+                                  ring_hash_old = RingHashPrevHex}|_]} ->
+                    RingHashCur_1  = leo_hex:hex_to_integer(RingHashCurHex),
+                    RingHashPrev_1 = leo_hex:hex_to_integer(RingHashPrevHex),
+
+                    case (RingHashCur  /= RingHashCur_1 orelse
+                          RingHashPrev /= RingHashPrev_1) of
+                        true ->
+                            synchronize(?CHECKSUM_RING, Node);
+                        false ->
+                            void
+                    end;
+                _ ->
+                    void
+            end;
+        _ ->
+            void
+    end,
+    ok;
+synchronize(_) ->
+    {error, ?ERROR_INVALID_ARGS}.
+
 
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER ->
@@ -1504,7 +1548,8 @@ synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
 
     case rpc:call(Node, leo_redundant_manager_api, checksum,
                   [?CHECKSUM_RING], ?DEF_TIMEOUT) of
-        {ok, {R_RingHashCur, R_RingHashPrev}} ->
+        {ok, {R_RingHashCur, R_RingHashPrev} = Hashes} ->
+            ok = synchronize_2(Node, [{?CHECKSUM_RING, Hashes}]),
             CheckHash = case Type of
                             ?SYNC_TARGET_RING_CUR  when L_RingHashCur  == R_RingHashCur  -> true;
                             ?SYNC_TARGET_RING_PREV when L_RingHashPrev == R_RingHashPrev -> true;

@@ -97,7 +97,7 @@
  "leo_manager.system_version",
  [
   {datatype, string},
-  {default, "undefined"}
+  {default, "1.0.0-pre3"}
  ]}.
 
 %% @doc Mode of Manager: [master, slave]
@@ -106,7 +106,7 @@
  "leo_manager.manager_mode",
  [
   {datatype, {enum, [master, slave]}},
-  {default, master}
+  {default, slave}
  ]}.
 
 %% @doc Partner of manager's alias

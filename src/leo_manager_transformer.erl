@@ -64,4 +64,15 @@ transform() ->
 
     %% data migration - ring
     ok = leo_ring_tbl_transformer:transform(),
+
+    %% leo_statistics-related
+    ok = leo_statistics_api:create_tables(disc_copies, ReplicaNodes),
+
+    %% call plugin-mod for creating mnesia-table(s)
+    case ?env_plugin_mod_mnesia() of
+        undefined ->
+            void;
+        PluginModMnesia ->
+            catch PluginModMnesia:call(disc_copies, ReplicaNodes)
+    end,
     ok.

@@ -36,12 +36,6 @@ sasl.error_logger_mf_maxfiles = 10
 ## --------------------------------------------------------------------
 ## MANAGER
 ## --------------------------------------------------------------------
-## LeoFS version
-system_version = 0.16.8.1
-
-## Mode of Manager: [master, slave]
-manager.mode = master
-
 ## Partner of manager's alias
 manager.partner = manager_1@192.168.1.2
 

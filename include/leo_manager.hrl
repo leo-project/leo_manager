@@ -33,9 +33,11 @@
 -ifdef(TEST).
 -define(DEF_TIMEOUT,           1000). %% 1sec
 -define(DEF_MONITOR_INTERVAL,  3000). %% 3sec
+-define(DEF_PROC_INTERVAL,      100). %% 100ms
 -else.
 -define(DEF_TIMEOUT,         120000). %% 120sec
 -define(DEF_MONITOR_INTERVAL, 20000). %%  20sec
+-define(DEF_PROC_INTERVAL,      250). %% 100ms
 -endif.
 
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
@@ -299,13 +301,15 @@
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
                 user_id = []      :: string(),
-                password = []     :: string()
+                password = []     :: string(),
+                plugin_mod        :: atom()
                }).
 -else.
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
                 user_id = []      :: string(),
-                password = []     :: string()
+                password = []     :: string(),
+                plugin_mod        :: atom()
                }).
 -endif.
 
@@ -423,4 +427,21 @@
                 _EnvQueueDir;
             _ ->
                 ?DEF_QUEUE_DIR
+        end).
+
+-define(DEF_MNESIA_DIR, "./work/mnesia/127.0.0.1").
+
+
+%% @doc Plugin-related macros
+%%
+-define(env_plugin_mod_console(),
+        case application:get_env(leo_manager, plugin_mod_console) of
+            {ok, EnvPluginModConsole} -> EnvPluginModConsole;
+            _ -> undefined
+        end).
+
+-define(env_plugin_mod_mnesia(),
+        case application:get_env(leo_manager, plugin_mod_mnesia) of
+            {ok, EnvPluginModMnesia} -> EnvPluginModMnesia;
+            _ -> undefined
         end).
