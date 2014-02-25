@@ -136,16 +136,21 @@ recv(true, _DummySocket, State, Module, Option) ->
     end.
 
 call(Active, Socket, Data, #state{plugin_mod = PluginMod} = State, Module, Option) ->
-    Ret = case leo_misc:binary_tokens(<<"version test">>, [<<"\n">>,<<" ">>]) of
-              [Command|_] ->
-                  case catch PluginMod:has_command(Command) of
-                      {'EXIT',_} ->
-                          false;
-                      HasCommand ->
-                          HasCommand
-                  end;
+    Ret = case PluginMod of
+              undefined ->
+                  false;
               _ ->
-                  false
+                  case leo_misc:binary_tokens(<<"version test">>, [?CRLF, ?SPACE]) of
+                      [Command|_] ->
+                          case catch PluginMod:has_command(Command) of
+                              {'EXIT',_} ->
+                                  false;
+                              HasCommand ->
+                                  HasCommand
+                          end;
+                      _ ->
+                          false
+                  end
           end,
     call_1(Ret, Active, Socket, Data, State, Module, Option).
 
