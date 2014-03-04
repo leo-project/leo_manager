@@ -140,7 +140,7 @@ call(Active, Socket, Data, #state{plugin_mod = PluginMod} = State, Module, Optio
               undefined ->
                   false;
               _ ->
-                  case leo_misc:binary_tokens(<<"version test">>, [?CRLF, ?SPACE]) of
+                  case leo_misc:binary_tokens(Data, [?CRLF, ?SPACE]) of
                       [Command|_] ->
                           case catch PluginMod:has_command(Command) of
                               {'EXIT',_} ->
