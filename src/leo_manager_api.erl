@@ -64,7 +64,7 @@
          notify/3, notify/4, purge/1, remove/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1, delete_endpoint/1, delete_bucket/2,
+         set_endpoint/1, delete_endpoint/1, add_bucket/2, delete_bucket/2,
          update_acl/3
         ]).
 
@@ -1643,7 +1643,44 @@ delete_endpoint(EndPoint) ->
             {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
     end.
 
+%% @doc Add a bucket 
+%%
+-spec(add_bucket(binary(), binary()) ->
+             ok | {error, any()}).
+add_bucket(AccessKey, Bucket) ->
+    AccessKeyBin = case is_binary(AccessKey) of
+                       true  -> AccessKey;
+                       false -> list_to_binary(AccessKey)
+                   end,
+    BucketBin    = case is_binary(Bucket) of
+                       true  -> Bucket;
+                       false -> list_to_binary(Bucket)
+                   end,
 
+    %% Check preconditions
+    case is_allow_to_distribute_command() of
+        {true, _}->
+            case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
+                ok ->
+                    {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
+                not_found ->
+                    add_bucket_1(AccessKeyBin, BucketBin);
+                {error, _} ->
+                    {error, ?ERROR_INVALID_ARGS}
+            end;
+        _ ->
+            {error, ?ERROR_NOT_SATISFY_CONDITION}
+    end.
+
+add_bucket_1(AccessKeyBin, BucketBin) ->
+    case leo_s3_bucket:put(AccessKeyBin, BucketBin) of
+        ok ->
+            rpc_call_for_gateway(add_bucket, [AccessKeyBin, BucketBin, undefined]);
+        {error, badarg} ->
+            {error, ?ERROR_INVALID_BUCKET_FORMAT};
+        {error, _Cause} ->
+            {error, ?ERROR_COULD_NOT_STORE}
+    end.
 %% @doc Remove a bucket from storage-cluster and manager
 %%
 -spec(delete_bucket(binary(), binary()) ->
@@ -1695,7 +1732,7 @@ delete_bucket_1(AccessKeyBin, BucketBin) ->
 delete_bucket_2(AccessKeyBin, BucketBin) ->
     case leo_s3_bucket:delete(AccessKeyBin, BucketBin) of
         ok ->
-            ok;
+            rpc_call_for_gateway(delete_bucket, [AccessKeyBin, BucketBin, undefined]);
         {error, badarg} ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->

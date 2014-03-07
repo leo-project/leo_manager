@@ -1595,14 +1595,7 @@ add_bucket(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, AccessKey] ->
-            case leo_s3_bucket:put(list_to_binary(AccessKey), list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, badarg} ->
-                    {error, ?ERROR_INVALID_BUCKET_FORMAT};
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
+            leo_manager_api:add_bucket(AccessKey, Bucket);
         _ ->
             {error, ?ERROR_INVALID_ARGS}
     end.
