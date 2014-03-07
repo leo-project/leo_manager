@@ -1353,7 +1353,8 @@ compact(_,_,_, _) ->
 %% @private
 -spec(whereis(binary(), binary()) ->
              ok | {error, any()}).
-whereis(_CmdBody, Option) ->
+whereis(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
