@@ -1048,20 +1048,7 @@ notify_3({error,_Cause},_State,_Node) ->
 %%
 -spec(purge(string()) -> ok).
 purge(Path) ->
-    case leo_manager_mnesia:get_gateway_nodes_all() of
-        {ok, R1} ->
-            Nodes = lists:foldl(fun(#node_state{node  = Node,
-                                                state = ?STATE_RUNNING}, Acc) ->
-                                        [Node|Acc];
-                                   (_, Acc) ->
-                                        Acc
-                                end, [], R1),
-            _ = rpc:multicall(Nodes, ?API_GATEWAY, purge, [Path], ?DEF_TIMEOUT),
-            ok;
-        _ ->
-            {error, ?ERROR_COULD_NOT_GET_GATEWAY}
-    end.
-
+    rpc_call_for_gateway(purge, [Path]).
 
 %% @doc remove a gateway-node
 %%
