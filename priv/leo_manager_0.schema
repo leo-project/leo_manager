@@ -234,11 +234,11 @@
 %% --------------------------------------------------------------------
 %% @doc A number of replication target
 {mapping,
- "mdc_replication.num_of_targets",
+ "mdc_replication.max_targets",
  "leo_manager.system",
  [
   {datatype, integer},
-  {default, 0}
+  {default, 2}
  ]}.
 
 %% @doc A number of replicas a DC
@@ -259,7 +259,7 @@
          W  = cuttlefish_util:conf_get_value("consistency.write", Conf),
          R  = cuttlefish_util:conf_get_value("consistency.read", Conf),
          D  = cuttlefish_util:conf_get_value("consistency.delete", Conf),
-         L1 = cuttlefish_util:conf_get_value("mdc_replication.num_of_targets", Conf),
+         L1 = cuttlefish_util:conf_get_value("mdc_replication.max_targets", Conf),
          L2 = cuttlefish_util:conf_get_value("consistency.rack_aware_replicas", Conf),
          NM = cuttlefish_util:conf_get_value("mdc_replication.num_of_replicas_a_dc", Conf),
 
@@ -270,7 +270,7 @@
           {r, R},
           {d, D},
           {bit_of_ring, 128},
-          {num_of_mdcr_targets,  NM},
+          {max_mdc_targets,      NM},
           {num_of_dc_replicas,   L1},
           {num_of_rack_replicas, L2}
          ]
