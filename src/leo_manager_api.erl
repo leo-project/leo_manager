@@ -64,7 +64,7 @@
          notify/3, notify/4, purge/1, remove/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1, delete_endpoint/1, add_bucket/2, delete_bucket/2,
+         set_endpoint/1, delete_endpoint/1, add_bucket/2, add_bucket/3, delete_bucket/2,
          update_acl/3
         ]).
 
@@ -1648,6 +1648,12 @@ delete_endpoint(EndPoint) ->
 -spec(add_bucket(binary(), binary()) ->
              ok | {error, any()}).
 add_bucket(AccessKey, Bucket) ->
+    % default set to private
+    add_bucket(AccessKey, Bucket, ?CANNED_ACL_PRIVATE).
+
+-spec(add_bucket(binary(), binary(), string()) ->
+             ok | {error, any()}).
+add_bucket(AccessKey, Bucket, CannedACL) ->
     AccessKeyBin = case is_binary(AccessKey) of
                        true  -> AccessKey;
                        false -> list_to_binary(AccessKey)
@@ -1664,7 +1670,7 @@ add_bucket(AccessKey, Bucket) ->
                 ok ->
                     {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
                 not_found ->
-                    add_bucket_1(AccessKeyBin, BucketBin);
+                    add_bucket_1(AccessKeyBin, BucketBin, CannedACL);
                 {error, _} ->
                     {error, ?ERROR_INVALID_ARGS}
             end;
@@ -1672,10 +1678,10 @@ add_bucket(AccessKey, Bucket) ->
             {error, ?ERROR_NOT_SATISFY_CONDITION}
     end.
 
-add_bucket_1(AccessKeyBin, BucketBin) ->
-    case leo_s3_bucket:put(AccessKeyBin, BucketBin) of
+add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
+    case leo_s3_bucket:put(AccessKeyBin, BucketBin, CannedACL) of
         ok ->
-            rpc_call_for_gateway(add_bucket, [AccessKeyBin, BucketBin, undefined]);
+            rpc_call_for_gateway(add_bucket, [AccessKeyBin, BucketBin, CannedACL, undefined]);
         {error, badarg} ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
