@@ -176,7 +176,7 @@
  "leo_manager.system",
  [
   {datatype, string},
-  {default, "cluster_1"}
+  {default, "leofs_1"}
  ]}.
 
 
