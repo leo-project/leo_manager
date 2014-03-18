@@ -54,10 +54,10 @@ transform() ->
     ok = leo_members_tbl_transformer:transform(ReplicaNodes),
 
     %% mdc-related
-    leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, ReplicaNodes),
-    leo_redundant_manager_tbl_cluster_stat:create_table(disc_copies, ReplicaNodes),
-    leo_redundant_manager_tbl_cluster_mgr:create_table(disc_copies, ReplicaNodes),
-    leo_redundant_manager_tbl_cluster_member:create_table(disc_copies, ReplicaNodes),
+    leo_mdcr_tbl_cluster_info:create_table(disc_copies, ReplicaNodes),
+    leo_mdcr_tbl_cluster_stat:create_table(disc_copies, ReplicaNodes),
+    leo_mdcr_tbl_cluster_mgr:create_table(disc_copies, ReplicaNodes),
+    leo_mdcr_tbl_cluster_member:create_table(disc_copies, ReplicaNodes),
 
     %% data migration - system-conf
     ok = leo_system_conf_tbl_transformer:transform(),
