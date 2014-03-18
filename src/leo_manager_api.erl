@@ -120,12 +120,12 @@ load_system_config_with_store_data() ->
                           num_of_rack_replicas = NumOfRaclReplicas
                          } = SystemConf,
             case leo_mdcr_tbl_cluster_info:update(
-                   #cluster_info{cluster_id = ClusterId,
-                                 dc_id = DCId,
-                                 n = N, r = R, w = W, d = D,
-                                 bit_of_ring = BitOfRing,
-                                 num_of_dc_replicas = NumOfReplicas,
-                                 num_of_rack_replicas = NumOfRaclReplicas}) of
+                   #?CLUSTER_INFO{cluster_id = ClusterId,
+                                  dc_id = DCId,
+                                  n = N, r = R, w = W, d = D,
+                                  bit_of_ring = BitOfRing,
+                                  num_of_dc_replicas = NumOfReplicas,
+                                  num_of_rack_replicas = NumOfRaclReplicas}) of
                 ok ->
                     {ok, SystemConf};
                 Error ->
@@ -1830,12 +1830,12 @@ join_cluster(RemoteManagerNodes,
     case leo_mdcr_tbl_cluster_info:get(ClusterId) of
         not_found ->
             case leo_mdcr_tbl_cluster_info:update(
-                   #cluster_info{cluster_id = ClusterId,
-                                 dc_id = DCId,
-                                 n = N, r = R, w = W, d = D,
-                                 bit_of_ring = BitOfRing,
-                                 num_of_dc_replicas = NumOfReplicas,
-                                 num_of_rack_replicas = NumOfRaclReplicas}) of
+                   #?CLUSTER_INFO{cluster_id = ClusterId,
+                                  dc_id = DCId,
+                                  n = N, r = R, w = W, d = D,
+                                  bit_of_ring = BitOfRing,
+                                  num_of_dc_replicas = NumOfReplicas,
+                                  num_of_rack_replicas = NumOfRaclReplicas}) of
                 ok ->
                     %% update info of remote-managers
                     ok = update_cluster_member(RemoteManagerNodes, ClusterId),

@@ -283,7 +283,7 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                         leo_s3_user:create_user_credential_table(disc_copies, Nodes_1),
 
                         %% Insert test-related values
-                        CreatedAt     = leo_date:now(),
+                        CreatedAt = leo_date:now(),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_users},
                                                         {[], #user{id         = ?TEST_USER_ID,
                                                                    role_id    = 9,

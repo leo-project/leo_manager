@@ -832,12 +832,12 @@ join_cluster_1([Node|Rest]) ->
                                   num_of_rack_replicas = NumOfRaclReplicas
                                  } = RemoteSystemConf,
                     case leo_mdcr_tbl_cluster_info:update(
-                           #cluster_info{cluster_id = ClusterId,
-                                         dc_id = DCId,
-                                         n = N, r = R, w = W, d = D,
-                                         bit_of_ring = BitOfRing,
-                                         num_of_dc_replicas = NumOfReplicas,
-                                         num_of_rack_replicas = NumOfRaclReplicas}) of
+                           #?CLUSTER_INFO{cluster_id = ClusterId,
+                                          dc_id = DCId,
+                                          n = N, r = R, w = W, d = D,
+                                          bit_of_ring = BitOfRing,
+                                          num_of_dc_replicas = NumOfReplicas,
+                                          num_of_rack_replicas = NumOfRaclReplicas}) of
                         ok ->
                             {ok, ClusterId};
                         _Other ->
