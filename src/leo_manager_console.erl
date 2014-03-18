@@ -807,7 +807,7 @@ join_cluster(CmdBody, Option) ->
 join_cluster_1([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
 join_cluster_1([Node|Rest]) ->
-    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     RPCNode = leo_rpc:node(),
     Managers = case ?env_partner_of_manager_node() of
                    [] -> [RPCNode];
@@ -823,7 +823,7 @@ join_cluster_1([Node|Rest]) ->
     case catch leo_rpc:call(list_to_atom(Node), leo_manager_api,
                             join_cluster, [Managers, SystemConf]) of
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
-            case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
+            case leo_mdcr_tbl_cluster_info:get(ClusterId) of
                 not_found ->
                     #?SYSTEM_CONF{dc_id = DCId,
                                   n = N, r = R, w = W, d = D,
@@ -831,7 +831,7 @@ join_cluster_1([Node|Rest]) ->
                                   num_of_dc_replicas = NumOfReplicas,
                                   num_of_rack_replicas = NumOfRaclReplicas
                                  } = RemoteSystemConf,
-                    case leo_redundant_manager_tbl_cluster_info:update(
+                    case leo_mdcr_tbl_cluster_info:update(
                            #cluster_info{cluster_id = ClusterId,
                                          dc_id = DCId,
                                          n = N, r = R, w = W, d = D,
@@ -867,10 +867,10 @@ remove_cluster(CmdBody, Option) ->
 remove_cluster_1([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
 remove_cluster_1([Node|Rest]) ->
-    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     case catch leo_rpc:call(list_to_atom(Node), leo_manager_api, remove_cluster, [SystemConf]) of
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId}} ->
-            leo_redundant_manager_tbl_cluster_info:delete(ClusterId);
+            leo_mdcr_tbl_cluster_info:delete(ClusterId);
         _Error ->
             remove_cluster_1(Rest)
     end.
@@ -928,7 +928,7 @@ status(_CmdBody, Option) ->
             %% Reload and store system-conf
             case ?env_mode_of_manager() of
                 'master' ->
-                    case leo_redundant_manager_tbl_conf:get() of
+                    case leo_cluster_tbl_conf:get() of
                         {ok, SystemConf} ->
                             case leo_manager_api:load_system_config() of
                                 SystemConf -> void;
@@ -950,7 +950,7 @@ status(_CmdBody, Option) ->
     end.
 
 status(node_list) ->
-    case leo_redundant_manager_tbl_conf:get() of
+    case leo_cluster_tbl_conf:get() of
         {ok, SystemConf} ->
             Version = case application:get_env(leo_manager, system_version) of
                           {ok, Vsn} -> Vsn;
@@ -1013,7 +1013,7 @@ start(Socket, CmdBody) ->
         {ok, _} ->
             case leo_manager_api:get_system_status() of
                 ?STATE_STOP ->
-                    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+                    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
 
                     case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
                         {ok, Nodes} when length(Nodes) >= SystemConf#?SYSTEM_CONF.n ->
@@ -1050,7 +1050,7 @@ start(Socket, CmdBody) ->
              ok | {error, {atom(), string()}} | {error, any()}).
 detach(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
