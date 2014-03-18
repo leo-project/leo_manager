@@ -1278,12 +1278,12 @@ whereis_({Node0, _Node1, Sock}) ->
     ok = meck:new(leo_storage_handler_object, [non_strict]),
     ok = meck:expect(leo_storage_handler_object, head,
                      fun(AddrId, _Key) ->
-                             {ok, #metadata{addr_id   = AddrId,
-                                            dsize     = 1,
-                                            clock     = 2,
-                                            timestamp = 3,
-                                            checksum  = 4,
-                                            del       = 0}}
+                             {ok, #?METADATA{addr_id   = AddrId,
+                                             dsize     = 1,
+                                             clock     = 2,
+                                             timestamp = 3,
+                                             checksum  = 4,
+                                             del       = 0}}
                      end),
 
     Command = "whereis air/on/g/string\r\n",

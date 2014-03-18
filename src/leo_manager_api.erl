@@ -1129,13 +1129,13 @@ whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
             NodeStr = atom_to_list(Node),
             RPCKey  = rpc:async_call(Node, leo_storage_handler_object, head, [AddrId, Key]),
             Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
-                          {value, {ok, #metadata{addr_id   = AddrId,
-                                                 dsize     = DSize,
-                                                 cnumber   = ChunkedObjs,
-                                                 clock     = Clock,
-                                                 timestamp = Timestamp,
-                                                 checksum  = Checksum,
-                                                 del       = DelFlag}}} ->
+                          {value, {ok, #?METADATA{addr_id   = AddrId,
+                                                  dsize     = DSize,
+                                                  cnumber   = ChunkedObjs,
+                                                  clock     = Clock,
+                                                  timestamp = Timestamp,
+                                                  checksum  = Checksum,
+                                                  del       = DelFlag}}} ->
                               {NodeStr, AddrId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag};
                           _ ->
                               {NodeStr, not_found}
