@@ -1404,6 +1404,7 @@ synchronize(_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
+%% @doc Synchronize cluster-members for local-cluster
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
@@ -1439,8 +1440,62 @@ synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
             ?warn("synchronize/3", "cause:~p", [Cause]),
             {error, Cause}
     end;
+
+%% @doc Synchronize cluster-tables for between local and remote clusters
+synchronize([],_Node_1,_Node_2) ->
+    ok;
+synchronize([?CHKSUM_CLUSTER_INFO|Rest], Node_1, Node_2) ->
+    ok = resolve_inconsistent_nodes([Node_1, Node_2],
+                                    leo_mdcr_tbl_cluster_info, checksum),
+    synchronize(Rest, Node_1, Node_2);
+synchronize([?CHKSUM_CLUSTER_MGR|Rest], Node_1, Node_2) ->
+    ok = resolve_inconsistent_nodes([Node_1, Node_2],
+                                    leo_mdcr_tbl_cluster_mgr, checksum),
+    synchronize(Rest, Node_1, Node_2);
+synchronize([?CHKSUM_CLUSTER_MEMBER|Rest], Node_1, Node_2) ->
+    ok = resolve_inconsistent_nodes([Node_1, Node_2],
+                                    leo_mdcr_tbl_cluster_member, checksum),
+    synchronize(Rest, Node_1, Node_2);
+synchronize([?CHKSUM_CLUSTER_STAT|Rest], Node_1, Node_2) ->
+    ok = resolve_inconsistent_nodes([Node_1, Node_2],
+                                    leo_mdcr_tbl_cluster_stat, checksum),
+    synchronize(Rest, Node_1, Node_2);
 synchronize(_,_,_) ->
     ok.
+
+
+%% @doc Resolve inconsistent nodes
+%% @private
+resolve_inconsistent_nodes(Nodes, Mod, Method) ->
+    {ok, Chksum} = erlang:apply(Mod, Method, []),
+    ok = resolve_inconsistent_nodes(Nodes, Mod, Method, Chksum, []).
+
+resolve_inconsistent_nodes([],_Mod,_Method,_Chksum, [])->
+    ok;
+resolve_inconsistent_nodes([], Mod,_Method,_Chksum, Nodes)->
+    resolve_inconsist_table(Nodes, Mod);
+resolve_inconsistent_nodes([Node|Rest], Mod, Method, Chksum, Acc) when Node == erlang:node() ->
+    resolve_inconsistent_nodes(Rest, Mod, Method, Chksum, Acc);
+resolve_inconsistent_nodes([Node|Rest], Mod, Method, Chksum, Acc) ->
+    case rpc:call(Node, Mod, Method, [], ?DEF_TIMEOUT) of
+        {ok, Chksum} -> resolve_inconsistent_nodes(Rest, Mod, Method, Chksum, Acc);
+        {ok, _Other} -> resolve_inconsistent_nodes(Rest, Mod, Method, Chksum, [Node|Acc]);
+        not_found    -> resolve_inconsistent_nodes(Rest, Mod, Method, Chksum, [Node|Acc]);
+        _Error       -> resolve_inconsistent_nodes(Rest, Mod, Method, Chksum, Acc)
+    end.
+
+%% @private
+resolve_inconsist_table([],_Mod) ->
+    ok;
+resolve_inconsist_table([Node|Rest], Mod) ->
+    case Mod:all() of
+        {ok, Values} ->
+            rpc:call(Node, Mod, synchronize, [Values], ?DEF_TIMEOUT);
+        _ ->
+            void
+    end,
+    resolve_inconsist_table(Rest, Mod).
+
 
 %% @doc From manager-node
 synchronize(?CHECKSUM_MEMBER, Node) when is_atom(Node) ->
@@ -1454,7 +1509,7 @@ synchronize(?CHECKSUM_RING, Node) when is_atom(Node) ->
 
 %% @doc From gateway and storage-node
 synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
-                                      {Node_2, Checksum_2}]) ->
+                                      {Node_2, Checksum_2}] =_NodeWithChksum) ->
     Ret = case (Node_1 == node()) of
               true ->
                   case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
@@ -1643,7 +1698,7 @@ delete_endpoint(EndPoint) ->
             {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
     end.
 
-%% @doc Add a bucket 
+%% @doc Add a bucket
 %%
 -spec(add_bucket(binary(), binary()) ->
              ok | {error, any()}).
