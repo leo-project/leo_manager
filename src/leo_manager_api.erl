@@ -32,6 +32,8 @@
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-undef(CRLF).
+-include_lib("leo_rpc/include/leo_rpc.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
@@ -56,11 +58,12 @@
          update_manager_nodes/1,
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
 
--export([attach/1, attach/4, detach/1, suspend/1, resume/1,
+-export([attach/1, attach/4, attach/5,
+         detach/1, suspend/1, resume/1,
          distribute_members/1, distribute_members/2,
          start/1, rebalance/1]).
 
--export([register/4, register/7,
+-export([register/4, register/7, register/8,
          notify/3, notify/4, purge/1, remove/1,
          whereis/2, recover/3, compact/2, compact/4, stats/2,
          synchronize/1, synchronize/2, synchronize/3,
@@ -272,17 +275,21 @@ attach(Node) ->
     attach(Node, [], [], ?DEF_NUMBER_OF_VNODES).
 
 attach(Node,_L1, L2, NumOfVNodes) ->
+    attach(Node,_L1, L2, NumOfVNodes, ?DEF_LISTEN_PORT).
+
+attach(Node,_L1, L2, NumOfVNodes, RPCPort) ->
     case leo_misc:node_existence(Node) of
         true ->
             Status = get_system_status(),
-            attach_1(Status, Node,_L1, L2, leo_date:clock(), NumOfVNodes);
+            attach_1(Status, Node,_L1, L2, leo_date:clock(), NumOfVNodes, RPCPort);
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
     end.
 
-attach_1(?STATE_RUNNING, Node,_L1, L2, Clock, NumOfVNodes) ->
+attach_1(?STATE_RUNNING, Node,_L1, L2, Clock, NumOfVNodes, RPCPort) ->
     State = ?STATE_ATTACHED,
-    case leo_redundant_manager_api:reserve(Node, State, L2, Clock, NumOfVNodes) of
+    case leo_redundant_manager_api:reserve(
+           Node, State, L2, Clock, NumOfVNodes, RPCPort) of
         ok ->
             leo_manager_mnesia:update_storage_node_status(
               #node_state{node    = Node,
@@ -292,8 +299,9 @@ attach_1(?STATE_RUNNING, Node,_L1, L2, Clock, NumOfVNodes) ->
             Error
     end;
 
-attach_1(_, Node,_L1, L2, Clock, NumOfVNodes) ->
-    case leo_redundant_manager_api:attach(Node, L2, Clock, NumOfVNodes) of
+attach_1(_, Node,_L1, L2, Clock, NumOfVNodes, RPCPort) ->
+    case leo_redundant_manager_api:attach(
+           Node, L2, Clock, NumOfVNodes, RPCPort) of
         ok ->
             leo_manager_mnesia:update_storage_node_status(
               #node_state{node    = Node,
@@ -902,8 +910,13 @@ register(RequestedTimes, Pid, Node, Type) ->
 -spec(register(first | again, pid(), atom(), atom(), string(), string(), pos_integer()) ->
              ok).
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
+    register(RequestedTimes, Pid, Node, Type,
+             IdL1, IdL2, NumOfVNodes, ?DEF_LISTEN_PORT).
+
+register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes, RPCPort) ->
     leo_manager_cluster_monitor:register(
-      RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes).
+      RequestedTimes, Pid, Node, Type,
+      IdL1, IdL2, NumOfVNodes, RPCPort).
 
 
 %% @doc Notified "Synchronized" from cluster-nods.

@@ -69,6 +69,7 @@ all_(Node) ->
                         ?STATE_STOP
                 end),
     meck:expect(leo_manager_api, attach, 4, ok),
+    meck:expect(leo_manager_api, attach, 5, ok),
     meck:expect(leo_manager_api, distribute_members, 2, ok),
     meck:expect(leo_manager_api, synchronize, 2, ok),
 

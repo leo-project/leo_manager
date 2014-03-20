@@ -32,13 +32,15 @@
 -include("leo_manager.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-undef(CRLF).
+-include_lib("leo_rpc/include/leo_rpc.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 
 -export([start_link/0,
          stop/0]).
 
--export([register/4, register/7,
+-export([register/4, register/7, register/8,
          demonitor/1,
          get_remote_node_proc/0,
          get_server_node_alias/1]).
@@ -68,7 +70,8 @@
                        times         :: integer(),
                        level_1 = []  :: string(),
                        level_2 = []  :: string(),
-                       num_of_vnodes = ?DEF_NUMBER_OF_VNODES :: pos_integer()
+                       num_of_vnodes = ?DEF_NUMBER_OF_VNODES :: pos_integer(),
+                       rpc_port = ?DEF_LISTEN_PORT :: pos_integer()
                       }).
 
 %%--------------------------------------------------------------------
@@ -97,13 +100,18 @@ register(RequestedTimes, Pid, Node, TypeOfNode) ->
 -spec(register(first|again, pid(), atom(), storage, string(), string(), pos_integer()) ->
              ok).
 register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes) ->
+    register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes, ?DEF_LISTEN_PORT).
+
+register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes, RPCPort) ->
     RegistrationInfo = #registration{pid   = Pid,
                                      node  = Node,
                                      type  = TypeOfNode,
                                      times = RequestedTimes,
                                      level_1 = L1Id,
                                      level_2 = L2Id,
-                                     num_of_vnodes = NumOfVNodes},
+                                     num_of_vnodes = NumOfVNodes,
+                                     rpc_port = RPCPort
+                                    },
     gen_server:call(?MODULE, {register, RegistrationInfo}, ?DEF_TIMEOUT).
 
 
@@ -481,8 +489,10 @@ register_fun_2(not_found = State, #registration{node = Node,
                                                 type = storage,
                                                 level_1 = L1,
                                                 level_2 = L2,
-                                                num_of_vnodes = NumOfVNodes}) ->
-    case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
+                                                num_of_vnodes = NumOfVNodes,
+                                                rpc_port = RPCPort
+                                               }) ->
+    case leo_manager_api:attach(Node, L1, L2, NumOfVNodes, RPCPort) of
         ok ->
             case update_node_state(start, State, Node) of
                 ok ->

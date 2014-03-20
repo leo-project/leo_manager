@@ -253,6 +253,8 @@ detach_0_({Node0,_, Sock}) ->
                                            node =  Node0}]}
                      end),
     ok = meck:expect(leo_redundant_manager_api, reserve, 3, ok),
+    ok = meck:expect(leo_redundant_manager_api, reserve, 5, ok),
+    ok = meck:expect(leo_redundant_manager_api, reserve, 6, ok),
 
     Command = "detach " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
@@ -319,7 +321,14 @@ detach_1_({Node0, _, Sock}) ->
                      fun(_,_,_) ->
                              ok
                      end),
-
+    ok = meck:expect(leo_redundant_manager_api, reserve,
+                     fun(_,_,_,_,_) ->
+                             ok
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, reserve,
+                     fun(_,_,_,_,_,_) ->
+                             ok
+                     end),
 
     Command = "detach " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
