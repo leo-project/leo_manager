@@ -1444,6 +1444,10 @@ synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
 %% @doc Synchronize cluster-tables for between local and remote clusters
 synchronize([],_Node_1,_Node_2) ->
     ok;
+synchronize([?CHKSUM_CLUSTER_CONF|Rest], Node_1, Node_2) ->
+    ok = resolve_inconsistent_nodes([Node_1, Node_2],
+                                    leo_cluster_tbl_conf, checksum),
+    synchronize(Rest, Node_1, Node_2);
 synchronize([?CHKSUM_CLUSTER_INFO|Rest], Node_1, Node_2) ->
     ok = resolve_inconsistent_nodes([Node_1, Node_2],
                                     leo_mdcr_tbl_cluster_info, checksum),
