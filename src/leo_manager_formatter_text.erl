@@ -39,7 +39,8 @@
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
-         acls/1, whereis/1, histories/1,
+         acls/1, cluster_status/1,
+         whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
 
@@ -108,7 +109,9 @@ help(PluginMod) ->
                                  ?CMD_UPDATE_ACL], []),
                            help("[Multi-DC Replication]\r\n",
                                 [?CMD_JOIN_CLUSTER,
-                                 ?CMD_REMOVE_CLUSTER], [])]),
+                                 ?CMD_REMOVE_CLUSTER,
+                                 ?CMD_CLUSTER_STAT
+                                ], [])]),
     Help_2 = case PluginMod of
                  undefined -> [];
                  _ ->
@@ -700,6 +703,101 @@ bucket_by_access_key(Buckets) ->
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
 
 
+%% @doc Format a acl list
+%%
+-spec(acls(acls()) ->
+             string()).
+acls(ACLs) ->
+    Col1Len = lists:foldl(fun(#bucket_acl_info{user_id = User} = _ACL, C1) ->
+                                  UserStr = binary_to_list(User),
+                                  Len = length(UserStr),
+                                  case (Len > C1) of
+                                      true  -> Len;
+                                      false -> C1
+                                  end
+                          end, 14, ACLs),
+    Col2Len = 24, % @todo to be calcurated
+    Header = lists:append(
+               [string:left("access_key_id", Col1Len), " | ",
+                string:left("permissions",   Col2Len), "\r\n",
+                lists:duplicate(Col1Len, "-"), "-+-",
+                lists:duplicate(Col2Len, "-"), "\r\n"]),
+
+    Fun = fun(#bucket_acl_info{user_id = User, permissions = Permissions} = _ACL, Acc) ->
+                  UserStr = binary_to_list(User),
+                  FormatStr = case length(Permissions) of
+                                  0 ->
+                                      "~s | private\r\n";
+                                  1 ->
+                                      "~s | ~s\r\n";
+                                  N ->
+                                      lists:flatten(lists:append(["~s | ~s",
+                                                                  lists:duplicate(N-1, ", ~s"),
+                                                                  "\r\n"]))
+                              end,
+                  Acc ++ io_lib:format(FormatStr,
+                                       [string:left(UserStr, Col1Len)] ++ Permissions)
+          end,
+    lists:append([lists:foldl(Fun, Header, ACLs), "\r\n"]).
+
+
+%% @doc Cluster statuses
+-spec(cluster_status(list()) ->
+             string()).
+cluster_status(Stats) ->
+    Col1Min = 10, %% cluster-id
+    Col1Len = lists:foldl(fun(N, Acc) ->
+                                  Len = length(leo_misc:get_value('cluster_id', N)),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, Col1Min, Stats),
+    Col2Min = 10, %% dc-id
+    Col2Len = lists:foldl(fun(N, Acc) ->
+                                  Len = length(leo_misc:get_value('dc_id', N)),
+                                  case (Len > Acc) of
+                                      true  -> Len;
+                                      false -> Acc
+                                  end
+                          end, Col2Min, Stats),
+    Col3Len = 12, %% status
+    Col4Len = 14, %% # of storages
+    Col5Len = 28, %% updated-at
+
+    Header = lists:append(
+               [string:centre("cluster id",    Col1Len), " | ",
+                string:centre("dc id",         Col2Len), " | ",
+                string:centre("status",        Col3Len), " | ",
+                string:centre("# of storages", Col4Len), " | ",
+                string:centre("updated at",    Col5Len), "\r\n",
+
+                lists:duplicate(Col1Len, "-"), "-+-",
+                lists:duplicate(Col2Len, "-"), "-+-",
+                lists:duplicate(Col3Len, "-"), "-+-",
+                lists:duplicate(Col4Len, "-"), "-+-",
+                lists:duplicate(Col5Len, "-"), "\r\n"]),
+
+    Fun = fun(Items, Acc) ->
+                  ClusterId = leo_misc:get_value('cluster_id', Items),
+                  DCId      = leo_misc:get_value('dc_id',      Items),
+                  Status    = atom_to_list(leo_misc:get_value('status', Items)),
+                  Storages  = integer_to_list(leo_misc:get_value('members', Items)),
+                  UpdatedAt = leo_misc:get_value('updated_at', Items),
+                  UpdatedAt_1 = case (UpdatedAt > 0) of
+                                    true  -> leo_date:date_format(UpdatedAt);
+                                    false -> []
+                                end,
+                  Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s\r\n",
+                                       [string:left(ClusterId, Col1Len),
+                                        string:left(DCId, Col2Len),
+                                        string:centre(Status, Col3Len),
+                                        string:right(Storages, Col4Len),
+                                        UpdatedAt_1])
+          end,
+    lists:append([lists:foldl(Fun, Header, Stats), "\r\n"]).
+
+
 %% @doc Format an assigned file
 %%
 -spec(whereis(list()) ->
@@ -805,43 +903,6 @@ user_id() ->
 
 password() ->
     io_lib:format("~s\r\n",["password:"]).
-
-%% @doc Format a acl list
-%%
--spec(acls(acls()) ->
-             string()).
-acls(ACLs) ->
-    Col1Len = lists:foldl(fun(#bucket_acl_info{user_id = User} = _ACL, C1) ->
-                                  UserStr = binary_to_list(User),
-                                  Len = length(UserStr),
-                                  case (Len > C1) of
-                                      true  -> Len;
-                                      false -> C1
-                                  end
-                          end, 14, ACLs),
-    Col2Len = 24, % @todo to be calcurated
-    Header = lists:append(
-               [string:left("access_key_id", Col1Len), " | ",
-                string:left("permissions",   Col2Len), "\r\n",
-                lists:duplicate(Col1Len, "-"), "-+-",
-                lists:duplicate(Col2Len, "-"), "\r\n"]),
-
-    Fun = fun(#bucket_acl_info{user_id = User, permissions = Permissions} = _ACL, Acc) ->
-                  UserStr = binary_to_list(User),
-                  FormatStr = case length(Permissions) of
-                                  0 ->
-                                      "~s | private\r\n";
-                                  1 ->
-                                      "~s | ~s\r\n";
-                                  N ->
-                                      lists:flatten(lists:append(["~s | ~s",
-                                                                  lists:duplicate(N-1, ", ~s"),
-                                                                  "\r\n"]))
-                              end,
-                  Acc ++ io_lib:format(FormatStr,
-                                       [string:left(UserStr, Col1Len)] ++ Permissions)
-          end,
-    lists:append([lists:foldl(Fun, Header, ACLs), "\r\n"]).
 
 
 %%----------------------------------------------------------------------

@@ -698,6 +698,22 @@ handle_call(_Socket, <<?CMD_REMOVE_CLUSTER, ?SPACE, Option/binary>> = Command,
     {reply, Reply, State};
 
 
+%% Command: "cluster-status"
+%%
+handle_call(_Socket, <<?CMD_CLUSTER_STAT, ?CRLF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case cluster_status(Command) of
+                      {ok, ResL} ->
+                          Formatter:cluster_status(ResL);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_CLUSTER_STAT, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "quit"
 %%
 handle_call(_Socket, <<?CMD_QUIT, ?CRLF>>, State) ->
@@ -873,6 +889,49 @@ remove_cluster_1([Node|Rest]) ->
             leo_mdcr_tbl_cluster_info:delete(ClusterId);
         _Error ->
             remove_cluster_1(Rest)
+    end.
+
+
+%% @doc Retrieve cluster-statuses
+%% @private
+cluster_status(CmdBody) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case leo_mdcr_tbl_cluster_stat:all() of
+        {ok, ResL} ->
+            cluster_status_1(ResL, []);
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_CLUSTER_INFO}
+    end.
+
+cluster_status_1([], Acc) ->
+    {ok, Acc};
+cluster_status_1([#?CLUSTER_STAT{cluster_id = ClusterId,
+                                 state      = Status,
+                                 updated_at = UpdatedAt
+                                }|Rest], Acc) ->
+    case leo_mdcr_tbl_cluster_info:get(ClusterId) of
+        {ok, #?CLUSTER_INFO{dc_id = DCId,
+                            n = N,
+                            w = W,
+                            r = R,
+                            d =D}} ->
+            case leo_mdcr_tbl_cluster_member:get(ClusterId) of
+                {ok, Rows} ->
+                    cluster_status_1(
+                      Rest, [
+                             [{cluster_id, ClusterId},
+                              {dc_id, DCId},
+                              {status, Status},
+                              {n, N}, {w, W}, {r, R}, {d, D},
+                              {members, length(Rows)},
+                              {updated_at, UpdatedAt}
+                             ]|Acc
+                            ]);
+                _Error ->
+                    _Error
+            end;
+        _Error ->
+            _Error
     end.
 
 

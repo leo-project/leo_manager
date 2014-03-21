@@ -120,6 +120,7 @@
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER,   "join-cluster").
 -define(CMD_REMOVE_CLUSTER, "remove-cluster").
+-define(CMD_CLUSTER_STAT,   "cluster-status").
 
 -define(LOGIN,      "login").
 -define(AUTHORIZED, <<"_authorized_\r\n">>).
@@ -179,6 +180,7 @@
                    %% - multi-dc replication
                    {?CMD_JOIN_CLUSTER,   "join-cluster ${remote-manager-master} ${remote-manager-slave}"},
                    {?CMD_REMOVE_CLUSTER, "remove-cluster ${remote-manager-master} ${remote-manager-slave}"},
+                   {?CMD_CLUSTER_STAT,   "cluster-status"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS, "update-managers ${manager-master} ${manager-slave}"},
                    {?CMD_BACKUP_MNESIA,   "backup-mnesia ${backupfilepath}"},
@@ -261,6 +263,7 @@
 -define(ERROR_FAIL_TO_UPDATE_ACL,        "Fail to update acl of a bucket").
 -define(ERROR_FAIL_ACCESS_MNESIA,        "Fail to access mnesia").
 -define(ERROR_ALREADY_HAS_SAME_CLUSTER,  "Already has a same neme of cluster").
+-define(ERROR_COULD_NOT_GET_CLUSTER_INFO,"Could not get cluster info").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').
