@@ -1284,9 +1284,9 @@ whereis_({Node0, _Node1, Sock}) ->
                              0
                      end),
 
-    ok = meck:new(leo_storage_handler_object, [non_strict]),
-    ok = meck:expect(leo_storage_handler_object, head,
-                     fun(AddrId, _Key) ->
+    ok = meck:new(leo_object_storage_api, [non_strict]),
+    ok = meck:expect(leo_object_storage_api, head,
+                     fun({AddrId, _Key}) ->
                              {ok, #?METADATA{addr_id   = AddrId,
                                              dsize     = 1,
                                              clock     = 2,
@@ -1300,7 +1300,7 @@ whereis_({Node0, _Node1, Sock}) ->
     timer:sleep(100),
 
     ?assertNotEqual([], meck:history(leo_redundant_manager_api)),
-    ?assertNotEqual([], meck:history(leo_storage_handler_object)),
+    ?assertNotEqual([], meck:history(leo_object_storage_api)),
     catch gen_tcp:close(Sock),
     ok.
 
