@@ -39,7 +39,9 @@
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
-         acls/1, whereis/1, histories/1
+         acls/1, cluster_status/1,
+         whereis/1, histories/1,
+         authorized/0, user_id/0, password/0
         ]).
 
 -define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
@@ -430,6 +432,37 @@ bucket_by_access_key(Buckets) ->
     gen_json({[{<<"buckets">>, JSON}]}).
 
 
+%% @doc Format a acl list
+%%
+-spec(acls(acls()) ->
+             string()).
+acls(ACLs) ->
+    JSON = lists:map(fun(#bucket_acl_info{user_id = UserId, permissions = Permissions}) ->
+                             {[{<<"user_id">>,   UserId},
+                               {<<"permissions">>, Permissions}
+                              ]}
+                     end, ACLs),
+    gen_json({[{<<"acls">>, JSON}]}).
+
+
+cluster_status(Stats) ->
+    JSON = lists:map(fun(Items) ->
+                             ClusterId = leo_misc:get_value('cluster_id', Items),
+                             DCId = leo_misc:get_value('dc_id', Items),
+                             Status = leo_misc:get_value('status', Items),
+                             NumOfStorages = leo_misc:get_value('members', Items),
+                             UpdatedAt = leo_misc:get_value('updated_at', Items),
+
+                             {[{<<"cluster_id">>, list_to_binary(ClusterId)},
+                               {<<"dc_id">>,      list_to_binary(atom_to_list(DCId))},
+                               {<<"status">>,     list_to_binary(atom_to_list(Status))},
+                               {<<"num_of_storages">>, NumOfStorages},
+                               {<<"updated_at">>,      list_to_binary(UpdatedAt)}
+                              ]}
+                     end, Stats),
+    gen_json({[{<<"cluster_stats">>, JSON}]}).
+
+
 %% @doc Format an assigned file
 %%
 -spec(whereis(list()) ->
@@ -458,6 +491,7 @@ whereis(AssignedInfo) ->
                      end, AssignedInfo),
     gen_json({[{<<"assigned_info">>, JSON}]}).
 
+
 %% @doc Format a history list
 %%
 -spec(histories(list(#history{})) ->
@@ -465,17 +499,23 @@ whereis(AssignedInfo) ->
 histories(_) ->
     [].
 
-%% @doc Format a acl list
-%%
--spec(acls(acls()) ->
+
+-spec(authorized() ->
              string()).
-acls(ACLs) ->
-    JSON = lists:map(fun(#bucket_acl_info{user_id = UserId, permissions = Permissions}) ->
-                             {[{<<"user_id">>,   UserId},
-                               {<<"permissions">>, Permissions}
-                              ]}
-                     end, ACLs),
-    gen_json({[{<<"acls">>, JSON}]}).
+authorized() ->
+    [].
+
+-spec(user_id() ->
+             string()).
+user_id() ->
+    [].
+
+
+-spec(password() ->
+             string()).
+password() ->
+    [].
+
 
 %%----------------------------------------------------------------------
 %% Inner function(s)
