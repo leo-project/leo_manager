@@ -100,6 +100,7 @@ load_system_config() ->
                      r = leo_misc:get_value(r, Props, 1),
                      d = leo_misc:get_value(d, Props, 1),
                      bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
+                     max_mdc_targets      = leo_misc:get_value(max_mdc_targets,      Props, 0),
                      num_of_dc_replicas   = leo_misc:get_value(num_of_dc_replicas,   Props, 0),
                      num_of_rack_replicas = leo_misc:get_value(num_of_rack_replicas, Props, 0)
                     },
@@ -117,17 +118,25 @@ load_system_config_with_store_data() ->
         ok ->
             #?SYSTEM_CONF{cluster_id = ClusterId,
                           dc_id = DCId,
-                          n = N, r = R, w = W, d = D,
+                          n = N,
+                          r = R,
+                          w = W,
+                          d = D,
                           bit_of_ring = BitOfRing,
-                          num_of_dc_replicas = NumOfReplicas,
+                          max_mdc_targets      = MaxMDCTargets,
+                          num_of_dc_replicas   = NumOfReplicas,
                           num_of_rack_replicas = NumOfRaclReplicas
                          } = SystemConf,
             case leo_mdcr_tbl_cluster_info:update(
                    #?CLUSTER_INFO{cluster_id = ClusterId,
                                   dc_id = DCId,
-                                  n = N, r = R, w = W, d = D,
+                                  n = N,
+                                  r = R,
+                                  w = W,
+                                  d = D,
                                   bit_of_ring = BitOfRing,
-                                  num_of_dc_replicas = NumOfReplicas,
+                                  max_mdc_targets      = MaxMDCTargets,
+                                  num_of_dc_replicas   = NumOfReplicas,
                                   num_of_rack_replicas = NumOfRaclReplicas}) of
                 ok ->
                     {ok, SystemConf};
@@ -1721,7 +1730,6 @@ delete_endpoint(EndPoint) ->
 -spec(add_bucket(binary(), binary()) ->
              ok | {error, any()}).
 add_bucket(AccessKey, Bucket) ->
-    % default set to private
     add_bucket(AccessKey, Bucket, ?CANNED_ACL_PRIVATE).
 
 -spec(add_bucket(binary(), binary(), string()) ->

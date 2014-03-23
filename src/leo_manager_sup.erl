@@ -118,6 +118,7 @@ start_link() ->
                                     {w,           SystemConf#?SYSTEM_CONF.w},
                                     {d,           SystemConf#?SYSTEM_CONF.d},
                                     {bit_of_ring, SystemConf#?SYSTEM_CONF.bit_of_ring},
+                                    {max_mdc_targets,      SystemConf#?SYSTEM_CONF.max_mdc_targets},
                                     {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
                                     {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
                                    ],
