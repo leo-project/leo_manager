@@ -166,7 +166,7 @@
  "system.dc_id",
  "leo_manager.system",
  [
-  {datatype, string},
+  {datatype, atom},
   {default, "dc_1"}
  ]}.
 
@@ -175,7 +175,7 @@
  "system.cluster_id",
  "leo_manager.system",
  [
-  {datatype, string},
+  {datatype, atom},
   {default, "leofs_1"}
  ]}.
 

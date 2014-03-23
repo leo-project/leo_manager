@@ -161,19 +161,31 @@ system_info_and_nodes_stat(Props) ->
                          end, Nodes)
                end,
 
+    ClusterId_1 = SystemConf#?SYSTEM_CONF.cluster_id,
+    ClusterId_2 = case is_atom(ClusterId_1) of
+                      true  -> atom_to_list(ClusterId_1);
+                      false -> ClusterId_1
+                  end,
+    DCId_1 = SystemConf#?SYSTEM_CONF.dc_id,
+    DCId_2 = case is_atom(DCId_1) of
+                 true  -> atom_to_list(DCId_1);
+                 false -> DCId_1
+             end,
+
     gen_json({[{<<"system_info">>,
-                {[{<<"version">>,        list_to_binary(Version)},
-                  {<<"cluster_id">>,     list_to_binary(SystemConf#?SYSTEM_CONF.cluster_id)},
-                  {<<"dc_id">>,          list_to_binary(SystemConf#?SYSTEM_CONF.dc_id)},
-                  {<<"n">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.n))},
-                  {<<"r">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.r))},
-                  {<<"w">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.w))},
-                  {<<"d">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.d))},
-                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_dc_replicas))},
-                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_rack_replicas))},
-                  {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.bit_of_ring))},
-                  {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
-                  {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
+                {[{<<"version">>,    list_to_binary(Version)},
+                  {<<"cluster_id">>, list_to_binary(ClusterId_2)},
+                  {<<"dc_id">>,      list_to_binary(DCId_2)},
+                  {<<"n">>, SystemConf#?SYSTEM_CONF.n},
+                  {<<"r">>, SystemConf#?SYSTEM_CONF.r},
+                  {<<"w">>, SystemConf#?SYSTEM_CONF.w},
+                  {<<"d">>, SystemConf#?SYSTEM_CONF.d},
+                  {<<"dc_awareness_replicas">>,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
+                  {<<"rack_awareness_replicas">>, SystemConf#?SYSTEM_CONF.num_of_rack_replicas},
+                  {<<"ring_size">>,      SystemConf#?SYSTEM_CONF.bit_of_ring},
+                  {<<"ring_hash_cur">>,  RH0},
+                  {<<"ring_hash_prev">>, RH1},
+                  {<<"max_mdc_targets">>,SystemConf#?SYSTEM_CONF.max_mdc_targets}
                  ]}},
                {<<"node_list">>, NodeInfo}
               ]}).
@@ -447,14 +459,22 @@ acls(ACLs) ->
 
 cluster_status(Stats) ->
     JSON = lists:map(fun(Items) ->
-                             ClusterId = leo_misc:get_value('cluster_id', Items),
-                             DCId = leo_misc:get_value('dc_id', Items),
+                             ClusterId_1 = leo_misc:get_value('cluster_id', Items),
+                             ClusterId_2 = case is_atom(ClusterId_1) of
+                                               true  -> atom_to_list(ClusterId_1);
+                                               false -> ClusterId_1
+                                           end,
+                             DCId_1 = leo_misc:get_value('dc_id', Items),
+                             DCId_2 = case is_atom(DCId_1) of
+                                          true  -> atom_to_list(DCId_1);
+                                          false -> DCId_1
+                                      end,
                              Status = leo_misc:get_value('status', Items),
                              NumOfStorages = leo_misc:get_value('members', Items),
                              UpdatedAt = leo_misc:get_value('updated_at', Items),
 
-                             {[{<<"cluster_id">>, list_to_binary(ClusterId)},
-                               {<<"dc_id">>,      list_to_binary(atom_to_list(DCId))},
+                             {[{<<"cluster_id">>, list_to_binary(ClusterId_2)},
+                               {<<"dc_id">>,      list_to_binary(atom_to_list(DCId_2))},
                                {<<"status">>,     list_to_binary(atom_to_list(Status))},
                                {<<"num_of_storages">>, NumOfStorages},
                                {<<"updated_at">>,      list_to_binary(UpdatedAt)}
