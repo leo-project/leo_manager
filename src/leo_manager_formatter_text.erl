@@ -747,7 +747,8 @@ acls(ACLs) ->
 cluster_status(Stats) ->
     Col1Min = 10, %% cluster-id
     Col1Len = lists:foldl(fun(N, Acc) ->
-                                  Len = length(leo_misc:get_value('cluster_id', N)),
+
+                                  Len = length(atom_to_list(leo_misc:get_value('cluster_id', N))),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
@@ -755,7 +756,7 @@ cluster_status(Stats) ->
                           end, Col1Min, Stats),
     Col2Min = 10, %% dc-id
     Col2Len = lists:foldl(fun(N, Acc) ->
-                                  Len = length(leo_misc:get_value('dc_id', N)),
+                                  Len = length(atom_to_list(leo_misc:get_value('dc_id', N))),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
@@ -779,8 +780,16 @@ cluster_status(Stats) ->
                 lists:duplicate(Col5Len, "-"), "\r\n"]),
 
     Fun = fun(Items, Acc) ->
-                  ClusterId = leo_misc:get_value('cluster_id', Items),
-                  DCId      = leo_misc:get_value('dc_id',      Items),
+                  ClusterId_1 = leo_misc:get_value('cluster_id', Items),
+                  ClusterId_2 = case is_atom(ClusterId_1) of
+                                    true  -> atom_to_list(ClusterId_1);
+                                    false -> ClusterId_1
+                                end,
+                  DCId_1 = leo_misc:get_value('dc_id', Items),
+                  DCId_2 = case is_atom(DCId_1) of
+                               true  -> atom_to_list(DCId_1);
+                               false -> DCId_1
+                           end,
                   Status    = atom_to_list(leo_misc:get_value('status', Items)),
                   Storages  = integer_to_list(leo_misc:get_value('members', Items)),
                   UpdatedAt = leo_misc:get_value('updated_at', Items),
@@ -789,8 +798,8 @@ cluster_status(Stats) ->
                                     false -> []
                                 end,
                   Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s\r\n",
-                                       [string:left(ClusterId, Col1Len),
-                                        string:left(DCId, Col2Len),
+                                       [string:left(ClusterId_2, Col1Len),
+                                        string:left(DCId_2, Col2Len),
                                         string:centre(Status, Col3Len),
                                         string:right(Storages, Col4Len),
                                         UpdatedAt_1])

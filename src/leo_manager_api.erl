@@ -1127,7 +1127,8 @@ remove_4(NodeState) ->
 whereis([Key|_], true) ->
     KeyBin = list_to_binary(Key),
     case leo_redundant_manager_api:get_redundancies_by_key(KeyBin) of
-        {ok, #redundancies{id = AddrId, nodes = Redundancies}} ->
+        {ok, #redundancies{id = AddrId,
+                           nodes = Redundancies}} ->
             whereis_1(AddrId, KeyBin, Redundancies, []);
         _ ->
             {error, ?ERROR_COULD_NOT_GET_RING}
@@ -1151,13 +1152,14 @@ whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
             NodeStr = atom_to_list(Node),
             RPCKey  = rpc:async_call(Node, leo_object_storage_api, head, [{AddrId, Key}]),
             Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
-                          {value, {ok, #?METADATA{addr_id   = AddrId,
-                                                  dsize     = DSize,
-                                                  cnumber   = ChunkedObjs,
-                                                  clock     = Clock,
-                                                  timestamp = Timestamp,
-                                                  checksum  = Checksum,
-                                                  del       = DelFlag}}} ->
+                          {value, {ok, MetaBin}} ->
+                              #?METADATA{addr_id   = AddrId,
+                                         dsize     = DSize,
+                                         cnumber   = ChunkedObjs,
+                                         clock     = Clock,
+                                         timestamp = Timestamp,
+                                         checksum  = Checksum,
+                                         del       = DelFlag} = binary_to_term(MetaBin),
                               {NodeStr, AddrId, DSize, ChunkedObjs, Clock,
                                Timestamp, Checksum, DelFlag};
                           _ ->
