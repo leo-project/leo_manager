@@ -55,6 +55,8 @@ ok() ->
 %%
 -spec(error(string()) ->
              string()).
+error(Cause) when is_list(Cause) ->
+    io_lib:format("[ERROR] ~s\r\n", [Cause]);
 error(Cause) ->
     io_lib:format("[ERROR] ~p\r\n", [Cause]).
 

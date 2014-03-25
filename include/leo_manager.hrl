@@ -264,6 +264,7 @@
 -define(ERROR_FAIL_ACCESS_MNESIA,        "Fail to access mnesia").
 -define(ERROR_ALREADY_HAS_SAME_CLUSTER,  "Already has a same neme of cluster").
 -define(ERROR_COULD_NOT_GET_CLUSTER_INFO,"Could not get cluster info").
+-define(ERROR_OVER_MAX_CLUSTERS,         "Over max number of clusters").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').

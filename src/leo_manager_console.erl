@@ -808,16 +808,29 @@ dump_ring(CmdBody, Option) ->
 %% @private
 join_cluster(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        Nodes ->
-            case join_cluster_1(Nodes) of
-                {ok, ClusterId} ->
-                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
-                Other ->
-                    Other
-            end
+
+    case leo_cluster_tbl_conf:get() of
+        {ok, #?SYSTEM_CONF{max_mdc_targets = MaxTargets}} ->
+            case leo_mdcr_tbl_cluster_stat:all() of
+                {ok, Rows} when  MaxTargets < length(Rows) ->
+                    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+                        [] ->
+                            {error, ?ERROR_NOT_SPECIFIED_NODE};
+                        Nodes ->
+                            case join_cluster_1(Nodes) of
+                                {ok, ClusterId} ->
+                                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
+                                Other ->
+                                    Other
+                            end
+                    end;
+                {ok, _}->
+                    {error, ?ERROR_OVER_MAX_CLUSTERS};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_GET_CLUSTER_INFO}
+            end;
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_CONF}
     end.
 
 join_cluster_1([]) ->
