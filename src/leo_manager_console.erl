@@ -855,6 +855,15 @@ join_cluster_1([Node|Rest]) ->
                                           num_of_dc_replicas = NumOfReplicas,
                                           num_of_rack_replicas = NumOfRaclReplicas}) of
                         ok ->
+                            ok = leo_membership_cluster_remote:force_sync(),
+                            case leo_manager_api:active_storage_nodes() of
+                                {ok, StorageNodes} ->
+                                    timer:apply_after(timer:seconds(10), rpc, multicall,
+                                                      [StorageNodes, leo_mdcr_tbl_sync,
+                                                       force_sync, [], ?DEF_TIMEOUT]);
+                                _ ->
+                                    void
+                            end,
                             {ok, ClusterId};
                         _Other ->
                             {error, ?ERROR_FAIL_ACCESS_MNESIA}

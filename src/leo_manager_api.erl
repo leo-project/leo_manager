@@ -60,6 +60,7 @@
 
 -export([attach/1, attach/4, attach/5,
          detach/1, suspend/1, resume/1,
+         active_storage_nodes/0,
          distribute_members/1, distribute_members/2,
          start/1, rebalance/1]).
 
@@ -445,6 +446,21 @@ resume(last,_Error, _) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE}.
 
 
+%% @doc Retrieve active storage nodes
+%%
+active_storage_nodes() ->
+    case leo_redundant_manager_api:get_members() of
+        {ok, Members} ->
+            Nodes = [_N || #member{node  = _N,
+                                   state = ?STATE_RUNNING} <- Members],
+            {ok, Nodes};
+        not_found ->
+            {error, ?ERROR_MEMBER_NOT_FOUND};
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
+    end.
+
+
 %% @doc Distribute members list to all nodes.
 %% @private
 distribute_members([]) ->
@@ -483,9 +499,11 @@ distribute_members([_|_]= Nodes) ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end;
 
+%% @private
 distribute_members(Node) when is_atom(Node) ->
     distribute_members(ok, Node).
 
+%% @private
 -spec(distribute_members(ok, atom()) ->
              ok | {error, any()}).
 distribute_members(ok, Node) ->
@@ -495,13 +513,12 @@ distribute_members(_Error, _Node) ->
 
 
 %% @doc update manager nodes
-%%
+%% @private
 -spec(update_manager_nodes(list()) ->
              ok | {error, any()}).
 update_manager_nodes(Managers) ->
-    Ret = case leo_manager_mnesia:get_storage_nodes_all() of
-              {ok, Members} ->
-                  StorageNodes = [_N || #node_state{node = _N} <- Members],
+    Ret = case active_storage_nodes() of
+              {ok, StorageNodes} ->
                   case rpc:multicall(StorageNodes, leo_storage_api, update_manager_nodes,
                                      [Managers], ?DEF_TIMEOUT) of
                       {_, []} -> ok;
@@ -509,11 +526,12 @@ update_manager_nodes(Managers) ->
                           ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
                           {error, BadNodes}
                   end;
-              _ ->
-                  {error, ?ERROR_COULD_NOT_GET_MEMBER}
+              Error ->
+                  Error
           end,
     update_manager_nodes(Managers, Ret).
 
+%% @private
 update_manager_nodes(Managers, ok) ->
     case leo_manager_mnesia:get_gateway_nodes_all() of
         {ok, Members} ->
@@ -1922,6 +1940,16 @@ join_cluster(RemoteManagerNodes,
                 ok ->
                     %% update info of remote-managers
                     ok = update_cluster_member(RemoteManagerNodes, ClusterId),
+                    %% force sync remote state/conf
+                    ok = leo_membership_cluster_remote:force_sync(),
+                    case active_storage_nodes() of
+                        {ok, StorageNodes} ->
+                            timer:apply_after(timer:seconds(10), rpc, multicall,
+                                              [StorageNodes, leo_mdcr_tbl_sync,
+                                               force_sync, [], ?DEF_TIMEOUT]);
+                        _ ->
+                            void
+                    end,
                     %% retrieve the system-conf of current cluster
                     leo_cluster_tbl_conf:get();
                 Error ->
