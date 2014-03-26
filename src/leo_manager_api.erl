@@ -72,7 +72,9 @@
          update_acl/3
         ]).
 
--export([join_cluster/2, update_cluster_member/2,
+-export([join_cluster/2,
+         sync_mdc_tables/1, sync_mdc_tables/2,
+         update_cluster_member/2,
          remove_cluster/1]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
@@ -1939,18 +1941,8 @@ join_cluster(RemoteManagerNodes,
                                   num_of_rack_replicas = NumOfRaclReplicas}) of
                 ok ->
                     %% update info of remote-managers
-                    ok = update_cluster_member(RemoteManagerNodes, ClusterId),
-                    %% force sync remote state/conf
-                    ok = leo_membership_cluster_remote:force_sync(),
-                    case active_storage_nodes() of
-                        {ok, StorageNodes} ->
-                            timer:apply_after(timer:seconds(10), rpc, multicall,
-                                              [StorageNodes, leo_mdcr_tbl_sync,
-                                               force_sync, [], ?DEF_TIMEOUT]);
-                        _ ->
-                            void
-                    end,
-                    %% retrieve the system-conf of current cluster
+                    %% and force sync remote state/conf
+                    ok = sync_mdc_tables(ClusterId, RemoteManagerNodes),
                     leo_cluster_tbl_conf:get();
                 Error ->
                     Error
@@ -1960,6 +1952,31 @@ join_cluster(RemoteManagerNodes,
         Error ->
             Error
     end.
+
+
+%% @doc Synchronize mdc-related tables
+%%
+sync_mdc_tables(ClusterId) ->
+    case leo_mdcr_tbl_cluster_mgr:get(ClusterId) of
+        {ok,  RemoteManagerNodes} ->
+            sync_mdc_tables(ClusterId, RemoteManagerNodes);
+        _ ->
+            ok
+    end.
+sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
+    %% update info of remote-managers
+    ok = update_cluster_member(RemoteManagerNodes, ClusterId),
+    %% force sync remote state/conf
+    ok = leo_membership_cluster_remote:force_sync(RemoteManagerNodes),
+    case active_storage_nodes() of
+        {ok, StorageNodes} ->
+            timer:apply_after(timer:seconds(10), rpc, multicall,
+                              [StorageNodes, leo_mdcr_tbl_sync,
+                               force_sync, [], ?DEF_TIMEOUT]);
+        _ ->
+            void
+    end,
+    ok.
 
 
 %% @doc Update cluster members for MDC-replication
