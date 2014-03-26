@@ -292,7 +292,7 @@
  "leo_rpc.num_of_acceptors",
  [
   {datatype, integer},
-  {default, 64}
+  {default, 16}
  ]}.
 
 %% @doc
@@ -311,6 +311,25 @@
  [
   {datatype, integer},
   {default, 5000}
+ ]}.
+
+
+%% @doc
+{mapping,
+ "rpc.client.connection_pool_size",
+ "leo_rpc.connection_pool_size",
+ [
+  {datatype, integer},
+  {default, 16}
+ ]}.
+
+%% @doc
+{mapping,
+ "rpc.client.connection_buffer_size",
+ "leo_rpc.connection_buffer_size",
+ [
+  {datatype, integer},
+  {default, 16}
  ]}.
 
 
