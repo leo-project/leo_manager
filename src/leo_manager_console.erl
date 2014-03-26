@@ -835,7 +835,7 @@ join_cluster_1(Bin) ->
         Nodes ->
             case join_cluster_2(Nodes) of
                 {ok, ClusterId} ->
-                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
+                    leo_manager_api:update_cluster_manager(Nodes, ClusterId);
                 Other ->
                     Other
             end
@@ -844,7 +844,7 @@ join_cluster_1(Bin) ->
 %% @private
 join_cluster_2([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
-join_cluster_2([Node|Rest]) ->
+join_cluster_2([Node|Rest] = RemoteNodes) ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     RPCNode = leo_rpc:node(),
     Managers = case ?env_partner_of_manager_node() of
@@ -877,7 +877,8 @@ join_cluster_2([Node|Rest]) ->
                                           num_of_dc_replicas = NumOfReplicas,
                                           num_of_rack_replicas = NumOfRaclReplicas}) of
                         ok ->
-                            ok = leo_manager_api:sync_mdc_tables(ClusterId),
+                            ok = leo_manager_api:sync_mdc_tables(
+                                   ClusterId, RemoteNodes),
                             {ok, ClusterId};
                         _Other ->
                             {error, ?ERROR_FAIL_ACCESS_MNESIA}

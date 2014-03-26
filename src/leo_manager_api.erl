@@ -73,8 +73,7 @@
         ]).
 
 -export([join_cluster/2,
-         sync_mdc_tables/1, sync_mdc_tables/2,
-         update_cluster_member/2,
+         sync_mdc_tables/2, update_cluster_manager/2,
          remove_cluster/1]).
 
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
@@ -1956,18 +1955,14 @@ join_cluster(RemoteManagerNodes,
 
 %% @doc Synchronize mdc-related tables
 %%
-sync_mdc_tables(ClusterId) ->
-    case leo_mdcr_tbl_cluster_mgr:get(ClusterId) of
-        {ok,  RemoteManagerNodes} ->
-            sync_mdc_tables(ClusterId, RemoteManagerNodes);
-        _ ->
-            ok
-    end.
+-spec(sync_mdc_tables(atom(), list(atom())) ->
+             ok).
 sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
     %% update info of remote-managers
-    ok = update_cluster_member(RemoteManagerNodes, ClusterId),
+    ok = update_cluster_manager(RemoteManagerNodes, ClusterId),
     %% force sync remote state/conf
-    ok = leo_membership_cluster_remote:force_sync(RemoteManagerNodes),
+    ok = leo_membership_cluster_remote:force_sync(
+           ClusterId, RemoteManagerNodes),
     case active_storage_nodes() of
         {ok, StorageNodes} ->
             timer:apply_after(timer:seconds(10), rpc, multicall,
@@ -1981,16 +1976,16 @@ sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
 
 %% @doc Update cluster members for MDC-replication
 %%
--spec(update_cluster_member(list(atom()), atom()) ->
+-spec(update_cluster_manager(list(atom()), atom()) ->
              ok).
-update_cluster_member([],_ClusterId) ->
+update_cluster_manager([],_ClusterId) ->
     ok;
-update_cluster_member([Node|Rest], ClusterId) ->
+update_cluster_manager([Node|Rest], ClusterId) ->
     case leo_mdcr_tbl_cluster_mgr:update(
            #cluster_manager{node = Node,
                             cluster_id = ClusterId}) of
         ok ->
-            update_cluster_member(Rest, ClusterId);
+            update_cluster_manager(Rest, ClusterId);
         Other ->
             Other
     end.
