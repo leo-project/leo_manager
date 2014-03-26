@@ -812,30 +812,39 @@ join_cluster(CmdBody, Option) ->
     case leo_cluster_tbl_conf:get() of
         {ok, #?SYSTEM_CONF{max_mdc_targets = MaxTargets}} ->
             case leo_mdcr_tbl_cluster_stat:all() of
+                not_found ->
+                    join_cluster_1(Option);
                 {ok, Rows} when  MaxTargets < length(Rows) ->
-                    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-                        [] ->
-                            {error, ?ERROR_NOT_SPECIFIED_NODE};
-                        Nodes ->
-                            case join_cluster_1(Nodes) of
-                                {ok, ClusterId} ->
-                                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
-                                Other ->
-                                    Other
-                            end
-                    end;
+                    join_cluster_1(Option);
                 {ok, _}->
                     {error, ?ERROR_OVER_MAX_CLUSTERS};
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_GET_CLUSTER_INFO}
             end;
+        not_found ->
+            {error, ?ERROR_COULD_NOT_GET_CONF};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_CONF}
     end.
 
-join_cluster_1([]) ->
+%% @private
+join_cluster_1(Bin) ->
+    case string:tokens(binary_to_list(Bin), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        Nodes ->
+            case join_cluster_2(Nodes) of
+                {ok, ClusterId} ->
+                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
+                Other ->
+                    Other
+            end
+    end.
+
+%% @private
+join_cluster_2([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
-join_cluster_1([Node|Rest]) ->
+join_cluster_2([Node|Rest]) ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     RPCNode = leo_rpc:node(),
     Managers = case ?env_partner_of_manager_node() of
@@ -887,7 +896,7 @@ join_cluster_1([Node|Rest]) ->
                     {error, ?ERROR_FAIL_ACCESS_MNESIA}
             end;
         _Error ->
-            join_cluster_1(Rest)
+            join_cluster_2(Rest)
     end.
 
 
