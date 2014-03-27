@@ -472,12 +472,15 @@ cluster_status(Stats) ->
                              Status = leo_misc:get_value('status', Items),
                              NumOfStorages = leo_misc:get_value('members', Items),
                              UpdatedAt = leo_misc:get_value('updated_at', Items),
-
+                             UpdatedAt_1 = case (UpdatedAt > 0) of
+                                 true  -> leo_date:date_format(UpdatedAt);
+                                 false -> []
+                             end,
                              {[{<<"cluster_id">>, list_to_binary(ClusterId_2)},
-                               {<<"dc_id">>,      list_to_binary(atom_to_list(DCId_2))},
+                               {<<"dc_id">>,      list_to_binary(DCId_2)},
                                {<<"status">>,     list_to_binary(atom_to_list(Status))},
-                               {<<"num_of_storages">>, NumOfStorages},
-                               {<<"updated_at">>,      list_to_binary(UpdatedAt)}
+                               {<<"num_of_storages">>, list_to_binary(integer_to_list(NumOfStorages))},
+                               {<<"updated_at">>,      list_to_binary(UpdatedAt_1)}
                               ]}
                      end, Stats),
     gen_json({[{<<"cluster_stats">>, JSON}]}).
