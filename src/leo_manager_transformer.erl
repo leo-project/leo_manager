@@ -28,6 +28,7 @@
 -author('Yosuke Hara').
 
 -include("leo_manager.hrl").
+-include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -export([transform/0]).
@@ -41,13 +42,6 @@
 transform() ->
     %% Update available commands
     ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
-
-    %% data migration - bucket
-    case ?env_use_s3_api() of
-        false -> void;
-        true  ->
-            catch leo_s3_bucket_transform_handler:transform()
-    end,
 
     %% data migration - members
     {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
@@ -65,6 +59,17 @@ transform() ->
     ok = leo_mdcr_tbl_cluster_stat:transform(),
     ok = leo_mdcr_tbl_cluster_member:transform(),
     ok = leo_ring_tbl_transformer:transform(),
+
+    %% data migration - bucket
+    case ?env_use_s3_api() of
+        false -> void;
+        true  ->
+            {ok, #?SYSTEM_CONF{cluster_id = ClusterId}} = leo_cluster_tbl_conf:get(),
+            ok = leo_s3_bucket:transform(),
+            ok = leo_s3_bucket:transform(ClusterId),
+            ok = leo_s3_user:transform(),
+            ok = leo_s3_user:transform(ClusterId)
+    end,
 
     %% leo_statistics-related
     ok = leo_statistics_api:create_tables(disc_copies, ReplicaNodes),
