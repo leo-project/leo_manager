@@ -409,7 +409,11 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    JSON = lists:map(fun({Bucket, #user_credential{user_id = Owner}, Permissions, CreatedAt}) ->
+    JSON = lists:map(fun(#bucket_dto{name  = Bucket,
+                                     owner = #user_credential{user_id = Owner},
+                                     acls  = Permissions,
+                                     cluster_id = ClusterId,
+                                     created_at = CreatedAt}) ->
                              CreatedAt_1  = case (CreatedAt > 0) of
                                                 true  -> leo_date:date_format(CreatedAt);
                                                 false -> []
@@ -418,6 +422,7 @@ buckets(Buckets) ->
                              {[{<<"bucket">>,      Bucket},
                                {<<"owner">>,       list_to_binary(Owner)},
                                {<<"permissions">>, list_to_binary(PermissionsStr)},
+                               {<<"cluster_id">>,  list_to_binary(atom_to_list(ClusterId))},
                                {<<"created_at">>,  list_to_binary(CreatedAt_1)}
                               ]}
                      end, Buckets),

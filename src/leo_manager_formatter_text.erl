@@ -594,17 +594,29 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    Col1MinLen = 8,
-    Col2MinLen = 6,
-    Col3MinLen = 12,
-    {Col1Len, Col2Len, Col3Len} =
-        lists:foldl(fun({Bucket, #user_credential{user_id= Owner}, Permissions, _CreatedAt},
-                        {C1, C2, C3}) ->
+    Col1MinLen = 12,  %% cluster-id
+    Col2MinLen = 8,  %% bucket-name
+    Col3MinLen = 6,  %% owner
+    Col4MinLen = 12, %% permissions
+
+    {Col1Len, Col2Len,
+     Col3Len, Col4Len} =
+        lists:foldl(fun(#bucket_dto{name  = Bucket,
+                                    owner = #user_credential{user_id= Owner},
+                                    acls  = Permissions,
+                                    cluster_id = ClusterId,
+                                    created_at = _CreatedAt},
+                        {C1, C2, C3, C4}) ->
+                            ClusterIdStr = atom_to_list(ClusterId),
                             BucketStr = binary_to_list(Bucket),
-                            PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions], ","),
-                            Len1 = length(BucketStr),
-                            Len2 = length(Owner),
-                            Len3 = length(PermissionsStr),
+                            PermissionsStr = string:join([atom_to_list(Item)
+                                                          || Item <- Permissions], ","),
+                            Len1 = length(ClusterIdStr),
+                            Len2 = length(BucketStr),
+                            Len3 = length(Owner),
+                            Len4 = length(PermissionsStr),
+
+
                             {case (Len1 > C1) of
                                  true  -> Len1;
                                  false -> C1
@@ -616,22 +628,37 @@ buckets(Buckets) ->
                              case (Len3 > C3) of
                                  true  -> Len3;
                                  false -> C3
+                             end,
+                             case (Len4 > C4) of
+                                 true  -> Len4;
+                                 false -> C4
                              end
                             }
-                    end, {Col1MinLen, Col2MinLen, Col3MinLen}, Buckets),
-    Col4Len = 26,
+                    end, {Col1MinLen, Col2MinLen,
+                          Col3MinLen, Col4MinLen}, Buckets),
+    Col5Len = 26, %% created at
+
     Header = lists:append(
-               [string:left("bucket",      Col1Len), " | ",
-                string:left("owner",       Col2Len), " | ",
-                string:left("permissions", Col3Len), " | ",
-                string:left("created at",  Col4Len), "\r\n",
+               [
+                string:left("cluster id",  Col1Len), " | ",
+                string:left("bucket",      Col2Len), " | ",
+                string:left("owner",       Col3Len), " | ",
+                string:left("permissions", Col4Len), " | ",
+                string:left("created at",  Col5Len), "\r\n",
 
                 lists:duplicate(Col1Len, "-"), "-+-",
                 lists:duplicate(Col2Len, "-"), "-+-",
                 lists:duplicate(Col3Len, "-"), "-+-",
-                lists:duplicate(Col4Len, "-"), "\r\n"]),
+                lists:duplicate(Col4Len, "-"), "-+-",
+                lists:duplicate(Col5Len, "-"), "\r\n"
+               ]),
 
-    Fun = fun({Bucket, #user_credential{user_id= Owner}, Permissions1, Created1}, Acc) ->
+    Fun = fun(#bucket_dto{name = Bucket,
+                          owner = #user_credential{user_id= Owner},
+                          acls  = Permissions1,
+                          cluster_id = ClusterId,
+                          created_at = Created1}, Acc) ->
+                  ClusterIdStr = atom_to_list(ClusterId),
                   BucketStr = binary_to_list(Bucket),
                   PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions1], ","),
                   Created2  = case (Created1 > 0) of
@@ -639,10 +666,12 @@ buckets(Buckets) ->
                                   false -> []
                               end,
 
-                  Acc ++ io_lib:format("~s | ~s | ~s | ~s\r\n",
-                                       [string:left(BucketStr,      Col1Len),
-                                        string:left(Owner,          Col2Len),
-                                        string:left(PermissionsStr, Col3Len),
+                  Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s\r\n",
+                                       [
+                                        string:left(ClusterIdStr,   Col1Len),
+                                        string:left(BucketStr,      Col2Len),
+                                        string:left(Owner,          Col3Len),
+                                        string:left(PermissionsStr, Col4Len),
                                         Created2])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).

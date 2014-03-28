@@ -1781,9 +1781,19 @@ add_bucket(AccessKey, Bucket, CannedACL) ->
     end.
 
 add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
-    case leo_s3_bucket:put(AccessKeyBin, BucketBin, CannedACL) of
+    %% Retrieve cluster-id, then put it into the bucket
+    ClusterId_1 = case leo_cluster_tbl_conf:get() of
+                      {ok, #?SYSTEM_CONF{cluster_id = ClusterId}} ->
+                          ClusterId;
+                      _ ->
+                          undefined
+                  end,
+
+    case leo_s3_bucket:put(AccessKeyBin, BucketBin,
+                           CannedACL, ClusterId_1) of
         ok ->
-            rpc_call_for_gateway(add_bucket, [AccessKeyBin, BucketBin, CannedACL, undefined]);
+            rpc_call_for_gateway(add_bucket,
+                                 [AccessKeyBin, BucketBin, CannedACL, undefined]);
         {error, badarg} ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
@@ -2010,25 +2020,29 @@ is_allow_to_distribute_command() ->
              boolean()).
 is_allow_to_distribute_command(Node) ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
-    {ok, Members_1}  = leo_redundant_manager_api:get_members(),
-    {Total, Active, Members_2} =
-        lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
-                            Acc;
-                       (#member{state = ?STATE_DETACHED}, Acc) ->
-                            Acc;
-                       (#member{state = ?STATE_ATTACHED}, Acc) ->
-                            Acc;
-                       (#member{state = ?STATE_RUNNING,
-                                node  = N}, {Num1, Num2, M}) ->
-                            {Num1+1, Num2+1, [N|M]};
-                       (#member{}, {Num1, Num2, M}) ->
-                            {Num1+1, Num2, M}
-                    end, {0,0,[]}, Members_1),
+    case leo_redundant_manager_api:get_members() of
+        {ok, Members_1} ->
+            {Total, Active, Members_2} =
+                lists:foldl(fun(#member{node = N}, Acc) when N == Node ->
+                                    Acc;
+                               (#member{state = ?STATE_DETACHED}, Acc) ->
+                                    Acc;
+                               (#member{state = ?STATE_ATTACHED}, Acc) ->
+                                    Acc;
+                               (#member{state = ?STATE_RUNNING,
+                                        node  = N}, {Num1, Num2, M}) ->
+                                    {Num1+1, Num2+1, [N|M]};
+                               (#member{}, {Num1, Num2, M}) ->
+                                    {Num1+1, Num2, M}
+                            end, {0,0,[]}, Members_1),
 
-    NVal = SystemConf#?SYSTEM_CONF.n,
-    Diff = case (SystemConf#?SYSTEM_CONF.n < 2) of
-               true  -> 0;
-               false -> NVal - (NVal - 1)
-           end,
-    Ret  = ((Total - Active) =< Diff),
-    {Ret, Members_2}.
+            NVal = SystemConf#?SYSTEM_CONF.n,
+            Diff = case (SystemConf#?SYSTEM_CONF.n < 2) of
+                       true  -> 0;
+                       false -> NVal - (NVal - 1)
+                   end,
+            Ret  = ((Total - Active) =< Diff),
+            {Ret, Members_2};
+        _ ->
+            {false, []}
+    end.
