@@ -27,6 +27,10 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_auth.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_libs.hrl").
+-include_lib("leo_s3_libs/include/leo_s3_user.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
@@ -101,8 +105,7 @@ handle_call(stop,_From,State) ->
     {stop, normal, ok, State};
 
 handle_call(force_sync,_From, State) ->
-    %% @TODO
-    %% ok = exec(),
+    ok = sync_1(),
     {reply, ok, State}.
 
 
@@ -192,6 +195,125 @@ sync_1() ->
              ok | {error, any()}).
 exec([]) ->
     ok;
-exec([#cluster_manager{node = _Node,
-                       cluster_id = _ClusterId}|Rest]) ->    
-    exec(Rest).
+exec([#cluster_manager{node = Node,
+                       cluster_id = _ClusterId}|Rest]) ->
+    %% Synchronize s3-related tables:
+    %% [ leo_s3_credentials,
+    %%   leo_s3_buckets,
+    %%   leo_s3_users,
+    %%   leo_s3_user_credential ]
+    case catch leo_s3_libs:get_checksums() of
+        {'EXIT',Cause} ->
+            {error, Cause};
+        {ok, S3TblsChecksum} ->
+            ok = compare_with_remote_node(Node, S3TblsChecksum),
+            exec(Rest)
+    end.
+
+
+%% @doc Compare s3-related tables of checksum with a remote-node
+%% @private
+compare_with_remote_node(Node,
+                         #s3_tbls_checksum{auth       = L_C1,
+                                           bucket     = L_C2,
+                                           user       = L_C3,
+                                           credential = L_C4
+                                          } = _S3TblsChecksum_1) ->
+    case leo_rpc:call(Node, leo_s3_libs, get_Checksums, []) of
+        {ok, #s3_tbls_checksum{auth       = R_C1,
+                               bucket     = R_C2,
+                               user       = R_C3,
+                               credential = R_C4
+                              } = _S3TblsChecksum_2} ->
+            compare_with_remote_node_1([{auth,       (L_C1 == R_C1)},
+                                        {bucket,     (L_C2 == R_C2)},
+                                        {user,       (L_C3 == R_C3)},
+                                        {credential, (L_C4 == R_C4)}], Node);
+        _Error ->
+            _Error
+    end.
+
+%% @private
+compare_with_remote_node_1([],_Node) ->
+    ok;
+compare_with_remote_node_1([{auth, false}|Rest], Node) ->
+    Mod = leo_s3_auth,
+    ok = compare_with_remote_node_2(Node, Mod),
+    compare_with_remote_node_1(Rest, Node);
+compare_with_remote_node_1([{bucket, false}|Rest], Node) ->
+    Mod = leo_s3_bucket,
+    ok = compare_with_remote_node_2(Node, Mod),
+    compare_with_remote_node_1(Rest, Node);
+compare_with_remote_node_1([{user, false}|Rest], Node) ->
+    Mod = leo_s3_user,
+    ok = compare_with_remote_node_2(Node, Mod),
+    compare_with_remote_node_1(Rest, Node);
+compare_with_remote_node_1([{credential, false}|Rest], Node) ->
+    Mod = leo_s3_user_credential,
+    ok = compare_with_remote_node_2(Node, Mod),
+    compare_with_remote_node_1(Rest, Node);
+compare_with_remote_node_1([_|Rest], Node) ->
+    compare_with_remote_node_1(Rest, Node).
+
+%% @private
+compare_with_remote_node_2(Node, Mod) ->
+    case leo_rpc:call(Node, Mod, find_all, []) of
+        {ok, RetL_1} ->
+            case Mod:find_all() of
+                {ok, RetL_2} ->
+                    compare_with_remote_node_3(RetL_1, RetL_2);
+                _Error ->
+                    void
+            end;
+        _Error ->
+            void
+    end,
+    ok.
+
+%% @private
+compare_with_remote_node_3([],_LocalRecs) ->
+    ok;
+compare_with_remote_node_3([Value|Rest], LocalRecs) ->
+    ok = compare_with_remote_node_3_1(Value, LocalRecs),
+    compare_with_remote_node_3(Rest, LocalRecs).
+
+%% @private
+compare_with_remote_node_3_1(#credential{} = Credential, []) ->
+    leo_s3_auth:put(Credential);
+compare_with_remote_node_3_1(#?BUCKET{} = Bucket, []) ->
+    leo_s3_bucket:put(Bucket);
+compare_with_remote_node_3_1(#?S3_USER{} = User, []) ->
+    leo_s3_user:put(User);
+compare_with_remote_node_3_1(#user_credential{} = UserCredential, []) ->
+    leo_s3_user_credential:put(UserCredential);
+compare_with_remote_node_3_1(_, []) ->
+    ok;
+
+compare_with_remote_node_3_1(#credential{} = Credential_1,
+                             [#credential{} = Credential_2|Rest]) ->
+    case (Credential_1 /= Credential_2) of
+        true  -> leo_s3_auth:put(Credential_1);
+        false -> compare_with_remote_node_3_1(Credential_1, Rest)
+    end;
+compare_with_remote_node_3_1(#?BUCKET{last_modified_at = Upd_1} = Bucket_1,
+                             [#?BUCKET{last_modified_at = Upd_2} = Bucket_2|Rest]) ->
+    case (Bucket_1 /= Bucket_2) of
+        true when Upd_1 >= Upd_2 -> leo_s3_bucket:put(Bucket_1);
+        true  -> ok;
+        false -> compare_with_remote_node_3_1(Bucket_1, Rest)
+    end;
+compare_with_remote_node_3_1(#?S3_USER{updated_at = Upd_1} = User_1,
+                             [#?S3_USER{updated_at = Upd_2} = User_2|Rest]) ->
+    case (User_1 /= User_2) of
+        true when Upd_1 >= Upd_2 -> leo_s3_user:put(User_1);
+        true  -> ok;
+        false -> compare_with_remote_node_3_1(User_1, Rest)
+    end;
+compare_with_remote_node_3_1(#user_credential{} = UserCredential_1,
+                             [#user_credential{} = UserCredential_2|Rest]) ->
+    case (UserCredential_1 /= UserCredential_2) of
+        true  -> leo_s3_user_credential:put(UserCredential_1);
+        false -> compare_with_remote_node_3_1(UserCredential_1, Rest)
+    end;
+compare_with_remote_node_3_1(Val, [_|Rest]) ->
+    compare_with_remote_node_3_1(Val, Rest).
