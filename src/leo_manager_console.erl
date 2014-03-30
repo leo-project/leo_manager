@@ -985,7 +985,7 @@ login(CmdBody, Option) ->
             [UserId, Password] = Token,
             case leo_s3_user:auth(UserId, Password) of
                 {ok, #user{id = UserId} = User} ->
-                    case leo_s3_user:get_credential_by_id(UserId) of
+                    case leo_s3_user_credential:get_credential_by_user_id(UserId) of
                         {ok, Credential} ->
                             {ok, User, Credential};
                         Error ->
@@ -1600,7 +1600,7 @@ delete_user(CmdBody, Option) ->
 get_users(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_s3_user:find_all() of
+    case leo_s3_user_credential:find_all() of
         {ok, Users} ->
             {ok, Users};
         not_found = Cause ->

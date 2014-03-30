@@ -277,11 +277,11 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 case ?env_use_s3_api() of
                     true ->
                         %% Create S3-related tables
-                        leo_s3_auth:create_credential_table(disc_copies, Nodes_1),
-                        leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes_1),
-                        leo_s3_bucket:create_bucket_table(disc_copies, Nodes_1),
-                        leo_s3_user:create_user_table(disc_copies, Nodes_1),
-                        leo_s3_user:create_user_credential_table(disc_copies, Nodes_1),
+                        leo_s3_auth:create_table(disc_copies, Nodes_1),
+                        leo_s3_endpoint:create_table(disc_copies, Nodes_1),
+                        leo_s3_bucket:create_table(disc_copies, Nodes_1),
+                        leo_s3_user:create_table(disc_copies, Nodes_1),
+                        leo_s3_user_credential:create_table(disc_copies, Nodes_1),
 
                         %% Insert test-related values
                         CreatedAt = leo_date:now(),
