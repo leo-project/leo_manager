@@ -1495,7 +1495,7 @@ create_user(CmdBody, Option) ->
 
     case Ret of
         {ok, {Arg0, Arg1}} ->
-            case leo_s3_user:add(Arg0, Arg1, true) of
+            case leo_s3_user:put(Arg0, Arg1, true) of
                 {ok, Keys} ->
                     AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
                     SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),
