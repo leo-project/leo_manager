@@ -1973,6 +1973,9 @@ sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
     %% force sync remote state/conf
     ok = leo_membership_cluster_remote:force_sync(
            ClusterId, RemoteManagerNodes),
+    %% force sync s3-related tables
+    ok = leo_manager_table_sync:force_sync(),
+
     case active_storage_nodes() of
         {ok, StorageNodes} ->
             timer:apply_after(timer:seconds(10), rpc, multicall,
