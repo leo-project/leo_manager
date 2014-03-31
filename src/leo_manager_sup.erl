@@ -295,15 +295,18 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_users},
                                                         {[], #?S3_USER{id         = ?TEST_USER_ID,
                                                                        role_id    = 9,
-                                                                       created_at = CreatedAt}}),
+                                                                       created_at = CreatedAt
+                                                                      }}),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_user_credential},
                                                         {[], #user_credential{user_id       = ?TEST_USER_ID,
                                                                               access_key_id = ?TEST_ACCESS_KEY,
-                                                                              created_at    = CreatedAt}}),
+                                                                              created_at    = CreatedAt
+                                                                             }}),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_credentials},
                                                         {[], #credential{access_key_id     = ?TEST_ACCESS_KEY,
                                                                          secret_access_key = ?TEST_SECRET_KEY,
-                                                                         created_at        = CreatedAt}}),
+                                                                         created_at        = CreatedAt
+                                                                        }}),
                         %% Insert default s3-endpoint values
                         leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_1),
                         leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2);

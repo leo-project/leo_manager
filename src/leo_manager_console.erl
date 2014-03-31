@@ -975,7 +975,7 @@ version() ->
 %% @doc Exec login
 %% @private
 -spec(login(binary(), binary()) ->
-             {ok, #user{}, list()} | {error, any()}).
+             {ok, #?S3_USER{}, list()} | {error, any()}).
 login(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
@@ -984,7 +984,7 @@ login(CmdBody, Option) ->
         true ->
             [UserId, Password] = Token,
             case leo_s3_user:auth(UserId, Password) of
-                {ok, #user{id = UserId} = User} ->
+                {ok, #?S3_USER{id = UserId} = User} ->
                     case leo_s3_user_credential:get_credential_by_user_id(UserId) of
                         {ok, Credential} ->
                             {ok, User, Credential};
@@ -1502,9 +1502,9 @@ create_user(CmdBody, Option) ->
 
                     case Arg1 of
                         [] ->
-                            ok = leo_s3_user:update(#user{id       = Arg0,
-                                                          role_id  = ?ROLE_GENERAL,
-                                                          password = SecretAccessKey});
+                            ok = leo_s3_user:update(#?S3_USER{id       = Arg0,
+                                                              role_id  = ?ROLE_GENERAL,
+                                                              password = SecretAccessKey});
                         _ ->
                             void
                     end,
@@ -1527,9 +1527,9 @@ update_user_role(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, RoleId|_] ->
-            case leo_s3_user:update(#user{id       = UserId,
-                                          role_id  = list_to_integer(RoleId),
-                                          password = <<>>}) of
+            case leo_s3_user:update(#?S3_USER{id       = UserId,
+                                              role_id  = list_to_integer(RoleId),
+                                              password = <<>>}) of
                 ok ->
                     ok;
                 not_found ->
@@ -1552,10 +1552,10 @@ update_user_password(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, Password|_] ->
             case leo_s3_user:find_by_id(UserId) of
-                {ok, #user{role_id = RoleId}} ->
-                    case leo_s3_user:update(#user{id       = UserId,
-                                                  role_id  = RoleId,
-                                                  password = Password}) of
+                {ok, #?S3_USER{role_id = RoleId}} ->
+                    case leo_s3_user:update(#?S3_USER{id       = UserId,
+                                                      role_id  = RoleId,
+                                                      password = Password}) of
                         ok ->
                             ok;
                         {error, Cause} ->

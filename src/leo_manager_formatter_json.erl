@@ -104,15 +104,15 @@ version(Version) ->
 
 %% Format 'version'
 %%
--spec(login(#user{}, list(tuple())) ->
+-spec(login(#?S3_USER{}, list(tuple())) ->
              string()).
 login(User, Credential) ->
     gen_json({[{<<"user">>,
-                {[{<<"id">>,            list_to_binary(User#user.id)},
-                  {<<"role_id">>,       User#user.role_id},
+                {[{<<"id">>,            list_to_binary(User#?S3_USER.id)},
+                  {<<"role_id">>,       User#?S3_USER.role_id},
                   {<<"access_key_id">>, leo_misc:get_value('access_key_id',     Credential)},
                   {<<"secret_key">>,    leo_misc:get_value('secret_access_key', Credential)},
-                  {<<"created_at">>,    list_to_binary(leo_date:date_format(User#user.created_at))}
+                  {<<"created_at">>,    list_to_binary(leo_date:date_format(User#?S3_USER.created_at))}
                  ]}}
               ]}).
 

@@ -295,39 +295,43 @@ compare_with_remote_node_4(#?S3_USER{} = User, []) ->
     leo_s3_user:put(User);
 compare_with_remote_node_4(#user_credential{} = UserCredential, []) ->
     leo_s3_user_credential:put(UserCredential);
-compare_with_remote_node_4(_, []) ->
+compare_with_remote_node_4(_Other, []) ->
     ok;
 
-compare_with_remote_node_4(#credential{} = Credential_1,
-                           [#credential{} = Credential_2|Rest]) ->
+compare_with_remote_node_4(#credential{access_key_id = Id} = Credential_1,
+                           [#credential{access_key_id = Id} = Credential_2|Rest]) ->
     case (Credential_1 == Credential_2) of
         true ->
             compare_with_remote_node_4(Credential_1, Rest);
         false ->
             leo_s3_auth:put(Credential_1)
     end;
-compare_with_remote_node_4(#?BUCKET{last_modified_at = Upd_1} = Bucket_1,
-                           [#?BUCKET{last_modified_at = Upd_2} = Bucket_2|Rest]) ->
+compare_with_remote_node_4(#?BUCKET{name = Name,
+                                    last_modified_at = Upd_1} = Bucket_1,
+                           [#?BUCKET{name = Name,
+                                     last_modified_at = Upd_2} = Bucket_2|Rest]) ->
     case (Bucket_1 == Bucket_2) of
         true ->
             compare_with_remote_node_4(Bucket_1, Rest);
-        false when Upd_1 >= Upd_2 ->
+        false when Upd_1 > Upd_2 ->
             leo_s3_bucket:put(Bucket_1);
         false ->
             ok
     end;
-compare_with_remote_node_4(#?S3_USER{updated_at = Upd_1} = User_1,
-                           [#?S3_USER{updated_at = Upd_2} = User_2|Rest]) ->
+compare_with_remote_node_4(#?S3_USER{id = Id,
+                                     updated_at = Upd_1} = User_1,
+                           [#?S3_USER{id = Id,
+                                      updated_at = Upd_2} = User_2|Rest]) ->
     case (User_1 == User_2) of
         true ->
             compare_with_remote_node_4(User_1, Rest);
-        false when Upd_1 >= Upd_2 ->
+        false when Upd_1 > Upd_2 ->
             leo_s3_user:put(User_1);
         false ->
             ok
     end;
-compare_with_remote_node_4(#user_credential{} = UserCredential_1,
-                           [#user_credential{} = UserCredential_2|Rest]) ->
+compare_with_remote_node_4(#user_credential{user_id = UserId} = UserCredential_1,
+                           [#user_credential{user_id = UserId} = UserCredential_2|Rest]) ->
     case (UserCredential_1 == UserCredential_2) of
         true ->
             compare_with_remote_node_4(UserCredential_1, Rest);
