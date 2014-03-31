@@ -219,7 +219,7 @@ compare_with_remote_node(Node,
                                            user       = L_C3,
                                            credential = L_C4
                                           } = _S3TblsChecksum_1) ->
-    case leo_rpc:call(Node, leo_s3_libs, get_Checksums, []) of
+    case leo_rpc:call(Node, leo_s3_libs, get_checksums, []) of
         {ok, #s3_tbls_checksum{auth       = R_C1,
                                bucket     = R_C2,
                                user       = R_C3,
