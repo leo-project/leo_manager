@@ -206,8 +206,12 @@ exec([#cluster_manager{node = Node,
         {'EXIT',Cause} ->
             {error, Cause};
         {ok, S3TblsChecksum} ->
-            ok = compare_with_remote_node(Node, S3TblsChecksum),
-            exec(Rest)
+            case compare_with_remote_node(Node, S3TblsChecksum) of
+                ok ->
+                    ok;
+                _Error ->
+                    exec(Rest)
+            end
     end.
 
 
@@ -219,16 +223,17 @@ compare_with_remote_node(Node,
                                            user       = L_C3,
                                            credential = L_C4
                                           } = _S3TblsChecksum_1) ->
-    case leo_rpc:call(Node, leo_s3_libs, get_checksums, []) of
+    case catch leo_rpc:call(Node, leo_s3_libs, get_checksums, []) of
         {ok, #s3_tbls_checksum{auth       = R_C1,
                                bucket     = R_C2,
                                user       = R_C3,
                                credential = R_C4
                               } = _S3TblsChecksum_2} ->
-            compare_with_remote_node_1([{auth,       (L_C1 == R_C1)},
-                                        {bucket,     (L_C2 == R_C2)},
-                                        {user,       (L_C3 == R_C3)},
-                                        {credential, (L_C4 == R_C4)}], Node);
+            Ret = [{auth,       (L_C1 == R_C1)},
+                   {bucket,     (L_C2 == R_C2)},
+                   {user,       (L_C3 == R_C3)},
+                   {credential, (L_C4 == R_C4)}],
+            compare_with_remote_node_1(Ret, Node);
         _Error ->
             _Error
     end.
@@ -257,13 +262,17 @@ compare_with_remote_node_1([_|Rest], Node) ->
 
 %% @private
 compare_with_remote_node_2(Node, Mod) ->
-    case leo_rpc:call(Node, Mod, find_all, []) of
-        {ok, RetL_1} ->
-            case Mod:find_all() of
-                {ok, RetL_2} ->
-                    compare_with_remote_node_3(RetL_1, RetL_2);
-                _Error ->
-                    void
+    %% Retrieve local records
+    case Mod:find_all() of
+        {ok, RetL_Local} ->
+            %% Retrieve remote records
+            case leo_rpc:call(Node, Mod, find_all, []) of
+                {ok, RetL_Remote} ->
+                    compare_with_remote_node_3(RetL_Remote, RetL_Local);
+                not_found ->
+                    fix_remote_table(RetL_Local, Node);
+                Error ->
+                    Error
             end;
         _Error ->
             void
@@ -274,56 +283,74 @@ compare_with_remote_node_2(Node, Mod) ->
 compare_with_remote_node_3([],_LocalRecs) ->
     ok;
 compare_with_remote_node_3([Value|Rest], LocalRecs) ->
-    ok = compare_with_remote_node_3_1(Value, LocalRecs),
+    ok = compare_with_remote_node_4(Value, LocalRecs),
     compare_with_remote_node_3(Rest, LocalRecs).
 
 %% @private
-compare_with_remote_node_3_1(#credential{} = Credential, []) ->
+compare_with_remote_node_4(#credential{} = Credential, []) ->
     leo_s3_auth:put(Credential);
-compare_with_remote_node_3_1(#?BUCKET{} = Bucket, []) ->
+compare_with_remote_node_4(#?BUCKET{} = Bucket, []) ->
     leo_s3_bucket:put(Bucket);
-compare_with_remote_node_3_1(#?S3_USER{} = User, []) ->
+compare_with_remote_node_4(#?S3_USER{} = User, []) ->
     leo_s3_user:put(User);
-compare_with_remote_node_3_1(#user_credential{} = UserCredential, []) ->
+compare_with_remote_node_4(#user_credential{} = UserCredential, []) ->
     leo_s3_user_credential:put(UserCredential);
-compare_with_remote_node_3_1(_, []) ->
+compare_with_remote_node_4(_, []) ->
     ok;
 
-compare_with_remote_node_3_1(#credential{} = Credential_1,
-                             [#credential{} = Credential_2|Rest]) ->
+compare_with_remote_node_4(#credential{} = Credential_1,
+                           [#credential{} = Credential_2|Rest]) ->
     case (Credential_1 == Credential_2) of
         true ->
-            compare_with_remote_node_3_1(Credential_1, Rest);
+            compare_with_remote_node_4(Credential_1, Rest);
         false ->
             leo_s3_auth:put(Credential_1)
     end;
-compare_with_remote_node_3_1(#?BUCKET{last_modified_at = Upd_1} = Bucket_1,
-                             [#?BUCKET{last_modified_at = Upd_2} = Bucket_2|Rest]) ->
+compare_with_remote_node_4(#?BUCKET{last_modified_at = Upd_1} = Bucket_1,
+                           [#?BUCKET{last_modified_at = Upd_2} = Bucket_2|Rest]) ->
     case (Bucket_1 == Bucket_2) of
         true ->
-            compare_with_remote_node_3_1(Bucket_1, Rest);
+            compare_with_remote_node_4(Bucket_1, Rest);
         false when Upd_1 >= Upd_2 ->
             leo_s3_bucket:put(Bucket_1);
         false ->
             ok
     end;
-compare_with_remote_node_3_1(#?S3_USER{updated_at = Upd_1} = User_1,
-                             [#?S3_USER{updated_at = Upd_2} = User_2|Rest]) ->
+compare_with_remote_node_4(#?S3_USER{updated_at = Upd_1} = User_1,
+                           [#?S3_USER{updated_at = Upd_2} = User_2|Rest]) ->
     case (User_1 == User_2) of
         true ->
-            compare_with_remote_node_3_1(User_1, Rest);
+            compare_with_remote_node_4(User_1, Rest);
         false when Upd_1 >= Upd_2 ->
             leo_s3_user:put(User_1);
         false ->
             ok
     end;
-compare_with_remote_node_3_1(#user_credential{} = UserCredential_1,
-                             [#user_credential{} = UserCredential_2|Rest]) ->
+compare_with_remote_node_4(#user_credential{} = UserCredential_1,
+                           [#user_credential{} = UserCredential_2|Rest]) ->
     case (UserCredential_1 == UserCredential_2) of
         true ->
-            compare_with_remote_node_3_1(UserCredential_1, Rest);
+            compare_with_remote_node_4(UserCredential_1, Rest);
         false ->
             leo_s3_user_credential:put(UserCredential_1)
     end;
-compare_with_remote_node_3_1(Val, [_|Rest]) ->
-    compare_with_remote_node_3_1(Val, Rest).
+compare_with_remote_node_4(Val, [_|Rest]) ->
+    compare_with_remote_node_4(Val, Rest).
+
+
+%% @doc Fix records of a remote-cluster's table
+%% @private
+fix_remote_table([#credential{}|_] = L, Node) ->
+    catch leo_rpc:call(Node, leo_s3_auth, bulk_put, [L]),
+    ok;
+fix_remote_table([#?BUCKET{}|_] = L, Node) ->
+    catch leo_rpc:call(Node, leo_s3_bucket, bulk_put, [L]),
+    ok;
+fix_remote_table([#?S3_USER{}|_] = L, Node) ->
+    catch leo_rpc:call(Node, leo_s3_user, bulk_put, [L]),
+    ok;
+fix_remote_table([#user_credential{}|_] = L, Node) ->
+    catch leo_rpc:call(Node, leo_s3_user_credential, bulk_put, [L]),
+    ok;
+fix_remote_table([_|_],_Node) ->
+    ok.

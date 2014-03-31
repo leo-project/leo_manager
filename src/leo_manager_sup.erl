@@ -293,9 +293,9 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                         %% Insert test-related values
                         CreatedAt = leo_date:now(),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_users},
-                                                        {[], #user{id         = ?TEST_USER_ID,
-                                                                   role_id    = 9,
-                                                                   created_at = CreatedAt}}),
+                                                        {[], #?S3_USER{id         = ?TEST_USER_ID,
+                                                                       role_id    = 9,
+                                                                       created_at = CreatedAt}}),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_user_credential},
                                                         {[], #user_credential{user_id       = ?TEST_USER_ID,
                                                                               access_key_id = ?TEST_ACCESS_KEY,

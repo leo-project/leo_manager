@@ -540,7 +540,6 @@ users(Owners) ->
                            lists:duplicate(Col2Len, "-"), "-+-",
                            lists:duplicate(Col3Len, "-"), "-+-",
                            lists:duplicate(Col4Len, "-"), "\r\n"]),
-
     Fun = fun(User, Acc) ->
                   UserId      = leo_misc:get_value(user_id,       User),
                   RoleId      = leo_misc:get_value(role_id,       User),
@@ -831,7 +830,7 @@ cluster_status(Stats) ->
                   Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s\r\n",
                                        [string:left(ClusterId_2, Col1Len),
                                         string:left(DCId_2, Col2Len),
-                                        string:centre(Status, Col3Len),
+                                        string:left(Status, Col3Len),
                                         string:right(Storages, Col4Len),
                                         UpdatedAt_1])
           end,

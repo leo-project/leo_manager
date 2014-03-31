@@ -1600,7 +1600,7 @@ delete_user(CmdBody, Option) ->
 get_users(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_s3_user_credential:find_all() of
+    case leo_s3_user_credential:find_all_with_role() of
         {ok, Users} ->
             {ok, Users};
         not_found = Cause ->
