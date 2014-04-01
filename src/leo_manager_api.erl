@@ -1189,6 +1189,16 @@ whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
             whereis_1(AddrId, Key, T, [{atom_to_list(Node), not_found} | Acc])
     end.
 
+%% @private recover remote
+recover_remote([], _, _) ->
+    {error, ?ERROR_COULD_NOT_CONNECT};
+recover_remote([Node|Rest], AddrId, Key) ->
+    case rpc:call(Node, ?API_STORAGE, recover_remote, [AddrId, Key], ?DEF_TIMEOUT) of
+        ok ->
+            ok;
+        _Other ->
+            recover_remote(Rest, AddrId, Key)
+    end.
 
 %% @doc Recover key/node
 %%
@@ -1197,12 +1207,12 @@ whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
 recover(?RECOVER_BY_FILE, Key, true) ->
     Key1 = list_to_binary(Key),
     case leo_redundant_manager_api:get_redundancies_by_key(Key1) of
-        {ok, #redundancies{nodes = Redundancies}} ->
+        {ok, #redundancies{nodes = Redundancies, id = AddrId}} ->
             Nodes = [N || #redundant_node{node = N} <- Redundancies],
             case rpc:multicall(Nodes, ?API_STORAGE, synchronize,
                                [Key1, 'error_msg_replicate_data'], ?DEF_TIMEOUT) of
                 {_ResL, []} ->
-                    ok;
+                    recover_remote(Nodes, AddrId, Key1);
                 {_, BadNodes} ->
                     {error, BadNodes}
             end;
