@@ -207,7 +207,7 @@
 -define(RECOVER_BY_FILE, "file").
 -define(RECOVER_BY_NODE, "node").
 -define(RECOVER_BY_RING, "ring").
-
+-define(RECOVER_REMOTE_CLUSTER, "cluster").
 
 %% membership
 -define(DEF_NUM_OF_ERROR_COUNT, 2).

@@ -1219,19 +1219,18 @@ recover(?RECOVER_BY_FILE, Key, true) ->
         _ ->
             {error, ?ERROR_COULD_NOT_GET_RING}
     end;
+
+recover(?RECOVER_BY_NODE, Node, true) when is_list(Node) ->
+    recover(?RECOVER_BY_NODE, list_to_atom(Node), true);
 recover(?RECOVER_BY_NODE, Node, true) ->
-    Node_1 = case is_atom(Node) of
-                 true  -> Node;
-                 false -> list_to_atom(Node)
-             end,
     %% Check the target node and system-state
-    case leo_misc:node_existence(Node_1) of
+    case leo_misc:node_existence(Node) of
         true ->
-            Ret = case leo_redundant_manager_api:get_member_by_node(Node_1) of
+            Ret = case leo_redundant_manager_api:get_member_by_node(Node) of
                       {ok, #member{state = ?STATE_RUNNING}} -> true;
                       _ -> false
                   end,
-            recover_node_1(Ret, Node_1);
+            recover_node_1(Ret, Node);
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
     end;
@@ -1255,6 +1254,23 @@ recover(?RECOVER_BY_RING, Node, true) ->
             end;
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
+    end;
+
+recover(?RECOVER_REMOTE_CLUSTER, ClusterId, true) when is_list(ClusterId) ->
+    recover(?RECOVER_REMOTE_CLUSTER, list_to_atom(ClusterId), true);
+recover(?RECOVER_REMOTE_CLUSTER, ClusterId, true) ->
+    case is_allow_to_distribute_command() of
+        {true, Members} ->
+            case rpc:multicall(Members, leo_storage_handle_sync, force_sync,
+                               [ClusterId], ?DEF_TIMEOUT) of
+                {_RetL, []} ->
+                    ok;
+                {_, BadNodes} ->
+                    ?warn("recover/3", "bad_nodes:~p", [BadNodes]),
+                    {error, BadNodes}
+            end;
+        _ ->
+            {error, ?ERROR_NOT_SATISFY_CONDITION}
     end;
 
 recover(_,_,true) ->
