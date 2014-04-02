@@ -179,7 +179,7 @@ system_info_and_nodes_stat(Props) ->
     Version    = leo_misc:get_value('version',       Props),
     [RH0, RH1] = leo_misc:get_value('ring_hash',     Props),
     Nodes      = leo_misc:get_value('nodes',         Props),
-    
+
     %% Output format:
     %% [System config]
     %%                 System version : 1.0.0
@@ -208,10 +208,10 @@ system_info_and_nodes_stat(Props) ->
                                     " # of DC-awareness replicas    : ~w\r\n",
                                     "                     ring size : 2^~w\r\n",
                                     "             Current ring hash : ~s\r\n",
-                                    "                Prev ring hash : ~s\r\n\r\n",
+                                    "                Prev ring hash : ~s\r\n",
                                     "[Multi DC replication settings]\r\n",
                                     "         max # of joinable DCs : ~w\r\n",
-                                    "            # of replicas a DC : ~w\r\n",
+                                    "            # of replicas a DC : ~w\r\n\r\n",
                                     "[Node(s) state]\r\n"]),
                       [Version,
                        SystemConf#?SYSTEM_CONF.cluster_id,
