@@ -71,7 +71,7 @@ transform() ->
     end,
 
     %% leo_statistics-related
-    ok = leo_statistics_api:create_tables(disc_copies, ReplicaNodes),
+    catch leo_statistics_api:create_tables(disc_copies, ReplicaNodes),
 
     %% call plugin-mod for creating mnesia-table(s)
     case ?env_plugin_mod_mnesia() of
