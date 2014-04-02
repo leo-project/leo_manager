@@ -115,7 +115,6 @@ load_system_config() ->
              {ok, #?SYSTEM_CONF{}} | {error, any()}).
 load_system_config_with_store_data() ->
     SystemConf = load_system_config(),
-
     case leo_cluster_tbl_conf:update(SystemConf) of
         ok ->
             #?SYSTEM_CONF{cluster_id = ClusterId,

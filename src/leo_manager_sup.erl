@@ -276,7 +276,7 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_cluster_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
 
                 %% Load from system-config and store it into the mnesia
-                {ok, _} = leo_manager_api:load_system_config_with_store_data(),
+                {ok, _SystemConf} = leo_manager_api:load_system_config_with_store_data(),
 
                 %% Update available commands
                 ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),

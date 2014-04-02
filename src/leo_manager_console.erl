@@ -1013,11 +1013,12 @@ status(_CmdBody, Option) ->
                 'master' ->
                     case leo_cluster_tbl_conf:get() of
                         {ok, SystemConf} ->
-                            case leo_manager_api:load_system_config() of
-                                SystemConf -> void;
-                                _ ->
-                                    leo_manager_api:load_system_config_with_store_data()
-                            end;
+                            %% case leo_manager_api:load_system_config() of
+                            %%     SystemConf -> void;
+                            %%     _ ->
+                            %%         leo_manager_api:load_system_config_with_store_data()
+                            %% end;
+                            SystemConf;
                         _ ->
                             void
                     end;
