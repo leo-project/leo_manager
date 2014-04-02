@@ -78,21 +78,26 @@
 -spec(create_storage_nodes(atom(), list()) ->
              ok).
 create_storage_nodes(Mode, Nodes) ->
-    mnesia:create_table(
-      ?TBL_STORAGE_NODES,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, node_state},
-       {attributes, record_info(fields, node_state)},
-       {user_properties,
-        [{node,          {varchar,  undefined},  false, primary,   undefined, undefined, atom     },
-         {state,         {varchar,  undefined},  false, undefined, undefined, undefined, atom     },
-         {ring_hash_new, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
-         {ring_hash_old, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
-         {when_is,       {integer,  undefined},  false, undefined, undefined, undefined, integer  },
-         {error,         {integer,  undefined},  false, undefined, undefined, undefined, integer  }
-        ]}
-      ]).
+    case mnesia:create_table(
+           ?TBL_STORAGE_NODES,
+           [{Mode, Nodes},
+            {type, set},
+            {record_name, node_state},
+            {attributes, record_info(fields, node_state)},
+            {user_properties,
+             [{node,          {varchar,  undefined},  false, primary,   undefined, undefined, atom     },
+              {state,         {varchar,  undefined},  false, undefined, undefined, undefined, atom     },
+              {ring_hash_new, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
+              {ring_hash_old, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
+              {when_is,       {integer,  undefined},  false, undefined, undefined, undefined, integer  },
+              {error,         {integer,  undefined},  false, undefined, undefined, undefined, integer  }
+             ]}
+           ]) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            {error, Reason}
+    end.
 
 
 %% @doc Create a table of gateway-nodes
@@ -100,21 +105,26 @@ create_storage_nodes(Mode, Nodes) ->
 -spec(create_gateway_nodes(atom(), list()) ->
              ok).
 create_gateway_nodes(Mode, Nodes) ->
-    mnesia:create_table(
-      ?TBL_GATEWAY_NODES,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, node_state},
-       {attributes, record_info(fields, node_state)},
-       {user_properties,
-        [{node,          {varchar,  undefined},  false, primary,   undefined, undefined, atom     },
-         {state,         {varchar,  undefined},  false, undefined, undefined, undefined, atom     },
-         {ring_hash_new, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
-         {ring_hash_old, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
-         {when_is,       {integer,  undefined},  false, undefined, undefined, undefined, integer  },
-         {error,         {integer,  undefined},  false, undefined, undefined, undefined, integer  }
-        ]}
-      ]).
+    case mnesia:create_table(
+           ?TBL_GATEWAY_NODES,
+           [{Mode, Nodes},
+            {type, set},
+            {record_name, node_state},
+            {attributes, record_info(fields, node_state)},
+            {user_properties,
+             [{node,          {varchar,  undefined},  false, primary,   undefined, undefined, atom     },
+              {state,         {varchar,  undefined},  false, undefined, undefined, undefined, atom     },
+              {ring_hash_new, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
+              {ring_hash_old, {varchar,  undefined},  false, undefined, undefined, undefined, undefined},
+              {when_is,       {integer,  undefined},  false, undefined, undefined, undefined, integer  },
+              {error,         {integer,  undefined},  false, undefined, undefined, undefined, integer  }
+             ]}
+           ]) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            {error, Reason}
+    end.
 
 
 %% @doc Create a table of rebalance-info
@@ -122,50 +132,65 @@ create_gateway_nodes(Mode, Nodes) ->
 -spec(create_rebalance_info(atom(), list()) ->
              ok).
 create_rebalance_info(Mode, Nodes) ->
-    mnesia:create_table(
-      ?TBL_REBALANCE_INFO,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, rebalance_info},
-       {attributes, record_info(fields, rebalance_info)},
-       {user_properties,
-        [{vnode_id,         {integer,   undefined},  false, primary,   undefined, identity,  integer},
-         {node,             {varchar,   undefined},  false, undefined, undefined, undefined, atom   },
-         {total_of_objects, {integer,   undefined},  false, undefined, undefined, undefined, integer},
-         {num_of_remains,   {integer,   undefined},  false, undifined, undefined, undefined, integer},
-         {when_is,          {integer,   undefined},  false, undifined, undefined, undefined, integer}
-        ]}
-      ]).
+    case mnesia:create_table(
+           ?TBL_REBALANCE_INFO,
+           [{Mode, Nodes},
+            {type, set},
+            {record_name, rebalance_info},
+            {attributes, record_info(fields, rebalance_info)},
+            {user_properties,
+             [{vnode_id,         {integer,   undefined},  false, primary,   undefined, identity,  integer},
+              {node,             {varchar,   undefined},  false, undefined, undefined, undefined, atom   },
+              {total_of_objects, {integer,   undefined},  false, undefined, undefined, undefined, integer},
+              {num_of_remains,   {integer,   undefined},  false, undifined, undefined, undefined, integer},
+              {when_is,          {integer,   undefined},  false, undifined, undefined, undefined, integer}
+             ]}
+           ]) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            {error, Reason}
+    end.
 
 
 create_histories(Mode, Nodes) ->
-    mnesia:create_table(
-      ?TBL_HISTORIES,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, history},
-       {attributes, record_info(fields, history)},
-       {user_properties,
-        [{id,      {integer,   undefined},  false, primary,   undefined, undefined, integer},
-         {command, {varchar,   undefined},  false, undefined, undefined, identity,  string },
-         {created, {integer,   undefined},  false, undifined, undefined, undefined, integer}
-        ]}
-      ]).
+    case mnesia:create_table(
+           ?TBL_HISTORIES,
+           [{Mode, Nodes},
+            {type, set},
+            {record_name, history},
+            {attributes, record_info(fields, history)},
+            {user_properties,
+             [{id,      {integer,   undefined},  false, primary,   undefined, undefined, integer},
+              {command, {varchar,   undefined},  false, undefined, undefined, identity,  string },
+              {created, {integer,   undefined},  false, undifined, undefined, undefined, integer}
+             ]}
+           ]) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            {error, Reason}
+    end.
 
 
 create_available_commands(Mode, Nodes) ->
-    mnesia:create_table(
-      ?TBL_AVAILABLE_CMDS,
-      [{Mode, Nodes},
-       {type, set},
-       {record_name, cmd_state},
-       {attributes, record_info(fields, cmd_state)},
-       {user_properties,
-        [{name,  {varchar,   undefined},  false, primary,   undefined, identity,  string },
-         {help,  {varchar,   undefined},  false, undefined, undefined, identity,  string },
-         {state, {boolean,   undefined},  false, undifined, undefined, undefined, boolean}
-        ]}
-      ]).
+    case mnesia:create_table(
+           ?TBL_AVAILABLE_CMDS,
+           [{Mode, Nodes},
+            {type, set},
+            {record_name, cmd_state},
+            {attributes, record_info(fields, cmd_state)},
+            {user_properties,
+             [{name,  {varchar,   undefined},  false, primary,   undefined, identity,  string },
+              {help,  {varchar,   undefined},  false, undefined, undefined, identity,  string },
+              {state, {boolean,   undefined},  false, undifined, undefined, undefined, boolean}
+             ]}
+           ]) of
+        {atomic, ok} ->
+            ok;
+        {aborted, Reason} ->
+            {error, Reason}
+    end.
 
 
 %%-----------------------------------------------------------------------

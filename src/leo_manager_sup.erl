@@ -118,6 +118,7 @@ start_link() ->
                                     {w,           SystemConf#?SYSTEM_CONF.w},
                                     {d,           SystemConf#?SYSTEM_CONF.d},
                                     {bit_of_ring, SystemConf#?SYSTEM_CONF.bit_of_ring},
+                                    {max_mdc_targets,      SystemConf#?SYSTEM_CONF.max_mdc_targets},
                                     {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
                                     {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
                                    ],
@@ -229,7 +230,14 @@ init([]) ->
                    permanent,
                    ?SHUTDOWN_WAITING_TIME,
                    worker,
-                   [leo_manager_cluster_monitor]}
+                   [leo_manager_cluster_monitor]},
+
+                  {leo_manager_table_sync,
+                   {leo_manager_table_sync, start_link, []},
+                   permanent,
+                   ?SHUTDOWN_WAITING_TIME,
+                   worker,
+                   [leo_manager_table_sync]}
                  ],
     {ok, {_SupFlags = {one_for_one, ?MAX_RESTART, ?MAX_TIME}, ChildProcs}}.
 
@@ -257,18 +265,18 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
-                leo_redundant_manager_tbl_conf:create_table(disc_copies, Nodes_1),
-                leo_redundant_manager_tbl_cluster_info:create_table(disc_copies, Nodes_1),
-                leo_redundant_manager_tbl_cluster_stat:create_table(disc_copies, Nodes_1),
-                leo_redundant_manager_tbl_cluster_mgr:create_table(disc_copies, Nodes_1),
-                leo_redundant_manager_tbl_cluster_member:create_table(disc_copies, Nodes_1),
-                leo_redundant_manager_tbl_ring:create_table_current(disc_copies, Nodes_1),
-                leo_redundant_manager_tbl_ring:create_table_prev(disc_copies, Nodes_1),
-                leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
-                leo_redundant_manager_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
+                leo_cluster_tbl_conf:create_table(disc_copies, Nodes_1),
+                leo_mdcr_tbl_cluster_info:create_table(disc_copies, Nodes_1),
+                leo_mdcr_tbl_cluster_stat:create_table(disc_copies, Nodes_1),
+                leo_mdcr_tbl_cluster_mgr:create_table(disc_copies, Nodes_1),
+                leo_mdcr_tbl_cluster_member:create_table(disc_copies, Nodes_1),
+                leo_cluster_tbl_ring:create_table_current(disc_copies, Nodes_1),
+                leo_cluster_tbl_ring:create_table_prev(disc_copies, Nodes_1),
+                leo_cluster_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_CUR),
+                leo_cluster_tbl_member:create_table(disc_copies, Nodes_1, ?MEMBER_TBL_PREV),
 
                 %% Load from system-config and store it into the mnesia
-                {ok, _} = leo_manager_api:load_system_config_with_store_data(),
+                {ok, _SystemConf} = leo_manager_api:load_system_config_with_store_data(),
 
                 %% Update available commands
                 ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
@@ -276,26 +284,29 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 case ?env_use_s3_api() of
                     true ->
                         %% Create S3-related tables
-                        leo_s3_auth:create_credential_table(disc_copies, Nodes_1),
-                        leo_s3_endpoint:create_endpoint_table(disc_copies, Nodes_1),
-                        leo_s3_bucket:create_bucket_table(disc_copies, Nodes_1),
-                        leo_s3_user:create_user_table(disc_copies, Nodes_1),
-                        leo_s3_user:create_user_credential_table(disc_copies, Nodes_1),
+                        leo_s3_auth:create_table(disc_copies, Nodes_1),
+                        leo_s3_endpoint:create_table(disc_copies, Nodes_1),
+                        leo_s3_bucket:create_table(disc_copies, Nodes_1),
+                        leo_s3_user:create_table(disc_copies, Nodes_1),
+                        leo_s3_user_credential:create_table(disc_copies, Nodes_1),
 
                         %% Insert test-related values
-                        CreatedAt     = leo_date:now(),
+                        CreatedAt = leo_date:now(),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_users},
-                                                        {[], #user{id         = ?TEST_USER_ID,
-                                                                   role_id    = 9,
-                                                                   created_at = CreatedAt}}),
+                                                        {[], #?S3_USER{id         = ?TEST_USER_ID,
+                                                                       role_id    = 9,
+                                                                       created_at = CreatedAt
+                                                                      }}),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_user_credential},
                                                         {[], #user_credential{user_id       = ?TEST_USER_ID,
                                                                               access_key_id = ?TEST_ACCESS_KEY,
-                                                                              created_at    = CreatedAt}}),
+                                                                              created_at    = CreatedAt
+                                                                             }}),
                         leo_s3_libs_data_handler:insert({mnesia, leo_s3_credentials},
                                                         {[], #credential{access_key_id     = ?TEST_ACCESS_KEY,
                                                                          secret_access_key = ?TEST_SECRET_KEY,
-                                                                         created_at        = CreatedAt}}),
+                                                                         created_at        = CreatedAt
+                                                                        }}),
                         %% Insert default s3-endpoint values
                         leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_1),
                         leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2);

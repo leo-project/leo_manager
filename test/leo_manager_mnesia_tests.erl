@@ -51,17 +51,17 @@ teardown(_) ->
 %%--------------------------------------------------------------------
 all_(_) ->
     %% create tables
-    {atomic,ok} = leo_redundant_manager_tbl_conf:create_table(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_storage_nodes(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_gateway_nodes(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_histories(ram_copies, [node()]),
-    {atomic,ok} = leo_manager_mnesia:create_available_commands(ram_copies, [node()]),
-    ok = leo_s3_auth:create_credential_table(ram_copies, [node()]),
-    ok = leo_s3_bucket:create_bucket_table(ram_copies, [node()]),
-    ok = leo_s3_endpoint:create_endpoint_table(ram_copies, [node()]),
-    ok = leo_s3_user:create_user_table(ram_copies, [node()]),
-    ok = leo_s3_user:create_user_credential_table(ram_copies, [node()]),
+    ok = leo_cluster_tbl_conf:create_table(ram_copies, [node()]),
+    ok = leo_manager_mnesia:create_storage_nodes(ram_copies, [node()]),
+    ok = leo_manager_mnesia:create_gateway_nodes(ram_copies, [node()]),
+    ok = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
+    ok = leo_manager_mnesia:create_histories(ram_copies, [node()]),
+    ok = leo_manager_mnesia:create_available_commands(ram_copies, [node()]),
+    ok = leo_s3_auth:create_table(ram_copies, [node()]),
+    ok = leo_s3_bucket:create_table(ram_copies, [node()]),
+    ok = leo_s3_endpoint:create_table(ram_copies, [node()]),
+    ok = leo_s3_user:create_table(ram_copies, [node()]),
+    ok = leo_s3_user_credential:create_table(ram_copies, [node()]),
 
     ?assertEqual(true, length(mnesia:system_info(tables)) > 1),
 

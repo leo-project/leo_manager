@@ -698,6 +698,22 @@ handle_call(_Socket, <<?CMD_REMOVE_CLUSTER, ?SPACE, Option/binary>> = Command,
     {reply, Reply, State};
 
 
+%% Command: "cluster-status"
+%%
+handle_call(_Socket, <<?CMD_CLUSTER_STAT, ?CRLF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case cluster_status(Command) of
+                      {ok, ResL} ->
+                          Formatter:cluster_status(ResL);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_CLUSTER_STAT, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "quit"
 %%
 handle_call(_Socket, <<?CMD_QUIT, ?CRLF>>, State) ->
@@ -792,22 +808,44 @@ dump_ring(CmdBody, Option) ->
 %% @private
 join_cluster(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+
+    case leo_cluster_tbl_conf:get() of
+        {ok, #?SYSTEM_CONF{max_mdc_targets = MaxTargets}} ->
+            case leo_mdcr_tbl_cluster_stat:all() of
+                not_found ->
+                    join_cluster_1(Option);
+                {ok, Rows} when  MaxTargets < length(Rows) ->
+                    join_cluster_1(Option);
+                {ok, _}->
+                    {error, ?ERROR_OVER_MAX_CLUSTERS};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_GET_CLUSTER_INFO}
+            end;
+        not_found ->
+            {error, ?ERROR_COULD_NOT_GET_CONF};
+        {error,_Cause} ->
+            {error, ?ERROR_COULD_NOT_GET_CONF}
+    end.
+
+%% @private
+join_cluster_1(Bin) ->
+    case string:tokens(binary_to_list(Bin), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         Nodes ->
-            case join_cluster_1(Nodes) of
+            case join_cluster_2(Nodes) of
                 {ok, ClusterId} ->
-                    leo_manager_api:update_cluster_member(Nodes, ClusterId);
+                    leo_manager_api:update_cluster_manager(Nodes, ClusterId);
                 Other ->
                     Other
             end
     end.
 
-join_cluster_1([]) ->
+%% @private
+join_cluster_2([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
-join_cluster_1([Node|Rest]) ->
-    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+join_cluster_2([Node|Rest] = RemoteNodes) ->
+    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     RPCNode = leo_rpc:node(),
     Managers = case ?env_partner_of_manager_node() of
                    [] -> [RPCNode];
@@ -823,7 +861,7 @@ join_cluster_1([Node|Rest]) ->
     case catch leo_rpc:call(list_to_atom(Node), leo_manager_api,
                             join_cluster, [Managers, SystemConf]) of
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId} = RemoteSystemConf} ->
-            case leo_redundant_manager_tbl_cluster_info:get(ClusterId) of
+            case leo_mdcr_tbl_cluster_info:get(ClusterId) of
                 not_found ->
                     #?SYSTEM_CONF{dc_id = DCId,
                                   n = N, r = R, w = W, d = D,
@@ -831,14 +869,16 @@ join_cluster_1([Node|Rest]) ->
                                   num_of_dc_replicas = NumOfReplicas,
                                   num_of_rack_replicas = NumOfRaclReplicas
                                  } = RemoteSystemConf,
-                    case leo_redundant_manager_tbl_cluster_info:update(
-                           #cluster_info{cluster_id = ClusterId,
-                                         dc_id = DCId,
-                                         n = N, r = R, w = W, d = D,
-                                         bit_of_ring = BitOfRing,
-                                         num_of_dc_replicas = NumOfReplicas,
-                                         num_of_rack_replicas = NumOfRaclReplicas}) of
+                    case leo_mdcr_tbl_cluster_info:update(
+                           #?CLUSTER_INFO{cluster_id = ClusterId,
+                                          dc_id = DCId,
+                                          n = N, r = R, w = W, d = D,
+                                          bit_of_ring = BitOfRing,
+                                          num_of_dc_replicas = NumOfReplicas,
+                                          num_of_rack_replicas = NumOfRaclReplicas}) of
                         ok ->
+                            ok = leo_manager_api:sync_mdc_tables(
+                                   ClusterId, RemoteNodes),
                             {ok, ClusterId};
                         _Other ->
                             {error, ?ERROR_FAIL_ACCESS_MNESIA}
@@ -849,7 +889,7 @@ join_cluster_1([Node|Rest]) ->
                     {error, ?ERROR_FAIL_ACCESS_MNESIA}
             end;
         _Error ->
-            join_cluster_1(Rest)
+            join_cluster_2(Rest)
     end.
 
 
@@ -867,12 +907,55 @@ remove_cluster(CmdBody, Option) ->
 remove_cluster_1([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
 remove_cluster_1([Node|Rest]) ->
-    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     case catch leo_rpc:call(list_to_atom(Node), leo_manager_api, remove_cluster, [SystemConf]) of
         {ok, #?SYSTEM_CONF{cluster_id = ClusterId}} ->
-            leo_redundant_manager_tbl_cluster_info:delete(ClusterId);
+            leo_mdcr_tbl_cluster_info:delete(ClusterId);
         _Error ->
             remove_cluster_1(Rest)
+    end.
+
+
+%% @doc Retrieve cluster-statuses
+%% @private
+cluster_status(CmdBody) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case leo_mdcr_tbl_cluster_stat:all() of
+        {ok, ResL} ->
+            cluster_status_1(ResL, []);
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_CLUSTER_INFO}
+    end.
+
+cluster_status_1([], Acc) ->
+    {ok, Acc};
+cluster_status_1([#?CLUSTER_STAT{cluster_id = ClusterId,
+                                 state      = Status,
+                                 updated_at = UpdatedAt
+                                }|Rest], Acc) ->
+    case leo_mdcr_tbl_cluster_info:get(ClusterId) of
+        {ok, #?CLUSTER_INFO{dc_id = DCId,
+                            n = N,
+                            w = W,
+                            r = R,
+                            d =D}} ->
+            case leo_mdcr_tbl_cluster_member:get(ClusterId) of
+                {ok, Rows} ->
+                    cluster_status_1(
+                      Rest, [
+                             [{cluster_id, ClusterId},
+                              {dc_id, DCId},
+                              {status, Status},
+                              {n, N}, {w, W}, {r, R}, {d, D},
+                              {members, length(Rows)},
+                              {updated_at, UpdatedAt}
+                             ]|Acc
+                            ]);
+                _Error ->
+                    _Error
+            end;
+        _Error ->
+            _Error
     end.
 
 
@@ -892,7 +975,7 @@ version() ->
 %% @doc Exec login
 %% @private
 -spec(login(binary(), binary()) ->
-             {ok, #user{}, list()} | {error, any()}).
+             {ok, #?S3_USER{}, list()} | {error, any()}).
 login(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
@@ -901,8 +984,8 @@ login(CmdBody, Option) ->
         true ->
             [UserId, Password] = Token,
             case leo_s3_user:auth(UserId, Password) of
-                {ok, #user{id = UserId} = User} ->
-                    case leo_s3_user:get_credential_by_id(UserId) of
+                {ok, #?S3_USER{id = UserId} = User} ->
+                    case leo_s3_user_credential:get_credential_by_user_id(UserId) of
                         {ok, Credential} ->
                             {ok, User, Credential};
                         Error ->
@@ -928,13 +1011,14 @@ status(_CmdBody, Option) ->
             %% Reload and store system-conf
             case ?env_mode_of_manager() of
                 'master' ->
-                    case leo_redundant_manager_tbl_conf:get() of
+                    case leo_cluster_tbl_conf:get() of
                         {ok, SystemConf} ->
-                            case leo_manager_api:load_system_config() of
-                                SystemConf -> void;
-                                _ ->
-                                    leo_manager_api:load_system_config_with_store_data()
-                            end;
+                            %% case leo_manager_api:load_system_config() of
+                            %%     SystemConf -> void;
+                            %%     _ ->
+                            %%         leo_manager_api:load_system_config_with_store_data()
+                            %% end;
+                            SystemConf;
                         _ ->
                             void
                     end;
@@ -950,7 +1034,7 @@ status(_CmdBody, Option) ->
     end.
 
 status(node_list) ->
-    case leo_redundant_manager_tbl_conf:get() of
+    case leo_cluster_tbl_conf:get() of
         {ok, SystemConf} ->
             Version = case application:get_env(leo_manager, system_version) of
                           {ok, Vsn} -> Vsn;
@@ -1013,7 +1097,7 @@ start(Socket, CmdBody) ->
         {ok, _} ->
             case leo_manager_api:get_system_status() of
                 ?STATE_STOP ->
-                    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+                    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
 
                     case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
                         {ok, Nodes} when length(Nodes) >= SystemConf#?SYSTEM_CONF.n ->
@@ -1050,7 +1134,7 @@ start(Socket, CmdBody) ->
              ok | {error, {atom(), string()}} | {error, any()}).
 detach(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    {ok, SystemConf} = leo_redundant_manager_tbl_conf:get(),
+    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
@@ -1353,7 +1437,8 @@ compact(_,_,_, _) ->
 %% @private
 -spec(whereis(binary(), binary()) ->
              ok | {error, any()}).
-whereis(_CmdBody, Option) ->
+whereis(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
@@ -1411,16 +1496,16 @@ create_user(CmdBody, Option) ->
 
     case Ret of
         {ok, {Arg0, Arg1}} ->
-            case leo_s3_user:add(Arg0, Arg1, true) of
+            case leo_s3_user:put(Arg0, Arg1, true) of
                 {ok, Keys} ->
                     AccessKeyId     = leo_misc:get_value(access_key_id,     Keys),
                     SecretAccessKey = leo_misc:get_value(secret_access_key, Keys),
 
                     case Arg1 of
                         [] ->
-                            ok = leo_s3_user:update(#user{id       = Arg0,
-                                                          role_id  = ?ROLE_GENERAL,
-                                                          password = SecretAccessKey});
+                            ok = leo_s3_user:update(#?S3_USER{id       = Arg0,
+                                                              role_id  = ?ROLE_GENERAL,
+                                                              password = SecretAccessKey});
                         _ ->
                             void
                     end,
@@ -1443,9 +1528,9 @@ update_user_role(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, RoleId|_] ->
-            case leo_s3_user:update(#user{id       = UserId,
-                                          role_id  = list_to_integer(RoleId),
-                                          password = <<>>}) of
+            case leo_s3_user:update(#?S3_USER{id       = UserId,
+                                              role_id  = list_to_integer(RoleId),
+                                              password = <<>>}) of
                 ok ->
                     ok;
                 not_found ->
@@ -1468,10 +1553,10 @@ update_user_password(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, Password|_] ->
             case leo_s3_user:find_by_id(UserId) of
-                {ok, #user{role_id = RoleId}} ->
-                    case leo_s3_user:update(#user{id       = UserId,
-                                                  role_id  = RoleId,
-                                                  password = Password}) of
+                {ok, #?S3_USER{role_id = RoleId}} ->
+                    case leo_s3_user:update(#?S3_USER{id       = UserId,
+                                                      role_id  = RoleId,
+                                                      password = Password}) of
                         ok ->
                             ok;
                         {error, Cause} ->
@@ -1516,7 +1601,7 @@ delete_user(CmdBody, Option) ->
 get_users(CmdBody) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
-    case leo_s3_user:find_all() of
+    case leo_s3_user_credential:find_all_with_role() of
         {ok, Users} ->
             {ok, Users};
         not_found = Cause ->
@@ -1594,14 +1679,7 @@ add_bucket(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, AccessKey] ->
-            case leo_s3_bucket:put(list_to_binary(AccessKey), list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                {error, badarg} ->
-                    {error, ?ERROR_INVALID_BUCKET_FORMAT};
-                {error, _Cause} ->
-                    {error, ?ERROR_COULD_NOT_STORE}
-            end;
+            leo_manager_api:add_bucket(AccessKey, Bucket);
         _ ->
             {error, ?ERROR_INVALID_ARGS}
     end.

@@ -110,8 +110,8 @@ status_0_({Node0, Node1, Sock}) ->
                                               available = true}]}
                      end),
 
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -157,8 +157,8 @@ status_1_({Node0, _, Sock}) ->
                                               available = true}]}
                      end),
 
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -197,8 +197,8 @@ status_1_({Node0, _, Sock}) ->
 
 
 detach_0_({Node0,_, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -253,6 +253,8 @@ detach_0_({Node0,_, Sock}) ->
                                            node =  Node0}]}
                      end),
     ok = meck:expect(leo_redundant_manager_api, reserve, 3, ok),
+    ok = meck:expect(leo_redundant_manager_api, reserve, 5, ok),
+    ok = meck:expect(leo_redundant_manager_api, reserve, 6, ok),
 
     Command = "detach " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
@@ -267,8 +269,8 @@ detach_0_({Node0,_, Sock}) ->
     ok.
 
 detach_1_({Node0, _, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{n = 2}}
                      end),
@@ -319,7 +321,14 @@ detach_1_({Node0, _, Sock}) ->
                      fun(_,_,_) ->
                              ok
                      end),
-
+    ok = meck:expect(leo_redundant_manager_api, reserve,
+                     fun(_,_,_,_,_) ->
+                             ok
+                     end),
+    ok = meck:expect(leo_redundant_manager_api, reserve,
+                     fun(_,_,_,_,_,_) ->
+                             ok
+                     end),
 
     Command = "detach " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),
@@ -335,8 +344,8 @@ detach_1_({Node0, _, Sock}) ->
     ok.
 
 detach_2_({Node0,_, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -547,8 +556,8 @@ suspend_2_({Node0, _, Sock}) ->
 
 
 resume_0_({Node0, _Node1, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -640,8 +649,8 @@ resume_0_({Node0, _Node1, Sock}) ->
     ok.
 
 resume_1_({Node0,_, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -724,8 +733,8 @@ resume_1_({Node0,_, Sock}) ->
 
 
 start_0_({Node0, _, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -768,8 +777,8 @@ start_0_({Node0, _, Sock}) ->
     ok.
 
 start_1_({Node0, _, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -822,8 +831,8 @@ start_1_({Node0, _, Sock}) ->
     ok.
 
 start_2_({Node0, _, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -877,8 +886,8 @@ start_2_({Node0, _, Sock}) ->
 
 
 rebalance_0_({_Node0, _, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -915,8 +924,8 @@ rebalance_0_({_Node0, _, Sock}) ->
     ok.
 
 rebalance_1_({Node0, _, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -956,8 +965,8 @@ rebalance_1_({Node0, _, Sock}) ->
     ok.
 
 rebalance_2_({Node0, Node1, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),
@@ -1275,15 +1284,15 @@ whereis_({Node0, _Node1, Sock}) ->
                              0
                      end),
 
-    ok = meck:new(leo_storage_handler_object, [non_strict]),
-    ok = meck:expect(leo_storage_handler_object, head,
-                     fun(AddrId, _Key) ->
-                             {ok, #metadata{addr_id   = AddrId,
-                                            dsize     = 1,
-                                            clock     = 2,
-                                            timestamp = 3,
-                                            checksum  = 4,
-                                            del       = 0}}
+    ok = meck:new(leo_object_storage_api, [non_strict]),
+    ok = meck:expect(leo_object_storage_api, head,
+                     fun({AddrId, _Key}) ->
+                             {ok, #?METADATA{addr_id   = AddrId,
+                                             dsize     = 1,
+                                             clock     = 2,
+                                             timestamp = 3,
+                                             checksum  = 4,
+                                             del       = 0}}
                      end),
 
     Command = "whereis air/on/g/string\r\n",
@@ -1291,14 +1300,14 @@ whereis_({Node0, _Node1, Sock}) ->
     timer:sleep(100),
 
     ?assertNotEqual([], meck:history(leo_redundant_manager_api)),
-    ?assertNotEqual([], meck:history(leo_storage_handler_object)),
+    ?assertNotEqual([], meck:history(leo_object_storage_api)),
     catch gen_tcp:close(Sock),
     ok.
 
 
 recover_({Node0, _Node1, Sock}) ->
-    ok = meck:new(leo_redundant_manager_tbl_conf, [non_strict]),
-    ok = meck:expect(leo_redundant_manager_tbl_conf, get,
+    ok = meck:new(leo_cluster_tbl_conf, [non_strict]),
+    ok = meck:expect(leo_cluster_tbl_conf, get,
                      fun() ->
                              {ok, #?SYSTEM_CONF{}}
                      end),

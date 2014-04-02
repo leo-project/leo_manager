@@ -39,7 +39,9 @@
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
          compact_status/1, du/2, credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
-         acls/1, whereis/1, histories/1
+         acls/1, cluster_status/1,
+         whereis/1, histories/1,
+         authorized/0, user_id/0, password/0
         ]).
 
 -define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
@@ -102,15 +104,15 @@ version(Version) ->
 
 %% Format 'version'
 %%
--spec(login(#user{}, list(tuple())) ->
+-spec(login(#?S3_USER{}, list(tuple())) ->
              string()).
 login(User, Credential) ->
     gen_json({[{<<"user">>,
-                {[{<<"id">>,            list_to_binary(User#user.id)},
-                  {<<"role_id">>,       User#user.role_id},
+                {[{<<"id">>,            list_to_binary(User#?S3_USER.id)},
+                  {<<"role_id">>,       User#?S3_USER.role_id},
                   {<<"access_key_id">>, leo_misc:get_value('access_key_id',     Credential)},
                   {<<"secret_key">>,    leo_misc:get_value('secret_access_key', Credential)},
-                  {<<"created_at">>,    list_to_binary(leo_date:date_format(User#user.created_at))}
+                  {<<"created_at">>,    list_to_binary(leo_date:date_format(User#?S3_USER.created_at))}
                  ]}}
               ]}).
 
@@ -159,19 +161,31 @@ system_info_and_nodes_stat(Props) ->
                          end, Nodes)
                end,
 
+    ClusterId_1 = SystemConf#?SYSTEM_CONF.cluster_id,
+    ClusterId_2 = case is_atom(ClusterId_1) of
+                      true  -> atom_to_list(ClusterId_1);
+                      false -> ClusterId_1
+                  end,
+    DCId_1 = SystemConf#?SYSTEM_CONF.dc_id,
+    DCId_2 = case is_atom(DCId_1) of
+                 true  -> atom_to_list(DCId_1);
+                 false -> DCId_1
+             end,
+
     gen_json({[{<<"system_info">>,
-                {[{<<"version">>,        list_to_binary(Version)},
-                  {<<"cluster_id">>,     list_to_binary(SystemConf#?SYSTEM_CONF.cluster_id)},
-                  {<<"dc_id">>,          list_to_binary(SystemConf#?SYSTEM_CONF.dc_id)},
-                  {<<"n">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.n))},
-                  {<<"r">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.r))},
-                  {<<"w">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.w))},
-                  {<<"d">>,              list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.d))},
-                  {<<"dc_awareness_replicas">>,   list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_dc_replicas))},
-                  {<<"rack_awareness_replicas">>, list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.num_of_rack_replicas))},
-                  {<<"ring_size">>,      list_to_binary(integer_to_list(SystemConf#?SYSTEM_CONF.bit_of_ring))},
-                  {<<"ring_hash_cur">>,  list_to_binary(integer_to_list(RH0))},
-                  {<<"ring_hash_prev">>, list_to_binary(integer_to_list(RH1))}
+                {[{<<"version">>,    list_to_binary(Version)},
+                  {<<"cluster_id">>, list_to_binary(ClusterId_2)},
+                  {<<"dc_id">>,      list_to_binary(DCId_2)},
+                  {<<"n">>, SystemConf#?SYSTEM_CONF.n},
+                  {<<"r">>, SystemConf#?SYSTEM_CONF.r},
+                  {<<"w">>, SystemConf#?SYSTEM_CONF.w},
+                  {<<"d">>, SystemConf#?SYSTEM_CONF.d},
+                  {<<"dc_awareness_replicas">>,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
+                  {<<"rack_awareness_replicas">>, SystemConf#?SYSTEM_CONF.num_of_rack_replicas},
+                  {<<"ring_size">>,      SystemConf#?SYSTEM_CONF.bit_of_ring},
+                  {<<"ring_hash_cur">>,  RH0},
+                  {<<"ring_hash_prev">>, RH1},
+                  {<<"max_mdc_targets">>,SystemConf#?SYSTEM_CONF.max_mdc_targets}
                  ]}},
                {<<"node_list">>, NodeInfo}
               ]}).
@@ -395,7 +409,11 @@ endpoints(EndPoints) ->
 -spec(buckets(list(tuple())) ->
              string()).
 buckets(Buckets) ->
-    JSON = lists:map(fun({Bucket, #user_credential{user_id = Owner}, Permissions, CreatedAt}) ->
+    JSON = lists:map(fun(#bucket_dto{name  = Bucket,
+                                     owner = #user_credential{user_id = Owner},
+                                     acls  = Permissions,
+                                     cluster_id = ClusterId,
+                                     created_at = CreatedAt}) ->
                              CreatedAt_1  = case (CreatedAt > 0) of
                                                 true  -> leo_date:date_format(CreatedAt);
                                                 false -> []
@@ -404,6 +422,7 @@ buckets(Buckets) ->
                              {[{<<"bucket">>,      Bucket},
                                {<<"owner">>,       list_to_binary(Owner)},
                                {<<"permissions">>, list_to_binary(PermissionsStr)},
+                               {<<"cluster_id">>,  list_to_binary(atom_to_list(ClusterId))},
                                {<<"created_at">>,  list_to_binary(CreatedAt_1)}
                               ]}
                      end, Buckets),
@@ -428,6 +447,48 @@ bucket_by_access_key(Buckets) ->
                               ]}
                      end, Buckets),
     gen_json({[{<<"buckets">>, JSON}]}).
+
+
+%% @doc Format a acl list
+%%
+-spec(acls(acls()) ->
+             string()).
+acls(ACLs) ->
+    JSON = lists:map(fun(#bucket_acl_info{user_id = UserId, permissions = Permissions}) ->
+                             {[{<<"user_id">>,   UserId},
+                               {<<"permissions">>, Permissions}
+                              ]}
+                     end, ACLs),
+    gen_json({[{<<"acls">>, JSON}]}).
+
+
+cluster_status(Stats) ->
+    JSON = lists:map(fun(Items) ->
+                             ClusterId_1 = leo_misc:get_value('cluster_id', Items),
+                             ClusterId_2 = case is_atom(ClusterId_1) of
+                                               true  -> atom_to_list(ClusterId_1);
+                                               false -> ClusterId_1
+                                           end,
+                             DCId_1 = leo_misc:get_value('dc_id', Items),
+                             DCId_2 = case is_atom(DCId_1) of
+                                          true  -> atom_to_list(DCId_1);
+                                          false -> DCId_1
+                                      end,
+                             Status = leo_misc:get_value('status', Items),
+                             NumOfStorages = leo_misc:get_value('members', Items),
+                             UpdatedAt = leo_misc:get_value('updated_at', Items),
+                             UpdatedAt_1 = case (UpdatedAt > 0) of
+                                 true  -> leo_date:date_format(UpdatedAt);
+                                 false -> []
+                             end,
+                             {[{<<"cluster_id">>, list_to_binary(ClusterId_2)},
+                               {<<"dc_id">>,      list_to_binary(DCId_2)},
+                               {<<"status">>,     list_to_binary(atom_to_list(Status))},
+                               {<<"num_of_storages">>, list_to_binary(integer_to_list(NumOfStorages))},
+                               {<<"updated_at">>,      list_to_binary(UpdatedAt_1)}
+                              ]}
+                     end, Stats),
+    gen_json({[{<<"cluster_stats">>, JSON}]}).
 
 
 %% @doc Format an assigned file
@@ -458,6 +519,7 @@ whereis(AssignedInfo) ->
                      end, AssignedInfo),
     gen_json({[{<<"assigned_info">>, JSON}]}).
 
+
 %% @doc Format a history list
 %%
 -spec(histories(list(#history{})) ->
@@ -465,17 +527,23 @@ whereis(AssignedInfo) ->
 histories(_) ->
     [].
 
-%% @doc Format a acl list
-%%
--spec(acls(acls()) ->
+
+-spec(authorized() ->
              string()).
-acls(ACLs) ->
-    JSON = lists:map(fun(#bucket_acl_info{user_id = UserId, permissions = Permissions}) ->
-                             {[{<<"user_id">>,   UserId},
-                               {<<"permissions">>, Permissions}
-                              ]}
-                     end, ACLs),
-    gen_json({[{<<"acls">>, JSON}]}).
+authorized() ->
+    [].
+
+-spec(user_id() ->
+             string()).
+user_id() ->
+    [].
+
+
+-spec(password() ->
+             string()).
+password() ->
+    [].
+
 
 %%----------------------------------------------------------------------
 %% Inner function(s)

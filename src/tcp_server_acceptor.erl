@@ -135,8 +135,32 @@ recv(true, _DummySocket, State, Module, Option) ->
             tcp_timeout
     end.
 
-call(Active, Socket, Data, State, Module, Option) ->
-    case Module:handle_call(Socket, Data, State) of
+call(Active, Socket, Data, #state{plugin_mod = PluginMod} = State, Module, Option) ->
+    Ret = case PluginMod of
+              undefined ->
+                  false;
+              _ ->
+                  case leo_misc:binary_tokens(Data, [?CRLF, ?SPACE]) of
+                      [Command|_] ->
+                          case catch PluginMod:has_command(Command) of
+                              {'EXIT',_} ->
+                                  false;
+                              HasCommand ->
+                                  HasCommand
+                          end;
+                      _ ->
+                          false
+                  end
+          end,
+    call_1(Ret, Active, Socket, Data, State, Module, Option).
+
+call_1(HasCommand, Active, Socket, Data, State, Module, Option) ->
+    Module_1 = case HasCommand of
+                   true  -> State#state.plugin_mod;
+                   false -> Module
+               end,
+
+    case Module_1:handle_call(Socket, Data, State) of
         {reply, DataToSend, NewState} ->
             gen_tcp:send(Socket, DataToSend),
             recv(Active, Socket, NewState, Module, Option);
@@ -149,4 +173,3 @@ call(Active, Socket, Data, State, Module, Option) ->
         Other ->
             ?warn("recv/5", "cause:~p", [Other])
     end.
-

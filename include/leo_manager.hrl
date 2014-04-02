@@ -120,6 +120,7 @@
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER,   "join-cluster").
 -define(CMD_REMOVE_CLUSTER, "remove-cluster").
+-define(CMD_CLUSTER_STAT,   "cluster-status").
 
 -define(LOGIN,      "login").
 -define(AUTHORIZED, <<"_authorized_\r\n">>).
@@ -137,7 +138,8 @@
                    {?CMD_RECOVER,   lists:append(
                                       ["recover file ${path}", ?CRLF,
                                        "recover node ${storage-node}", ?CRLF,
-                                       "recover ring ${storage-node}"
+                                       "recover ring ${storage-node}", ?CRLF,
+                                       "recover cluster ${cluster-id}"
                                       ])},
                    {?CMD_DETACH,    "detach ${storage-node}"},
                    {?CMD_SUSPEND,   "suspend ${storage-node}"},
@@ -179,6 +181,7 @@
                    %% - multi-dc replication
                    {?CMD_JOIN_CLUSTER,   "join-cluster ${remote-manager-master} ${remote-manager-slave}"},
                    {?CMD_REMOVE_CLUSTER, "remove-cluster ${remote-manager-master} ${remote-manager-slave}"},
+                   {?CMD_CLUSTER_STAT,   "cluster-status"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS, "update-managers ${manager-master} ${manager-slave}"},
                    {?CMD_BACKUP_MNESIA,   "backup-mnesia ${backupfilepath}"},
@@ -204,7 +207,7 @@
 -define(RECOVER_BY_FILE, "file").
 -define(RECOVER_BY_NODE, "node").
 -define(RECOVER_BY_RING, "ring").
-
+-define(RECOVER_REMOTE_CLUSTER, "cluster").
 
 %% membership
 -define(DEF_NUM_OF_ERROR_COUNT, 2).
@@ -261,6 +264,8 @@
 -define(ERROR_FAIL_TO_UPDATE_ACL,        "Fail to update acl of a bucket").
 -define(ERROR_FAIL_ACCESS_MNESIA,        "Fail to access mnesia").
 -define(ERROR_ALREADY_HAS_SAME_CLUSTER,  "Already has a same neme of cluster").
+-define(ERROR_COULD_NOT_GET_CLUSTER_INFO,"Could not get cluster info").
+-define(ERROR_OVER_MAX_CLUSTERS,         "Over max number of clusters").
 
 %% type of console
 -define(CONSOLE_CUI,  'cui').
