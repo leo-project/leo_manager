@@ -247,7 +247,7 @@
  "leo_manager.system",
  [
   {datatype, integer},
-  {default, 0}
+  {default, 1}
  ]}.
 
 

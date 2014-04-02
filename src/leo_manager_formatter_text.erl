@@ -179,7 +179,23 @@ system_info_and_nodes_stat(Props) ->
     Version    = leo_misc:get_value('version',       Props),
     [RH0, RH1] = leo_misc:get_value('ring_hash',     Props),
     Nodes      = leo_misc:get_value('nodes',         Props),
-
+    
+    %% Output format:
+    %% [System config]
+    %%                 System version : 1.0.0
+    %%                     Cluster Id : leofs-1
+    %%                          DC Id : dc-1
+    %%                 Total replicas : 3
+    %%            # of successes of R : 1
+    %%            # of successes of W : 2
+    %%            # of successes of D : 1
+    %%  # of Rack-awareness replicas  : 0
+    %%                      ring size : 2^128
+    %%              Current ring hash : 41e0c107
+    %%                 Prev ring hash : 41e0c107
+    %% [Multi DC replication settings]
+    %%        # of destination of DCs : 0
+    %%        # of replicas to a DC   : 0
     FormattedSystemConf =
         io_lib:format(lists:append(["[System config]\r\n",
                                     "                System version : ~s\r\n",
@@ -190,10 +206,12 @@ system_info_and_nodes_stat(Props) ->
                                     "           # of successes of W : ~w\r\n",
                                     "           # of successes of D : ~w\r\n",
                                     " # of DC-awareness replicas    : ~w\r\n",
-                                    " # of Rack-awareness replicas  : ~w\r\n",
                                     "                     ring size : 2^~w\r\n",
                                     "             Current ring hash : ~s\r\n",
                                     "                Prev ring hash : ~s\r\n\r\n",
+                                    "[Multi DC replication settings]\r\n",
+                                    "         max # of joinable DCs : ~w\r\n",
+                                    "            # of replicas a DC : ~w\r\n",
                                     "[Node(s) state]\r\n"]),
                       [Version,
                        SystemConf#?SYSTEM_CONF.cluster_id,
@@ -202,11 +220,12 @@ system_info_and_nodes_stat(Props) ->
                        SystemConf#?SYSTEM_CONF.r,
                        SystemConf#?SYSTEM_CONF.w,
                        SystemConf#?SYSTEM_CONF.d,
-                       SystemConf#?SYSTEM_CONF.num_of_dc_replicas,
                        SystemConf#?SYSTEM_CONF.num_of_rack_replicas,
                        SystemConf#?SYSTEM_CONF.bit_of_ring,
                        leo_hex:integer_to_hex(RH0, 8),
-                       leo_hex:integer_to_hex(RH1, 8)
+                       leo_hex:integer_to_hex(RH1, 8),
+                       SystemConf#?SYSTEM_CONF.max_mdc_targets,
+                       SystemConf#?SYSTEM_CONF.num_of_dc_replicas
                       ]),
     system_conf_with_node_stat(FormattedSystemConf, Nodes).
 

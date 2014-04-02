@@ -138,7 +138,8 @@
                    {?CMD_RECOVER,   lists:append(
                                       ["recover file ${path}", ?CRLF,
                                        "recover node ${storage-node}", ?CRLF,
-                                       "recover ring ${storage-node}"
+                                       "recover ring ${storage-node}", ?CRLF,
+                                       "recover cluster ${cluster-id}"
                                       ])},
                    {?CMD_DETACH,    "detach ${storage-node}"},
                    {?CMD_SUSPEND,   "suspend ${storage-node}"},
