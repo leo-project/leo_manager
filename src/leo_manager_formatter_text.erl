@@ -627,8 +627,7 @@ buckets(Buckets) ->
                         {C1, C2, C3, C4}) ->
                             ClusterIdStr = atom_to_list(ClusterId),
                             BucketStr = binary_to_list(Bucket),
-                            PermissionsStr = string:join([atom_to_list(Item)
-                                                          || Item <- Permissions], ","),
+                            PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions),
                             Len1 = length(ClusterIdStr),
                             Len2 = length(BucketStr),
                             Len3 = length(Owner),
@@ -678,7 +677,7 @@ buckets(Buckets) ->
                           created_at = Created1}, Acc) ->
                   ClusterIdStr = atom_to_list(ClusterId),
                   BucketStr = binary_to_list(Bucket),
-                  PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions1], ","),
+                  PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions1),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
                                   false -> []
@@ -706,10 +705,7 @@ bucket_by_access_key(Buckets) ->
         lists:foldl(fun(#?BUCKET{name = Bucket,
                                  acls = Permissions}, {C1, C2}) ->
                             BucketStr = binary_to_list(Bucket),
-                            PermissionsStr = string:join(
-                                               [atom_to_list(Item)
-                                                || #bucket_acl_info{permissions = [Item|_]}
-                                                       <- Permissions], ","),
+                            PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions),
                             Len1 = length(BucketStr),
                             Len2 = length(PermissionsStr),
                             {case (Len1 > C1) of
@@ -736,9 +732,7 @@ bucket_by_access_key(Buckets) ->
                        acls = Permissions1,
                        created_at = Created1}, Acc) ->
                   BucketStr = binary_to_list(Bucket1),
-                  PermissionsStr = string:join([atom_to_list(Item)
-                                                || #bucket_acl_info{permissions = [Item|_]}
-                                                       <- Permissions1], ","),
+                  PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions1),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
                                   false -> []
