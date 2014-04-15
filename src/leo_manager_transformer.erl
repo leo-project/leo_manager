@@ -45,7 +45,7 @@ transform() ->
 
     %% data migration - members
     {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
-    ok = leo_cluster_tbl_member:transform(),
+    ok = leo_cluster_tbl_member:transform(ReplicaNodes),
 
     %% mdc-related
     leo_mdcr_tbl_cluster_info:create_table(disc_copies, ReplicaNodes),
