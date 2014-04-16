@@ -53,6 +53,7 @@
 %% API
 -export([load_system_config/0,
          load_system_config_with_store_data/0,
+         update_mdc_items_in_system_conf/0,
          get_system_config/0, get_system_status/0,
          get_members/0, get_members_of_all_versions/0,
          update_manager_nodes/1,
@@ -146,6 +147,47 @@ load_system_config_with_store_data() ->
             end;
         Error ->
             Error
+    end.
+
+
+%% @doc Modify the system config
+%%      when it did not join remote-cluster(s), yet
+-spec(update_mdc_items_in_system_conf() ->
+             ok | {error, any()}).
+update_mdc_items_in_system_conf() ->
+    case ?env_mode_of_manager() of
+        'master' ->
+            update_mdc_items_in_system_conf_1();
+        _ ->
+            ok
+    end.
+
+%% @private
+update_mdc_items_in_system_conf_1() ->
+    case leo_mdcr_tbl_cluster_stat:all() of
+        not_found ->
+            case leo_cluster_tbl_conf:get() of
+                {ok, SystemConf} ->
+                    #?SYSTEM_CONF{cluster_id = ClusterId,
+                                  dc_id = DCId,
+                                  num_of_dc_replicas = NumOfReplicasToDC,
+                                  max_mdc_targets = MaxMDCTargets
+                                 } = load_system_config(),
+                    leo_cluster_tbl_conf:update(
+                      SystemConf#?SYSTEM_CONF{cluster_id = ClusterId,
+                                              dc_id = DCId,
+                                              num_of_dc_replicas = NumOfReplicasToDC,
+                                              max_mdc_targets = MaxMDCTargets
+                                             });
+                not_found = Cause ->
+                    {error, Cause};
+                {error, Cause} ->
+                    {error, Cause}
+            end;
+        {ok, _} ->
+            ok;
+        {error, Cause} ->
+            {error, Cause}
     end.
 
 

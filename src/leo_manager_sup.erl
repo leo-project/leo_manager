@@ -340,6 +340,7 @@ create_mnesia_tables_2() ->
 
             %% Execute to migrate data
             catch leo_manager_transformer:transform(),
+            leo_manager_api:update_mdc_items_in_system_conf(),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};
