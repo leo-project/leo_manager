@@ -202,12 +202,8 @@ create_mnesia_tables(Mode, ReplicaNodes) ->
 %% @doc stop process.
 %% @end
 stop() ->
-    case whereis(?MODULE) of
-        Pid when is_pid(Pid) == true ->
-            exit(Pid, shutdown),
-            ok;
-        _ -> not_started
-    end.
+    ok.
+
 
 %% ---------------------------------------------------------------------
 %% Callbacks
