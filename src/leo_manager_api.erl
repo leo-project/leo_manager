@@ -1821,6 +1821,8 @@ delete_endpoint(EndPoint) ->
     case leo_s3_endpoint:delete_endpoint(EndPoint) of
         ok ->
             rpc_call_for_gateway(delete_endpoint, [EndPoint]);
+        not_found ->
+            {error, ?ERROR_ENDPOINT_NOT_FOUND};
         {error, Cause} ->
             ?error("delete_endpoint/1", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
