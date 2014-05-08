@@ -1764,12 +1764,20 @@ update_acl(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Bucket, AccessKey, Permission] ->
-            case leo_manager_api:update_acl(Permission,
-                                            list_to_binary(AccessKey),
-                                            list_to_binary(Bucket)) of
-                ok ->
-                    ok;
-                _Error ->
+            BucketBin = list_to_binary(Bucket),
+            case leo_s3_bucket:find_bucket_by_name(BucketBin) of
+                {ok,_} ->
+                    case leo_manager_api:update_acl(Permission,
+                                                    list_to_binary(AccessKey),
+                                                    BucketBin) of
+                        ok ->
+                            ok;
+                        _Error ->
+                            {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
+                    end;
+                not_found ->
+                    {error, ?ERROR_BUCKET_NOT_FOUND};
+                _ ->
                     {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
             end;
         _ ->

@@ -45,13 +45,14 @@ transform() ->
 
     %% data migration - members
     {ok, ReplicaNodes} = leo_misc:get_env(leo_redundant_manager, ?PROP_MNESIA_NODES),
-    ok = leo_cluster_tbl_member:transform(),
+    ok = leo_cluster_tbl_member:transform(ReplicaNodes),
 
     %% mdc-related
-    leo_mdcr_tbl_cluster_info:create_table(disc_copies, ReplicaNodes),
-    leo_mdcr_tbl_cluster_stat:create_table(disc_copies, ReplicaNodes),
-    leo_mdcr_tbl_cluster_mgr:create_table(disc_copies, ReplicaNodes),
-    leo_mdcr_tbl_cluster_member:create_table(disc_copies, ReplicaNodes),
+    CopyType = disc_copies,
+    leo_mdcr_tbl_cluster_info:create_table(CopyType, ReplicaNodes),
+    leo_mdcr_tbl_cluster_stat:create_table(CopyType, ReplicaNodes),
+    leo_mdcr_tbl_cluster_mgr:create_table(CopyType, ReplicaNodes),
+    leo_mdcr_tbl_cluster_member:create_table(CopyType, ReplicaNodes),
 
     %% data migration - redundant-manager related tables
     ok = leo_cluster_tbl_conf:transform(),
@@ -71,13 +72,14 @@ transform() ->
     end,
 
     %% leo_statistics-related
-    catch leo_statistics_api:create_tables(disc_copies, ReplicaNodes),
+    ok = leo_statistics_api:create_tables(CopyType, ReplicaNodes),
+    ok = svc_tbl_column:transform(),
 
     %% call plugin-mod for creating mnesia-table(s)
     case ?env_plugin_mod_mnesia() of
         undefined ->
             void;
         PluginModMnesia ->
-            catch PluginModMnesia:call(disc_copies, ReplicaNodes)
+            catch PluginModMnesia:call(CopyType, ReplicaNodes)
     end,
     ok.

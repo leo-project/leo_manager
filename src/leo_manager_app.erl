@@ -32,13 +32,19 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% Application and Supervisor callbacks
--export([start/2, stop/1]).
+-export([start/2, prep_stop/1, stop/1]).
 
 %%----------------------------------------------------------------------
 %% Application behaviour callbacks
 %%----------------------------------------------------------------------
 start(_Type, _Args) ->
     leo_manager_sup:start_link().
+
+prep_stop(_State) ->
+    leo_redundant_manager_sup:stop(),
+    leo_mq_sup:stop(),
+    leo_logger_sup:stop(),
+    ok.
 
 stop(_State) ->
     ok.

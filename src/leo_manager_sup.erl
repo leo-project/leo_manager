@@ -202,12 +202,8 @@ create_mnesia_tables(Mode, ReplicaNodes) ->
 %% @doc stop process.
 %% @end
 stop() ->
-    case whereis(?MODULE) of
-        Pid when is_pid(Pid) == true ->
-            exit(Pid, shutdown),
-            ok;
-        _ -> not_started
-    end.
+    ok.
+
 
 %% ---------------------------------------------------------------------
 %% Callbacks
@@ -340,6 +336,7 @@ create_mnesia_tables_2() ->
 
             %% Execute to migrate data
             catch leo_manager_transformer:transform(),
+            leo_manager_api:update_mdc_items_in_system_conf(),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};

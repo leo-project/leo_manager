@@ -418,7 +418,10 @@ buckets(Buckets) ->
                                                 true  -> leo_date:date_format(CreatedAt);
                                                 false -> []
                                             end,
-                             PermissionsStr = string:join([atom_to_list(Item) || Item <- Permissions], ","),
+                             PermissionsStr =
+                                 string:join([atom_to_list(Item) ||
+                                                 #bucket_acl_info{permissions = [Item|_]} <- Permissions],
+                                             ","),
                              {[{<<"bucket">>,      Bucket},
                                {<<"owner">>,       list_to_binary(Owner)},
                                {<<"permissions">>, list_to_binary(PermissionsStr)},

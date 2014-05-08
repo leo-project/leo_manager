@@ -53,6 +53,7 @@
 %% API
 -export([load_system_config/0,
          load_system_config_with_store_data/0,
+         update_mdc_items_in_system_conf/0,
          get_system_config/0, get_system_status/0,
          get_members/0, get_members_of_all_versions/0,
          update_manager_nodes/1,
@@ -146,6 +147,47 @@ load_system_config_with_store_data() ->
             end;
         Error ->
             Error
+    end.
+
+
+%% @doc Modify the system config
+%%      when it did not join remote-cluster(s), yet
+-spec(update_mdc_items_in_system_conf() ->
+             ok | {error, any()}).
+update_mdc_items_in_system_conf() ->
+    case ?env_mode_of_manager() of
+        'master' ->
+            update_mdc_items_in_system_conf_1();
+        _ ->
+            ok
+    end.
+
+%% @private
+update_mdc_items_in_system_conf_1() ->
+    case leo_mdcr_tbl_cluster_stat:all() of
+        not_found ->
+            case leo_cluster_tbl_conf:get() of
+                {ok, SystemConf} ->
+                    #?SYSTEM_CONF{cluster_id = ClusterId,
+                                  dc_id = DCId,
+                                  num_of_dc_replicas = NumOfReplicasToDC,
+                                  max_mdc_targets = MaxMDCTargets
+                                 } = load_system_config(),
+                    leo_cluster_tbl_conf:update(
+                      SystemConf#?SYSTEM_CONF{cluster_id = ClusterId,
+                                              dc_id = DCId,
+                                              num_of_dc_replicas = NumOfReplicasToDC,
+                                              max_mdc_targets = MaxMDCTargets
+                                             });
+                not_found = Cause ->
+                    {error, Cause};
+                {error, Cause} ->
+                    {error, Cause}
+            end;
+        {ok, _} ->
+            ok;
+        {error, Cause} ->
+            {error, Cause}
     end.
 
 
@@ -1309,26 +1351,32 @@ recover_node_2(false,_,_) ->
 compact(Mode, Node) when is_list(Node) ->
     compact(Mode, list_to_atom(Node));
 compact(Mode, Node) ->
-    ModeAtom = case Mode of
-                   ?COMPACT_SUSPEND -> suspend;
-                   ?COMPACT_RESUME  -> resume;
-                   ?COMPACT_STATUS  -> status;
-                   _ -> {error, ?ERROR_INVALID_ARGS}
-               end,
-
-    case ModeAtom of
-        {error, Cause} ->
-            {error, Cause};
+    case leo_redundant_manager_api:get_member_by_node(Node) of
+        {ok, #member{state = ?STATE_RUNNING}} ->
+            ModeAtom = case Mode of
+                           ?COMPACT_SUSPEND -> suspend;
+                           ?COMPACT_RESUME  -> resume;
+                           ?COMPACT_STATUS  -> status;
+                           _ -> {error, ?ERROR_INVALID_ARGS}
+                       end,
+            case ModeAtom of
+                {error, Cause} ->
+                    {error, Cause};
+                _ ->
+                    case rpc:call(Node, ?API_STORAGE, compact, [ModeAtom], ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        {ok, Status} ->
+                            {ok, Status};
+                        {_, 'not_running'} ->
+                            {error, ?ERROR_TARGET_NODE_NOT_RUNNING};
+                        {_, Cause} ->
+                            ?warn("compact/2", "cause:~p", [Cause]),
+                            {error, ?ERROR_FAILED_COMPACTION}
+                    end
+            end;
         _ ->
-            case rpc:call(Node, ?API_STORAGE, compact, [ModeAtom], ?DEF_TIMEOUT) of
-                ok ->
-                    ok;
-                {ok, Status} ->
-                    {ok, Status};
-                {_, Cause} ->
-                    ?warn("compact/2", "cause:~p", [Cause]),
-                    {error, ?ERROR_FAILED_COMPACTION}
-            end
+            {error, ?ERROR_TARGET_NODE_NOT_RUNNING}
     end.
 
 
@@ -1341,13 +1389,20 @@ compact(?COMPACT_START, Node, NumOfTargets, MaxProc) when is_list(Node) ->
 compact(?COMPACT_START, Node, NumOfTargets, MaxProc) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, ?API_STORAGE, compact,
-                          [start, NumOfTargets, MaxProc], ?DEF_TIMEOUT) of
-                ok ->
-                    ok;
-                {_, Cause} ->
-                    ?warn("compact/4", "cause:~p", [Cause]),
-                    {error, ?ERROR_FAILED_COMPACTION}
+            case leo_redundant_manager_api:get_member_by_node(Node) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
+                    case rpc:call(Node, ?API_STORAGE, compact,
+                                  [start, NumOfTargets, MaxProc], ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        {_, 'not_running'} ->
+                            {error, ?ERROR_TARGET_NODE_NOT_RUNNING};
+                        {_, Cause} ->
+                            ?warn("compact/4", "cause:~p", [Cause]),
+                            {error, ?ERROR_FAILED_COMPACTION}
+                    end;
+                _ ->
+                    {error, ?ERROR_TARGET_NODE_NOT_RUNNING}
             end;
         false ->
             {error, ?ERR_TYPE_NODE_DOWN}
@@ -1766,6 +1821,8 @@ delete_endpoint(EndPoint) ->
     case leo_s3_endpoint:delete_endpoint(EndPoint) of
         ok ->
             rpc_call_for_gateway(delete_endpoint, [EndPoint]);
+        not_found ->
+            {error, ?ERROR_ENDPOINT_NOT_FOUND};
         {error, Cause} ->
             ?error("delete_endpoint/1", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
