@@ -1351,26 +1351,32 @@ recover_node_2(false,_,_) ->
 compact(Mode, Node) when is_list(Node) ->
     compact(Mode, list_to_atom(Node));
 compact(Mode, Node) ->
-    ModeAtom = case Mode of
-                   ?COMPACT_SUSPEND -> suspend;
-                   ?COMPACT_RESUME  -> resume;
-                   ?COMPACT_STATUS  -> status;
-                   _ -> {error, ?ERROR_INVALID_ARGS}
-               end,
-
-    case ModeAtom of
-        {error, Cause} ->
-            {error, Cause};
+    case leo_redundant_manager_api:get_member_by_node(Node) of
+        {ok, #member{state = ?STATE_RUNNING}} ->
+            ModeAtom = case Mode of
+                           ?COMPACT_SUSPEND -> suspend;
+                           ?COMPACT_RESUME  -> resume;
+                           ?COMPACT_STATUS  -> status;
+                           _ -> {error, ?ERROR_INVALID_ARGS}
+                       end,
+            case ModeAtom of
+                {error, Cause} ->
+                    {error, Cause};
+                _ ->
+                    case rpc:call(Node, ?API_STORAGE, compact, [ModeAtom], ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        {ok, Status} ->
+                            {ok, Status};
+                        {_, 'not_running'} ->
+                            {error, ?ERROR_TARGET_NODE_NOT_RUNNING};
+                        {_, Cause} ->
+                            ?warn("compact/2", "cause:~p", [Cause]),
+                            {error, ?ERROR_FAILED_COMPACTION}
+                    end
+            end;
         _ ->
-            case rpc:call(Node, ?API_STORAGE, compact, [ModeAtom], ?DEF_TIMEOUT) of
-                ok ->
-                    ok;
-                {ok, Status} ->
-                    {ok, Status};
-                {_, Cause} ->
-                    ?warn("compact/2", "cause:~p", [Cause]),
-                    {error, ?ERROR_FAILED_COMPACTION}
-            end
+            {error, ?ERROR_TARGET_NODE_NOT_RUNNING}
     end.
 
 
@@ -1383,13 +1389,20 @@ compact(?COMPACT_START, Node, NumOfTargets, MaxProc) when is_list(Node) ->
 compact(?COMPACT_START, Node, NumOfTargets, MaxProc) ->
     case leo_misc:node_existence(Node) of
         true ->
-            case rpc:call(Node, ?API_STORAGE, compact,
-                          [start, NumOfTargets, MaxProc], ?DEF_TIMEOUT) of
-                ok ->
-                    ok;
-                {_, Cause} ->
-                    ?warn("compact/4", "cause:~p", [Cause]),
-                    {error, ?ERROR_FAILED_COMPACTION}
+            case leo_redundant_manager_api:get_member_by_node(Node) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
+                    case rpc:call(Node, ?API_STORAGE, compact,
+                                  [start, NumOfTargets, MaxProc], ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        {_, 'not_running'} ->
+                            {error, ?ERROR_TARGET_NODE_NOT_RUNNING};
+                        {_, Cause} ->
+                            ?warn("compact/4", "cause:~p", [Cause]),
+                            {error, ?ERROR_FAILED_COMPACTION}
+                    end;
+                _ ->
+                    {error, ?ERROR_TARGET_NODE_NOT_RUNNING}
             end;
         false ->
             {error, ?ERR_TYPE_NODE_DOWN}
