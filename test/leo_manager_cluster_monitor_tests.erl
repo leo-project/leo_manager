@@ -53,7 +53,7 @@ teardown(_) ->
 %%% TEST FUNCTIONS
 %%--------------------------------------------------------------------
 all_(Node) ->
-    meck:new(leo_manager_api),
+    meck:new(leo_manager_api, [non_strict]),
     meck:expect(leo_manager_api, get_nodes,
                 fun() ->
                         {ok, [{storage, 'storage_0@127.0.0.1', ?STATE_DETACHED},
@@ -73,16 +73,16 @@ all_(Node) ->
     meck:expect(leo_manager_api, distribute_members, 2, ok),
     meck:expect(leo_manager_api, synchronize, 2, ok),
 
-    meck:new(leo_storage_api),
+    meck:new(leo_storage_api, [non_strict]),
     meck:expect(leo_storage_api, register_in_monitor, fun(again) ->
                                                               ok
                                                       end),
-    meck:new(leo_gateway_api),
+    meck:new(leo_gateway_api, [non_strict]),
     meck:expect(leo_gateway_api, register_in_monitor, fun(again) ->
                                                               ok
                                                       end),
 
-    meck:new(leo_manager_mnesia),
+    meck:new(leo_manager_mnesia, [non_strict]),
     meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                 fun('storage_1@127.0.0.1') -> {ok, [#node_state{state = ?STATE_SUSPEND}]};
                    ('storage_2@127.0.0.1') -> {ok, [#node_state{state = ?STATE_STOP}]};
@@ -107,7 +107,7 @@ all_(Node) ->
                         {ok, #?SYSTEM_CONF{}}
                 end),
 
-    meck:new(leo_redundant_manager_api),
+    meck:new(leo_redundant_manager_api, [non_strict]),
     meck:expect(leo_redundant_manager_api, update_member_by_node, 3, ok),
 
 
