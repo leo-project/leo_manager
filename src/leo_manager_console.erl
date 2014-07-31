@@ -79,9 +79,11 @@ handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter  = Formatter,
 
 %% Command: "version"
 %%
+handle_call(_Socket, <<?CMD_VERSION, ?LF>>, #state{formatter = Formatter} = State) ->
+    Reply = version(Formatter),
+    {reply, Reply, State};
 handle_call(_Socket, <<?CMD_VERSION, ?CRLF>>, #state{formatter = Formatter} = State) ->
-    {ok, Version} = version(),
-    Reply = Formatter:version(Version),
+    Reply = version(Formatter),
     {reply, Reply, State};
 
 
@@ -190,45 +192,25 @@ handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command,
 
 %% Command: "start"
 %%
+handle_call(Socket, <<?CMD_START, ?LF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Reply = start(Socket, Command, Formatter),
+    {reply, Reply, State};
 handle_call(Socket, <<?CMD_START, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
-    Socket_1 = case Formatter of
-                   ?MOD_TEXT_FORMATTER -> Socket;
-                   _ -> null
-               end,
-
-    Fun = fun() ->
-                  case start(Socket_1, Command) of
-                      ok ->
-                          Formatter:ok();
-                      {error, {bad_nodes, BadNodes}} ->
-                          Formatter:bad_nodes(BadNodes);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_START, Formatter, Fun),
+    Reply = start(Socket, Command, Formatter),
     {reply, Reply, State};
 
 
 %% Command: "rebalance"
 %%
+handle_call(Socket, <<?CMD_REBALANCE, ?LF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Reply = rebalance(Socket, Command, Formatter),
+    {reply, Reply, State};
 handle_call(Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
-    Socket_1 = case Formatter of
-                   ?MOD_TEXT_FORMATTER -> Socket;
-                   _ -> null
-               end,
-
-    Fun = fun() ->
-                  case rebalance(Socket_1, Command) of
-                      ok ->
-                          Formatter:ok();
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_REBALANCE, Formatter, Fun),
+    Reply = rebalance(Socket, Command, Formatter),
     {reply, Reply, State};
 
 
@@ -346,17 +328,13 @@ handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command,
 
 %% Command: "get-users"
 %%
+handle_call(_Socket, <<?CMD_GET_USERS, ?LF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Reply = get_users(Command, Formatter),
+    {reply, Reply, State};
 handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case get_users(Command) of
-                      {ok, List} ->
-                          Formatter:users(List);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_GET_USERS, Formatter, Fun),
+    Reply = get_users(Command, Formatter),
     {reply, Reply, State};
 
 
@@ -391,17 +369,13 @@ handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command,
 
 %% Command: "get-endpoints"
 %%
+handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?LF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Reply = get_endpoints(Command, Formatter),
+    {reply, Reply, State};
 handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case get_endpoints(Command) of
-                      {ok, EndPoints} ->
-                          Formatter:endpoints(EndPoints);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_GET_ENDPOINTS, Formatter, Fun),
+    Reply = get_endpoints(Command, Formatter),
     {reply, Reply, State};
 
 
@@ -455,17 +429,13 @@ handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command,
 
 %% Command: "get-buckets"
 %%
+handle_call(_Socket, <<?CMD_GET_BUCKETS, ?LF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Reply = get_buckets(Command, Formatter),
+    {reply, Reply, State};
 handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case get_buckets(Command) of
-                      {ok, Buckets} ->
-                          Formatter:buckets(Buckets);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_GET_BUCKETS, Formatter, Fun),
+    Reply = get_buckets(Command, Formatter),
     {reply, Reply, State};
 
 
@@ -700,17 +670,13 @@ handle_call(_Socket, <<?CMD_REMOVE_CLUSTER, ?SPACE, Option/binary>> = Command,
 
 %% Command: "cluster-status"
 %%
+handle_call(_Socket, <<?CMD_CLUSTER_STAT, ?LF>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Reply = cluster_status(Command, Formatter),
+    {reply, Reply, State};
 handle_call(_Socket, <<?CMD_CLUSTER_STAT, ?CRLF>> = Command,
             #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case cluster_status(Command) of
-                      {ok, ResL} ->
-                          Formatter:cluster_status(ResL);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_CLUSTER_STAT, Formatter, Fun),
+    Reply = cluster_status(Command, Formatter),
     {reply, Reply, State};
 
 
@@ -747,6 +713,53 @@ invoke(Command, Formatter, Fun) ->
         _ ->
             Fun()
     end.
+
+
+%% @doc Retrieve the version
+%% @private
+version(Formatter) ->
+    {ok, Version} = version(),
+    Formatter:version(Version).
+
+
+%% @doc Launch the LeoFS
+%% @private
+start(Socket, Command, Formatter) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER -> Socket;
+                   _ -> null
+               end,
+
+    Fun = fun() ->
+                  case start(Socket_1, Command) of
+                      ok ->
+                          Formatter:ok();
+                      {error, {bad_nodes, BadNodes}} ->
+                          Formatter:bad_nodes(BadNodes);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    invoke(?CMD_START, Formatter, Fun).
+
+
+%% @doc Execute the rebalance
+%% @private
+rebalance(Socket, Command, Formatter) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER -> Socket;
+                   _ -> null
+               end,
+
+    Fun = fun() ->
+                  case rebalance(Socket_1, Command) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    invoke(?CMD_REBALANCE, Formatter, Fun).
 
 
 %% @doc Backup files of manager's mnesia
@@ -918,18 +931,31 @@ remove_cluster_1([Node|Rest]) ->
 
 %% @doc Retrieve cluster-statuses
 %% @private
-cluster_status(CmdBody) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+cluster_status(Command, Formatter) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+    Fun = fun() ->
+                  case cluster_status_1() of
+                      {ok, ResL} ->
+                          Formatter:cluster_status(ResL);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    invoke(?CMD_CLUSTER_STAT, Formatter, Fun).
+
+%% @private
+cluster_status_1() ->
     case leo_mdcr_tbl_cluster_stat:all() of
         {ok, ResL} ->
-            cluster_status_1(ResL, []);
+            cluster_status_2(ResL, []);
         _ ->
             {error, ?ERROR_COULD_NOT_GET_CLUSTER_INFO}
     end.
 
-cluster_status_1([], Acc) ->
+%% @private
+cluster_status_2([], Acc) ->
     {ok, Acc};
-cluster_status_1([#?CLUSTER_STAT{cluster_id = ClusterId,
+cluster_status_2([#?CLUSTER_STAT{cluster_id = ClusterId,
                                  state      = Status,
                                  updated_at = UpdatedAt
                                 }|Rest], Acc) ->
@@ -941,7 +967,7 @@ cluster_status_1([#?CLUSTER_STAT{cluster_id = ClusterId,
                             d =D}} ->
             case leo_mdcr_tbl_cluster_member:get(ClusterId) of
                 {ok, Rows} ->
-                    cluster_status_1(
+                    cluster_status_2(
                       Rest, [
                              [{cluster_id, ClusterId},
                               {dc_id, DCId},
@@ -1596,11 +1622,23 @@ delete_user(CmdBody, Option) ->
 
 %% @doc Retrieve Users
 %% @private
--spec(get_users(binary()) ->
-             {ok, list(#credential{})} | {error, any()}).
-get_users(CmdBody) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+get_users(Command, Formatter) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+    Fun = fun() ->
+                  case get_users_1() of
+                      {ok, List} ->
+                          Formatter:users(List);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    invoke(?CMD_GET_USERS, Formatter, Fun).
 
+
+%% @private
+-spec(get_users_1() ->
+             {ok, list(#credential{})} | {error, any()}).
+get_users_1() ->
     case leo_s3_user_credential:find_all_with_role() of
         {ok, Users} ->
             {ok, Users};
@@ -1634,11 +1672,22 @@ set_endpoint(CmdBody, Option) ->
 
 %% @doc Retrieve an Endpoint from the manager
 %% @private
--spec(get_endpoints(binary()) ->
-             ok | {error, any()}).
-get_endpoints(CmdBody) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+get_endpoints(Command, Formatter) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+    Fun = fun() ->
+                  case get_endpoints_1() of
+                      {ok, EndPoints} ->
+                          Formatter:endpoints(EndPoints);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    invoke(?CMD_GET_ENDPOINTS, Formatter, Fun).
 
+%% @private
+-spec(get_endpoints_1() ->
+             ok | {error, any()}).
+get_endpoints_1() ->
     case leo_s3_endpoint:get_endpoints() of
         {ok, EndPoints} ->
             {ok, EndPoints};
@@ -1702,11 +1751,21 @@ delete_bucket(CmdBody, Option) ->
 
 %% @doc Retrieve a Buckets from the manager
 %% @private
--spec(get_buckets(binary()) ->
-             ok | {error, any()}).
-get_buckets(CmdBody) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+get_buckets(Command, Formatter) ->
+    _ = leo_manager_mnesia:insert_history(Command),
+    Fun = fun() ->
+                  case get_buckets_1() of
+                      {ok, Buckets} ->
+                          Formatter:buckets(Buckets);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    invoke(?CMD_GET_BUCKETS, Formatter, Fun).
 
+-spec(get_buckets_1() ->
+             ok | {error, any()}).
+get_buckets_1() ->
     case catch leo_s3_bucket:find_all_including_owner() of
         {ok, Buckets} ->
             {ok, Buckets};

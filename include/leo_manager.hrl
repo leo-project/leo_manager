@@ -61,6 +61,7 @@
 
 -define(OK,           "OK\r\n").
 -define(ERROR,        "ERROR\r\n").
+-define(LF,           "\n").
 -define(CRLF,         "\r\n").
 -define(SPACE,        " ").
 -define(SEPARATOR,    " | ").
