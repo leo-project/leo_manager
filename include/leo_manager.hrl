@@ -144,12 +144,11 @@
                    {?CMD_DETACH,    "detach ${storage-node}"},
                    {?CMD_SUSPEND,   "suspend ${storage-node}"},
                    {?CMD_RESUME,    "resume ${storage-node}"},
-                   {?CMD_DETACH,    "detach ${storage-node}"},
                    {?CMD_START,     "start"},
                    {?CMD_REBALANCE, "rebalance"},
                    %% for Storage
                    {?CMD_COMPACT,   lists:append(
-                                      ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_proc}]", ?CRLF,
+                                      ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_procs}]", ?CRLF,
                                        "compact suspend ${storage-node}", ?CRLF,
                                        "compact resume  ${storage-node}", ?CRLF,
                                        "compact status  ${storage-node}"
