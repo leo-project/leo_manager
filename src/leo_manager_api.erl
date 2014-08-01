@@ -475,6 +475,8 @@ resume(last,_Error, _) ->
 
 %% @doc Retrieve active storage nodes
 %%
+-spec(active_storage_nodes() ->
+             {ok, [atom()]} | {error, any()}).
 active_storage_nodes() ->
     case leo_redundant_manager_api:get_members() of
         {ok, Members} ->
@@ -544,7 +546,8 @@ update_manager_nodes(Managers) ->
               {ok, StorageNodes} ->
                   case rpc:multicall(StorageNodes, leo_storage_api, update_manager_nodes,
                                      [Managers], ?DEF_TIMEOUT) of
-                      {_, []} -> ok;
+                      {_, []} ->
+                          ok;
                       {_, BadNodes} ->
                           ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
                           {error, BadNodes}
@@ -569,6 +572,8 @@ update_manager_nodes(Managers, ok) ->
                     ?error("update_manager_nodes/2", "bad-nodes:~p", [BadNodes]),
                     {error, BadNodes}
             end;
+        not_found = Cause ->
+            {error, Cause};
         Error ->
             Error
     end;
@@ -1110,13 +1115,15 @@ notify_3({error,_Cause},_State,_Node) ->
 
 %% @doc purge an object.
 %%
--spec(purge(string()) -> ok).
+-spec(purge(string()) ->
+             ok | {error, any()}).
 purge(Path) ->
     rpc_call_for_gateway(purge, [Path]).
 
 %% @doc remove a gateway-node
 %%
--spec(remove(atom()) -> ok | {error, any()}).
+-spec(remove(atom()|string()) ->
+             ok | {error, any()}).
 remove(Node) when is_atom(Node) ->
     remove_3(Node);
 remove(Node) ->
@@ -1327,7 +1334,7 @@ recover_node_2(false,_,_) ->
 %% @doc Do compact.
 %%
 -spec(compact(string(), string() | atom()) ->
-             ok | {error, any()}).
+             ok | {ok, _} |{error, any()}).
 compact(Mode, Node) when is_list(Node) ->
     compact(Mode, list_to_atom(Node));
 compact(Mode, Node) ->
@@ -1791,8 +1798,6 @@ delete_endpoint(EndPoint) ->
     case leo_s3_endpoint:delete_endpoint(EndPoint) of
         ok ->
             rpc_call_for_gateway(delete_endpoint, [EndPoint]);
-        not_found ->
-            {error, ?ERROR_ENDPOINT_NOT_FOUND};
         {error, Cause} ->
             ?error("delete_endpoint/1", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
@@ -1952,7 +1957,7 @@ update_acl(_,_,_) ->
 
 %% @doc RPC call for Gateway-nodes
 %% @private
--spec(rpc_call_for_gateway(atom(), list()) ->
+-spec(rpc_call_for_gateway(atom(), [_]) ->
              ok | {error, any()}).
 rpc_call_for_gateway(Method, Args) ->
     case catch leo_manager_mnesia:get_gateway_nodes_all() of
@@ -2017,7 +2022,7 @@ join_cluster(RemoteManagerNodes,
 
 %% @doc Synchronize mdc-related tables
 %%
--spec(sync_mdc_tables(atom(), list(atom())) ->
+-spec(sync_mdc_tables(atom(), [atom()]) ->
              ok).
 sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
     %% update info of remote-managers
@@ -2041,8 +2046,8 @@ sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
 
 %% @doc Update cluster members for MDC-replication
 %%
--spec(update_cluster_manager(list(atom()), atom()) ->
-             ok).
+-spec(update_cluster_manager([atom()], atom()) ->
+             ok | {error, any()}).
 update_cluster_manager([],_ClusterId) ->
     ok;
 update_cluster_manager([Node|Rest], ClusterId) ->

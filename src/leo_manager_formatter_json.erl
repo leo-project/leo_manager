@@ -51,15 +51,15 @@
 %% @doc Format 'ok'
 %%
 -spec(ok() ->
-             string()).
+             binary()).
 ok() ->
     gen_json({[{result, <<"OK">>}]}).
 
 
 %% @doc Format 'error'
 %%
--spec(error(string()) ->
-             string()).
+-spec(error(atom() | string()) ->
+             binary()).
 error(not_found)  ->
     gen_json({[{error,<<"not found">>}]});
 error(nodedown)  ->
@@ -73,7 +73,7 @@ error(Cause) when is_atom(Cause) ->
 %% @doc Format 'error'
 %%
 -spec(error(atom() | string(), string()) ->
-             string()).
+             binary()).
 error(Node, Cause) when is_atom(Node) ->
     gen_json({[{error,
                 {[{<<"node">>,  list_to_binary(atom_to_list(Node))},
@@ -89,26 +89,26 @@ error(Node, Cause) ->
 %% @doc Format 'help'
 %%
 -spec(help() ->
-             string()).
+             binary()).
 help() ->
-    [].
+    <<>>.
 
 
 %% Format 'version'
 %%
 -spec(version(string()) ->
-             string()).
+             binary()).
 version(Version) ->
     gen_json({[{result, list_to_binary(Version)}]}).
 
 
 %% Format 'version'
 %%
--spec(login(#?S3_USER{}, list(tuple())) ->
-             string()).
+-spec(login(#?S3_USER{}, [tuple()]) ->
+             binary()).
 login(User, Credential) ->
     gen_json({[{<<"user">>,
-                {[{<<"id">>,            list_to_binary(User#?S3_USER.id)},
+                {[{<<"id">>,            User#?S3_USER.id},
                   {<<"role_id">>,       User#?S3_USER.role_id},
                   {<<"access_key_id">>, leo_misc:get_value('access_key_id',     Credential)},
                   {<<"secret_key">>,    leo_misc:get_value('secret_access_key', Credential)},
@@ -119,8 +119,8 @@ login(User, Credential) ->
 
 %% @doc Format 'bad nodes'
 %%
--spec(bad_nodes(list()) ->
-             string()).
+-spec(bad_nodes([atom()]) ->
+             binary()).
 bad_nodes(BadNodes) ->
     Cause = lists:foldl(fun(Node, [] ) ->        io_lib:format("~w",  [Node]);
                            (Node, Acc) -> Acc ++ io_lib:format(",~w", [Node])
@@ -130,8 +130,8 @@ bad_nodes(BadNodes) ->
 
 %% @doc Format a cluster-node list
 %%
--spec(system_info_and_nodes_stat(list()) ->
-             string()).
+-spec(system_info_and_nodes_stat([_]) ->
+             binary()).
 system_info_and_nodes_stat(Props) ->
     SystemConf = leo_misc:get_value('system_config', Props),
     Version    = leo_misc:get_value('version',       Props),
@@ -162,15 +162,9 @@ system_info_and_nodes_stat(Props) ->
                end,
 
     ClusterId_1 = SystemConf#?SYSTEM_CONF.cluster_id,
-    ClusterId_2 = case is_atom(ClusterId_1) of
-                      true  -> atom_to_list(ClusterId_1);
-                      false -> ClusterId_1
-                  end,
+    ClusterId_2 = atom_to_list(ClusterId_1),
     DCId_1 = SystemConf#?SYSTEM_CONF.dc_id,
-    DCId_2 = case is_atom(DCId_1) of
-                 true  -> atom_to_list(DCId_1);
-                 false -> DCId_1
-             end,
+    DCId_2 = atom_to_list(DCId_1),
 
     gen_json({[{<<"system_info">>,
                 {[{<<"version">>,    list_to_binary(Version)},
@@ -193,8 +187,8 @@ system_info_and_nodes_stat(Props) ->
 
 %% @doc Format a cluster node state
 %%
--spec(node_stat(string(), #cluster_node_status{}) ->
-             string()).
+-spec(node_stat(string(), [tuple()]) ->
+             binary()).
 node_stat(?SERVER_TYPE_GATEWAY, State) ->
     Version      = leo_misc:get_value('version',       State, []),
     Directories  = leo_misc:get_value('dirs',          State, []),
@@ -280,7 +274,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
 %% @doc Status of compaction
 %%
 -spec(compact_status(#compaction_stats{}) ->
-             string()).
+             binary()).
 compact_status(#compaction_stats{status = Status,
                                  total_num_of_targets    = TotalNumOfTargets,
                                  num_of_pending_targets  = Targets1,
@@ -306,7 +300,7 @@ compact_status(#compaction_stats{status = Status,
 %% @doc Format storage stats
 %%
 -spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
-             string()).
+             binary()).
 du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
     StartStr = case LastStart of
                    0 -> ?NULL_DATETIME;
@@ -364,7 +358,7 @@ du(_, _) ->
 %% @doc Format s3-gen-key result
 %%
 -spec(credential(binary(), binary()) ->
-             string()).
+             binary()).
 credential(AccessKeyId, SecretAccessKey) ->
     gen_json({[
                {access_key_id,     AccessKeyId},
@@ -375,7 +369,7 @@ credential(AccessKeyId, SecretAccessKey) ->
 %% @doc Format s3-owers
 %%
 -spec(users(list(#user_credential{})) ->
-             string()).
+             binary()).
 users(Owners) ->
     JSON = lists:map(fun(User) ->
                              UserId      = leo_misc:get_value(user_id,       User),
@@ -393,8 +387,8 @@ users(Owners) ->
 
 %% @doc Format a endpoint list
 %%
--spec(endpoints(list(tuple())) ->
-             string()).
+-spec(endpoints([tuple()]) ->
+             binary()).
 endpoints(EndPoints) ->
     JSON = lists:map(fun({endpoint, EP, CreatedAt}) ->
                              {[{<<"endpoint">>,   EP},
@@ -406,8 +400,8 @@ endpoints(EndPoints) ->
 
 %% @doc Format a bucket list
 %%
--spec(buckets(list(tuple())) ->
-             string()).
+-spec(buckets([#bucket_dto{}]) ->
+             binary()).
 buckets(Buckets) ->
     JSON = lists:map(fun(#bucket_dto{name  = Bucket,
                                      owner = #user_credential{user_id = Owner},
@@ -431,8 +425,8 @@ buckets(Buckets) ->
                      end, Buckets),
     gen_json({[{<<"buckets">>, JSON}]}).
 
--spec(bucket_by_access_key(list(#?BUCKET{})) ->
-             string()).
+-spec(bucket_by_access_key([#?BUCKET{}]) ->
+             binary()).
 bucket_by_access_key(Buckets) ->
     JSON = lists:map(fun(#?BUCKET{name = Bucket,
                                   acls = Permissions,
@@ -454,8 +448,8 @@ bucket_by_access_key(Buckets) ->
 
 %% @doc Format a acl list
 %%
--spec(acls(acls()) ->
-             string()).
+-spec(acls([#bucket_acl_info{}]) ->
+             binary()).
 acls(ACLs) ->
     JSON = lists:map(fun(#bucket_acl_info{user_id = UserId, permissions = Permissions}) ->
                              {[{<<"user_id">>,   UserId},
@@ -465,6 +459,8 @@ acls(ACLs) ->
     gen_json({[{<<"acls">>, JSON}]}).
 
 
+-spec(cluster_status([tuple()]) ->
+             binary()).
 cluster_status(Stats) ->
     JSON = lists:map(fun(Items) ->
                              ClusterId_1 = leo_misc:get_value('cluster_id', Items),
@@ -481,9 +477,9 @@ cluster_status(Stats) ->
                              NumOfStorages = leo_misc:get_value('members', Items),
                              UpdatedAt = leo_misc:get_value('updated_at', Items),
                              UpdatedAt_1 = case (UpdatedAt > 0) of
-                                 true  -> leo_date:date_format(UpdatedAt);
-                                 false -> []
-                             end,
+                                               true  -> leo_date:date_format(UpdatedAt);
+                                               false -> []
+                                           end,
                              {[{<<"cluster_id">>, list_to_binary(ClusterId_2)},
                                {<<"dc_id">>,      list_to_binary(DCId_2)},
                                {<<"status">>,     list_to_binary(atom_to_list(Status))},
@@ -496,8 +492,8 @@ cluster_status(Stats) ->
 
 %% @doc Format an assigned file
 %%
--spec(whereis(list()) ->
-             string()).
+-spec(whereis([tuple()]) ->
+             binary()).
 whereis(AssignedInfo) ->
     JSON = lists:map(fun({Node, not_found}) ->
                              {[{<<"node">>,      list_to_binary(Node)},
@@ -525,27 +521,27 @@ whereis(AssignedInfo) ->
 
 %% @doc Format a history list
 %%
--spec(histories(list(#history{})) ->
-             string()).
+-spec(histories(_) ->
+             binary()).
 histories(_) ->
-    [].
+    <<>>.
 
 
 -spec(authorized() ->
-             string()).
+             binary()).
 authorized() ->
-    [].
+    <<>>.
 
 -spec(user_id() ->
-             string()).
+             binary()).
 user_id() ->
-    [].
+    <<>>.
 
 
 -spec(password() ->
-             string()).
+             binary()).
 password() ->
-    [].
+    <<>>.
 
 
 %%----------------------------------------------------------------------
@@ -553,7 +549,7 @@ password() ->
 %%----------------------------------------------------------------------
 %% @doc Generate a JSON-format doc
 %%
--spec(gen_json(list()) ->
+-spec(gen_json(tuple()|list()) ->
              binary()).
 gen_json(JSON) ->
     case catch jiffy:encode(JSON) of
