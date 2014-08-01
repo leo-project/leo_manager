@@ -705,7 +705,7 @@ handle_call(Socket, Data, #state{plugin_mod = PluginMod} = State) ->
 %% Invoke a command
 %% @private
 -spec(invoke(string(), atom(), function()) ->
-             string()).
+             binary()).
 invoke(Command, Formatter, Fun) ->
     case leo_manager_mnesia:get_available_command_by_name(Command) of
         not_found ->
@@ -746,13 +746,14 @@ start(Socket, Command, Formatter) ->
 %% @doc Execute the rebalance
 %% @private
 rebalance(Socket, Command, Formatter) ->
+    _ = leo_manager_mnesia:insert_history(Command),
     Socket_1 = case Formatter of
                    ?MOD_TEXT_FORMATTER -> Socket;
                    _ -> null
                end,
 
     Fun = fun() ->
-                  case rebalance(Socket_1, Command) of
+                  case rebalance_1(Socket_1) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -760,6 +761,19 @@ rebalance(Socket, Command, Formatter) ->
                   end
           end,
     invoke(?CMD_REBALANCE, Formatter, Fun).
+
+
+%% @doc Rebalance the storage cluster
+%% @private
+-spec(rebalance_1(port()|null) ->
+             ok | {error, any()}).
+rebalance_1(Socket) ->
+    case leo_manager_api:rebalance(Socket) of
+        ok ->
+            ok;
+        {error, Cause} ->
+            {error, Cause}
+    end.
 
 
 %% @doc Backup files of manager's mnesia
@@ -1001,7 +1015,7 @@ version() ->
 %% @doc Exec login
 %% @private
 -spec(login(binary(), binary()) ->
-             {ok, #?S3_USER{}, list()} | {error, any()}).
+             {ok, #?S3_USER{}, [tuple()]} | {error, any()}).
 login(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
     Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
@@ -1009,9 +1023,11 @@ login(CmdBody, Option) ->
     case (erlang:length(Token) == 2) of
         true ->
             [UserId, Password] = Token,
-            case leo_s3_user:auth(UserId, Password) of
-                {ok, #?S3_USER{id = UserId} = User} ->
-                    case leo_s3_user_credential:get_credential_by_user_id(UserId) of
+            UserIdBin = list_to_binary(UserId),
+            PasswordBin = list_to_binary(Password),
+            case leo_s3_user:auth(UserIdBin, PasswordBin) of
+                {ok, #?S3_USER{} = User} ->
+                    case leo_s3_user_credential:get_credential_by_user_id(UserIdBin) of
                         {ok, Credential} ->
                             {ok, User, Credential};
                         Error ->
@@ -1303,21 +1319,6 @@ resume(CmdBody, Option) ->
     end.
 
 
-%% @doc Rebalance the storage cluster
-%% @private
--spec(rebalance(port()|null, binary()) ->
-             ok | {error, any()}).
-rebalance(Socket, CmdBody) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
-
-    case leo_manager_api:rebalance(Socket) of
-        ok ->
-            ok;
-        {error, Cause} ->
-            {error, Cause}
-    end.
-
-
 %% @doc Purge an object from the cache
 %% @private
 -spec(purge(binary(), binary()) ->
@@ -1424,7 +1425,7 @@ compact(CmdBody, Option) ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.
 
-
+%% @private
 -spec(compact(string(), atom(), list()) ->
              ok | {error, any()}).
 compact(?COMPACT_START = Mode, Node, [?COMPACT_TARGET_ALL | Rest]) ->
@@ -1442,20 +1443,20 @@ compact(Mode, Node, _) ->
     leo_manager_api:compact(Mode, Node).
 
 
--spec(compact(string(), atom(), list(), list()) ->
+-spec(compact(string(), atom(), atom()|list(), list()) ->
              ok | {error, any()}).
 compact(?COMPACT_START = Mode, Node, NumOfTargets, []) ->
     leo_manager_api:compact(Mode, Node, NumOfTargets, ?env_num_of_compact_proc());
 
 compact(?COMPACT_START = Mode, Node, NumOfTargets, [MaxProc1|_]) ->
     case catch list_to_integer(MaxProc1) of
-        {'EXIT', _} ->
+        {'EXIT',_} ->
             {error, ?ERROR_INVALID_ARGS};
         MaxProc2 ->
             leo_manager_api:compact(Mode, Node, NumOfTargets, MaxProc2)
     end;
 
-compact(_,_,_, _) ->
+compact(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
@@ -1507,15 +1508,16 @@ recover(CmdBody, Option) ->
 %% @doc Create a user account (S3)
 %% @private
 -spec(create_user(binary(), binary()) ->
-             ok | {error, any()}).
+             {ok, [tuple()]} | {error, any()}).
 create_user(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
 
     Ret = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
               [UserId] ->
-                  {ok, {UserId, []}};
+                  {ok, {list_to_binary(UserId), []}};
               [UserId, Password] ->
-                  {ok, {UserId, Password}};
+                  {ok, {list_to_binary(UserId),
+                        list_to_binary(Password)}};
               _ ->
                   {error, ?ERROR_INVALID_ARGS}
           end,
@@ -1554,13 +1556,11 @@ update_user_role(CmdBody, Option) ->
 
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [UserId, RoleId|_] ->
-            case leo_s3_user:update(#?S3_USER{id       = UserId,
+            case leo_s3_user:update(#?S3_USER{id       = list_to_binary(UserId),
                                               role_id  = list_to_integer(RoleId),
                                               password = <<>>}) of
                 ok ->
                     ok;
-                not_found ->
-                    {error, ?ERROR_USER_NOT_FOUND};
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_UPDATE_USER}
             end;

@@ -910,11 +910,12 @@ rebalance_0_({_Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_redundant_manager_api, get_members,
                      fun(_) ->
-                             not_found
+                             {error, not_found}
                      end),
 
-    Command = "rebalance\r\n",
-    ok = gen_tcp:send(Sock, list_to_binary(Command)),
+    %% Command = "rebalance\r\n",
+    ok = gen_tcp:send(Sock, <<"rebalance\r\n">>),
+    ?debugVal(ok),
     timer:sleep(100),
 
     {ok, Res} = gen_tcp:recv(Sock, 0, 1000),

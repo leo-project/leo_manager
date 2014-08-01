@@ -380,7 +380,7 @@ get_available_commands_all() ->
 
 %% @doc Retrieve available command by name
 %%
--spec(get_available_command_by_name(atom()) ->
+-spec(get_available_command_by_name(string()) ->
              {ok, list()} | not_found | {error, any()}).
 get_available_command_by_name(Name) ->
     Tbl = ?TBL_AVAILABLE_CMDS,
@@ -410,7 +410,7 @@ update_storage_node_status(NodeState) ->
     update_storage_node_status(update_state, NodeState).
 
 -spec(update_storage_node_status(
-        update|update_state|keep_state|update_chksum|increment_error|init_error, atom()) ->
+        update|update_state|keep_state|update_chksum|increment_error|init_error, #node_state{}) ->
              ok | {error, any()}).
 update_storage_node_status(update, NodeState) ->
     Tbl = ?TBL_STORAGE_NODES,
