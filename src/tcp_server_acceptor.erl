@@ -97,7 +97,7 @@ recv(false, Socket, State, Module, Option) ->
                         Formatter == ?MOD_TEXT_FORMATTER ->
             UserId = hd(string:tokens(
                           binary_to_list(Data), ?COMMAND_DELIMITER)),
-            recv(false, Socket, State#state{user_id = UserId,
+            recv(false, Socket, State#state{user_id = list_to_binary(UserId),
                                             auth    = 2}, Module, Option);
         {ok, Data} when AuthSt    == ?AUTH_PASSWORD andalso
                         Formatter == ?MOD_TEXT_FORMATTER ->
@@ -105,7 +105,7 @@ recv(false, Socket, State, Module, Option) ->
             Password = hd(string:tokens(
                             binary_to_list(Data), ?COMMAND_DELIMITER)),
 
-            case leo_s3_user:auth(UserId, Password) of
+            case leo_s3_user:auth(UserId, list_to_binary(Password)) of
                 {ok, _} ->
                     call(false, Socket, ?AUTHORIZED,
                          State#state{auth = ?AUTH_DONE}, Module, Option);
@@ -140,7 +140,14 @@ call(Active, Socket, Data, #state{plugin_mod = PluginMod} = State, Module, Optio
               undefined ->
                   false;
               _ ->
-                  case leo_misc:binary_tokens(Data, [<<"\r\n">>, <<" ">>]) of
+                  Tokens_1 = case binary:split(
+                                    Data, [<<"\r\n">>, <<" ">>], [global,trim]) of
+                                 [<<>>|Rest] ->
+                                     Rest;
+                                 Tokens ->
+                                     Tokens
+                             end,
+                  case Tokens_1 of
                       [Command|_] ->
                           case catch PluginMod:has_command(Command) of
                               {'EXIT',_} ->

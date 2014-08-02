@@ -291,7 +291,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %% @doc Modify node state.
 %%
--spec(update_node_state(start|down, leo_redundant_manger:node_state(), atom()) ->
+-spec(update_node_state(start|down, node_state()|not_found, atom()) ->
              ok | delete | {error, any()}).
 update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;

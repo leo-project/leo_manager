@@ -305,15 +305,15 @@
 -ifdef(TEST).
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = []      :: string(),
-                password = []     :: string(),
+                user_id = <<>>    :: binary(),
+                password = <<>>   :: binary(),
                 plugin_mod        :: atom()
                }).
 -else.
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = []      :: string(),
-                password = []     :: string(),
+                user_id = <<>>    :: binary(),
+                password = <<>>   :: binary(),
                 plugin_mod        :: atom()
                }).
 -endif.

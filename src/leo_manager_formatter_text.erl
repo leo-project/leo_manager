@@ -290,7 +290,7 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 
 %% @doc Format a cluster node state
 %%
--spec(node_stat(string(), #cluster_node_status{}) ->
+-spec(node_stat(string(), [tuple()]) ->
              string()).
 node_stat(?SERVER_TYPE_GATEWAY, State) ->
     Version      = leo_misc:get_value('version',       State, []),

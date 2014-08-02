@@ -173,7 +173,7 @@ start_link() ->
 
 %% @doc Create mnesia tables
 %%
--spec(create_mnesia_tables(master | slave, atom()) ->
+-spec(create_mnesia_tables(master|slave, [atom()]) ->
              ok | {error, any()}).
 create_mnesia_tables(_, []) ->
     {error, badarg};

@@ -130,7 +130,7 @@ bad_nodes(BadNodes) ->
 
 %% @doc Format a cluster-node list
 %%
--spec(system_info_and_nodes_stat([_]) ->
+-spec(system_info_and_nodes_stat([tuple()]) ->
              binary()).
 system_info_and_nodes_stat(Props) ->
     SystemConf = leo_misc:get_value('system_config', Props),
@@ -549,7 +549,7 @@ password() ->
 %%----------------------------------------------------------------------
 %% @doc Generate a JSON-format doc
 %%
--spec(gen_json(tuple()|list()) ->
+-spec(gen_json(tuple()|[tuple()]) ->
              binary()).
 gen_json(JSON) ->
     case catch jiffy:encode(JSON) of
