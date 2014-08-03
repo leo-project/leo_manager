@@ -1813,14 +1813,8 @@ add_bucket(AccessKey, Bucket) ->
 -spec(add_bucket(binary(), binary(), string()) ->
              ok | {error, any()}).
 add_bucket(AccessKey, Bucket, CannedACL) ->
-    AccessKeyBin = case is_binary(AccessKey) of
-                       true  -> AccessKey;
-                       false -> list_to_binary(AccessKey)
-                   end,
-    BucketBin    = case is_binary(Bucket) of
-                       true  -> Bucket;
-                       false -> list_to_binary(Bucket)
-                   end,
+    AccessKeyBin = leo_misc:any_to_binary(AccessKey),
+    BucketBin    = leo_misc:any_to_binary(Bucket),
 
     case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
         ok ->
@@ -1856,14 +1850,8 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
 -spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
 delete_bucket(AccessKey, Bucket) ->
-    AccessKeyBin = case is_binary(AccessKey) of
-                       true  -> AccessKey;
-                       false -> list_to_binary(AccessKey)
-                   end,
-    BucketBin    = case is_binary(Bucket) of
-                       true  -> Bucket;
-                       false -> list_to_binary(Bucket)
-                   end,
+    AccessKeyBin = leo_misc:any_to_binary(AccessKey),
+    BucketBin    = leo_misc:any_to_binary(Bucket),
 
     %% Check preconditions
     case is_allow_to_distribute_command() of
