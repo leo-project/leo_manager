@@ -1822,19 +1822,13 @@ add_bucket(AccessKey, Bucket, CannedACL) ->
                        false -> list_to_binary(Bucket)
                    end,
 
-    %% Check preconditions
-    case is_allow_to_distribute_command() of
-        {true, _}->
-            case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
-                ok ->
-                    {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
-                not_found ->
-                    add_bucket_1(AccessKeyBin, BucketBin, CannedACL);
-                {error, _} ->
-                    {error, ?ERROR_INVALID_ARGS}
-            end;
-        _ ->
-            {error, ?ERROR_NOT_SATISFY_CONDITION}
+    case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
+        ok ->
+            {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
+        not_found ->
+            add_bucket_1(AccessKeyBin, BucketBin, CannedACL);
+        {error, _} ->
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
@@ -1849,8 +1843,9 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
     case leo_s3_bucket:put(AccessKeyBin, BucketBin,
                            CannedACL, ClusterId_1) of
         ok ->
-            rpc_call_for_gateway(add_bucket,
-                                 [AccessKeyBin, BucketBin, CannedACL, undefined]);
+            _ = rpc_call_for_gateway(add_bucket,
+                                     [AccessKeyBin, BucketBin, CannedACL, undefined]),
+            ok;
         {error, badarg} ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
