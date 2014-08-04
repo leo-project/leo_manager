@@ -627,10 +627,11 @@ buckets(Buckets) ->
                         {C1, C2, C3, C4}) ->
                             ClusterIdStr = atom_to_list(ClusterId),
                             BucketStr = binary_to_list(Bucket),
+                            OwnerStr  = binary_to_list(Owner),
                             PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions),
                             Len1 = length(ClusterIdStr),
                             Len2 = length(BucketStr),
-                            Len3 = length(Owner),
+                            Len3 = length(OwnerStr),
                             Len4 = length(PermissionsStr),
 
 
@@ -677,6 +678,7 @@ buckets(Buckets) ->
                           created_at = Created1}, Acc) ->
                   ClusterIdStr = atom_to_list(ClusterId),
                   BucketStr = binary_to_list(Bucket),
+                  OwnerStr  = binary_to_list(Owner),
                   PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions1),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
@@ -687,7 +689,7 @@ buckets(Buckets) ->
                                        [
                                         string:left(ClusterIdStr,   Col1Len),
                                         string:left(BucketStr,      Col2Len),
-                                        string:left(Owner,          Col3Len),
+                                        string:left(OwnerStr,       Col3Len),
                                         string:left(PermissionsStr, Col4Len),
                                         Created2])
           end,

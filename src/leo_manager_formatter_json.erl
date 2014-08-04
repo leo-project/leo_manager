@@ -45,7 +45,7 @@
         ]).
 
 -define(output_ok(),           gen_json({[{result, <<"OK">>}]})).
--define(output_error_1(Cause), gen_json({[{error, list_to_binary(Cause)}]})).
+-define(output_error_1(Cause), gen_json({[{error, leo_misc:any_to_binary(Cause)}]})).
 
 
 %% @doc Format 'ok'
@@ -64,11 +64,8 @@ error(not_found)  ->
     gen_json({[{error,<<"not found">>}]});
 error(nodedown)  ->
     gen_json({[{error,<<"node down">>}]});
-error(Cause) when is_list(Cause) ->
-    gen_json({[{error, list_to_binary(Cause)}]});
-error(Cause) when is_atom(Cause) ->
-    gen_json({[{error, list_to_binary(atom_to_list(Cause))}]}).
-
+error(Cause) ->
+    gen_json({[{error, leo_misc:any_to_binary(Cause)}]}).
 
 %% @doc Format 'error'
 %%
@@ -76,13 +73,13 @@ error(Cause) when is_atom(Cause) ->
              binary()).
 error(Node, Cause) when is_atom(Node) ->
     gen_json({[{error,
-                {[{<<"node">>,  list_to_binary(atom_to_list(Node))},
-                  {<<"cause">>, list_to_binary(Cause)}]}
+                {[{<<"node">>,  leo_misc:any_to_binary(Node)},
+                  {<<"cause">>, leo_misc:any_to_binary(Cause)}]}
                }]});
 error(Node, Cause) ->
     gen_json({[{error,
-                {[{<<"node">>,  list_to_binary(Node)},
-                  {<<"cause">>, list_to_binary(Cause)}]}
+                {[{<<"node">>,  leo_misc:any_to_binary(Node)},
+                  {<<"cause">>, leo_misc:any_to_binary(Cause)}]}
                }]}).
 
 
@@ -99,7 +96,7 @@ help() ->
 -spec(version(string()) ->
              binary()).
 version(Version) ->
-    gen_json({[{result, list_to_binary(Version)}]}).
+    gen_json({[{result, leo_misc:any_to_binary(Version)}]}).
 
 
 %% Format 'version'
@@ -112,7 +109,7 @@ login(User, Credential) ->
                   {<<"role_id">>,       User#?S3_USER.role_id},
                   {<<"access_key_id">>, leo_misc:get_value('access_key_id',     Credential)},
                   {<<"secret_key">>,    leo_misc:get_value('secret_access_key', Credential)},
-                  {<<"created_at">>,    list_to_binary(leo_date:date_format(User#?S3_USER.created_at))}
+                  {<<"created_at">>,    leo_misc:any_to_binary(leo_date:date_format(User#?S3_USER.created_at))}
                  ]}}
               ]}).
 
@@ -151,12 +148,12 @@ system_info_and_nodes_stat(Props) ->
                                                     true  -> integer_to_list(RingHash1);
                                                     false -> RingHash1
                                                 end,
-                                 {[{<<"type">>,      list_to_binary(Type)},
-                                   {<<"node">>,      list_to_binary(NodeName)},
-                                   {<<"state">>,     list_to_binary(NodeState)},
-                                   {<<"ring_cur">>,  list_to_binary(NewRingHash0)},
-                                   {<<"ring_prev">>, list_to_binary(NewRingHash1)},
-                                   {<<"when">>,      list_to_binary(leo_date:date_format(When))}
+                                 {[{<<"type">>,      leo_misc:any_to_binary(Type)},
+                                   {<<"node">>,      leo_misc:any_to_binary(NodeName)},
+                                   {<<"state">>,     leo_misc:any_to_binary(NodeState)},
+                                   {<<"ring_cur">>,  leo_misc:any_to_binary(NewRingHash0)},
+                                   {<<"ring_prev">>, leo_misc:any_to_binary(NewRingHash1)},
+                                   {<<"when">>,      leo_misc:any_to_binary(leo_date:date_format(When))}
                                   ]}
                          end, Nodes)
                end,
@@ -167,9 +164,9 @@ system_info_and_nodes_stat(Props) ->
     DCId_2 = atom_to_list(DCId_1),
 
     gen_json({[{<<"system_info">>,
-                {[{<<"version">>,    list_to_binary(Version)},
-                  {<<"cluster_id">>, list_to_binary(ClusterId_2)},
-                  {<<"dc_id">>,      list_to_binary(DCId_2)},
+                {[{<<"version">>,    leo_misc:any_to_binary(Version)},
+                  {<<"cluster_id">>, leo_misc:any_to_binary(ClusterId_2)},
+                  {<<"dc_id">>,      leo_misc:any_to_binary(DCId_2)},
                   {<<"n">>, SystemConf#?SYSTEM_CONF.n},
                   {<<"r">>, SystemConf#?SYSTEM_CONF.r},
                   {<<"w">>, SystemConf#?SYSTEM_CONF.w},
@@ -203,33 +200,33 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
     gen_json({[{<<"node_stat">>,
                 {[
                   %% config-1
-                  {<<"version">>,          list_to_binary(Version)},
-                  {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
+                  {<<"version">>,          leo_misc:any_to_binary(Version)},
+                  {<<"log_dir">>,          leo_misc:any_to_binary(leo_misc:get_value('log', Directories, []))},
                   %% config-2
-                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
-                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
-                  {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
+                  {<<"ring_cur">>,         leo_misc:any_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
+                  {<<"ring_prev">>,        leo_misc:any_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
+                  {<<"vm_version">>,       leo_misc:any_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
                   {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
                   {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
                   {<<"procs_mem_usage">>,  leo_misc:get_value('proc_mem_usage',   Statistics, 0)},
                   {<<"ets_mem_usage">>,    leo_misc:get_value('ets_mem_usage',    Statistics, 0)},
                   {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
-                  {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
+                  {<<"kernel_poll">>,      leo_misc:any_to_binary(leo_misc:get_value('kernel_poll', Statistics, false))},
                   {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
                   %% config-2
-                  {<<"handler">>,                  list_to_binary(atom_to_list(leo_misc:get_value('handler', HttpConf, '')))},
+                  {<<"handler">>,                  leo_misc:any_to_binary(leo_misc:get_value('handler', HttpConf, ''))},
                   {<<"port">>,                     leo_misc:get_value('port',             HttpConf, 0)},
                   {<<"ssl_port">>,                 leo_misc:get_value('ssl_port',         HttpConf, 0)},
                   {<<"num_of_acceptors">>,         leo_misc:get_value('num_of_acceptors', HttpConf, 0)},
-                  {<<"http_cache">>,               list_to_binary(atom_to_list(leo_misc:get_value('http_cache', HttpConf, '')))},
+                  {<<"http_cache">>,               leo_misc:any_to_binary(leo_misc:get_value('http_cache', HttpConf, ''))},
                   {<<"cache_workers">>,            leo_misc:get_value('cache_workers',            HttpConf, 0)},
                   {<<"cache_expire">>,             leo_misc:get_value('cache_expire',             HttpConf, 0)},
                   {<<"cache_ram_capacity">>,       leo_misc:get_value('cache_ram_capacity',       HttpConf, 0)},
                   {<<"cache_disc_capacity">>,      leo_misc:get_value('cache_disc_capacity',      HttpConf, 0)},
                   {<<"cache_disc_threshold_len">>, leo_misc:get_value('cache_disc_threshold_len', HttpConf, 0)},
-                  {<<"cache_disc_dir_data">>,      list_to_binary(leo_misc:get_value('cache_disc_dir_data',    HttpConf, ""))},
-                  {<<"cache_disc_dir_journal">>,   list_to_binary(leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
+                  {<<"cache_disc_dir_data">>,      leo_misc:any_to_binary(leo_misc:get_value('cache_disc_dir_data',    HttpConf, ""))},
+                  {<<"cache_disc_dir_journal">>,   leo_misc:any_to_binary(leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
                   {<<"cache_max_content_len">>,    leo_misc:get_value('cache_max_content_len',    HttpConf, 0)},
                   %% large-object
                   {<<"max_chunked_objs">>,         MaxChunkedObjs},
@@ -250,20 +247,20 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     MsgQueue    = leo_misc:get_value('storage', Statistics, []),
 
     gen_json({[{<<"node_stat">>,
-                {[{<<"version">>,          list_to_binary(Version)},
+                {[{<<"version">>,          leo_misc:any_to_binary(Version)},
                   {<<"num_of_vnodes">>,    NumOfVNodes},
-                  {<<"grp_level_2">>,      list_to_binary(GrpLevel2)},
-                  {<<"log_dir">>,          list_to_binary(leo_misc:get_value('log', Directories, []))},
-                  {<<"ring_cur">>,         list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
-                  {<<"ring_prev">>,        list_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
-                  {<<"vm_version">>,       list_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
+                  {<<"grp_level_2">>,      leo_misc:any_to_binary(GrpLevel2)},
+                  {<<"log_dir">>,          leo_misc:any_to_binary(leo_misc:get_value('log', Directories, []))},
+                  {<<"ring_cur">>,         leo_misc:any_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
+                  {<<"ring_prev">>,        leo_misc:any_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
+                  {<<"vm_version">>,       leo_misc:any_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
                   {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
                   {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
                   {<<"procs_mem_usage">>,  leo_misc:get_value('proc_mem_usage',   Statistics, 0)},
                   {<<"ets_mem_usage">>,    leo_misc:get_value('ets_mem_usage',    Statistics, 0)},
                   {<<"num_of_procs">>,     leo_misc:get_value('num_of_procs',     Statistics, 0)},
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
-                  {<<"kernel_poll">>,      list_to_binary(atom_to_list(leo_misc:get_value('kernel_poll', Statistics, false)))},
+                  {<<"kernel_poll">>,      leo_misc:any_to_binary(leo_misc:get_value('kernel_poll', Statistics, false))},
                   {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
                   {<<"replication_msgs">>, leo_misc:get_value('num_of_replication_msg', MsgQueue, 0)},
                   {<<"sync_vnode_msgs">>,  leo_misc:get_value('num_of_sync_vnode_msg',  MsgQueue, 0)},
@@ -288,7 +285,7 @@ compact_status(#compaction_stats{status = Status,
 
     gen_json({[{<<"compaction_status">>,
                 {[{<<"status">>,                 Status},
-                  {<<"last_compaction_start">>,  list_to_binary(Date)},
+                  {<<"last_compaction_start">>,  leo_misc:any_to_binary(Date)},
                   {<<"total_targets">>,          TotalNumOfTargets},
                   {<<"num_of_pending_targets">>, Targets1},
                   {<<"num_of_ongoing_targets">>, Targets2},
@@ -318,8 +315,8 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
                {<<"active_size_of_objects">>, ActiveSize},
                {<<"total_size_of_objects">>,  TotalSize},
                {<<"ratio_of_active_size">>,   Ratio},
-               {<<"last_compaction_start">>,  list_to_binary(StartStr)},
-               {<<"last_compaction_end">>,    list_to_binary(EndStr)}
+               {<<"last_compaction_start">>,  leo_misc:any_to_binary(StartStr)},
+               {<<"last_compaction_end">>,    leo_misc:any_to_binary(EndStr)}
               ]});
 
 du(detail, StatsList) when is_list(StatsList) ->
@@ -338,14 +335,14 @@ du(detail, StatsList) when is_list(StatsList) ->
                                  end,
                              Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
-                             {[{<<"file_path">>,              list_to_binary(FilePath)},
+                             {[{<<"file_path">>,              leo_misc:any_to_binary(FilePath)},
                                {<<"active_num_of_objects">>,  Active},
                                {<<"total_num_of_objects">>,   Total},
                                {<<"active_size_of_objects">>, ActiveSize},
                                {<<"total_size_of_objects">>,  TotalSize},
                                {<<"ratio_of_active_size">>,   Ratio},
-                               {<<"last_compaction_start">>,  list_to_binary(LatestStart1)},
-                               {<<"last_compaction_end">>,    list_to_binary(LatestEnd1)}
+                               {<<"last_compaction_start">>,  leo_misc:any_to_binary(LatestStart1)},
+                               {<<"last_compaction_end">>,    leo_misc:any_to_binary(LatestEnd1)}
                               ]};
                         (_) ->
                              []
@@ -377,9 +374,9 @@ users(Owners) ->
                              AccessKeyId = leo_misc:get_value(access_key_id, User),
                              CreatedAt   = leo_misc:get_value(created_at,    User),
                              {[{<<"access_key_id">>, AccessKeyId},
-                               {<<"user_id">>,       list_to_binary(UserId)},
+                               {<<"user_id">>,       leo_misc:any_to_binary(UserId)},
                                {<<"role_id">>,       RoleId},
-                               {<<"created_at">>,    list_to_binary(leo_date:date_format(CreatedAt))}
+                               {<<"created_at">>,    leo_misc:any_to_binary(leo_date:date_format(CreatedAt))}
                               ]}
                      end, Owners),
     gen_json({[{<<"users">>, JSON}]}).
@@ -392,7 +389,7 @@ users(Owners) ->
 endpoints(EndPoints) ->
     JSON = lists:map(fun({endpoint, EP, CreatedAt}) ->
                              {[{<<"endpoint">>,   EP},
-                               {<<"created_at">>, list_to_binary(leo_date:date_format(CreatedAt))}
+                               {<<"created_at">>, leo_misc:any_to_binary(leo_date:date_format(CreatedAt))}
                               ]}
                      end, EndPoints),
     gen_json({[{<<"endpoints">>, JSON}]}).
@@ -417,10 +414,10 @@ buckets(Buckets) ->
                                                  #bucket_acl_info{permissions = [Item|_]} <- Permissions],
                                              ","),
                              {[{<<"bucket">>,      Bucket},
-                               {<<"owner">>,       list_to_binary(Owner)},
-                               {<<"permissions">>, list_to_binary(PermissionsStr)},
-                               {<<"cluster_id">>,  list_to_binary(atom_to_list(ClusterId))},
-                               {<<"created_at">>,  list_to_binary(CreatedAt_1)}
+                               {<<"owner">>,       leo_misc:any_to_binary(Owner)},
+                               {<<"permissions">>, leo_misc:any_to_binary(PermissionsStr)},
+                               {<<"cluster_id">>,  leo_misc:any_to_binary(ClusterId)},
+                               {<<"created_at">>,  leo_misc:any_to_binary(CreatedAt_1)}
                               ]}
                      end, Buckets),
     gen_json({[{<<"buckets">>, JSON}]}).
@@ -439,8 +436,8 @@ bucket_by_access_key(Buckets) ->
                                                 false -> []
                                             end,
                              {[{<<"bucket">>,      Bucket},
-                               {<<"permissions">>, list_to_binary(PermissionsStr)},
-                               {<<"created_at">>,  list_to_binary(CreatedAt_1)}
+                               {<<"permissions">>, leo_misc:any_to_binary(PermissionsStr)},
+                               {<<"created_at">>,  leo_misc:any_to_binary(CreatedAt_1)}
                               ]}
                      end, Buckets),
     gen_json({[{<<"buckets">>, JSON}]}).
@@ -480,11 +477,11 @@ cluster_status(Stats) ->
                                                true  -> leo_date:date_format(UpdatedAt);
                                                false -> []
                                            end,
-                             {[{<<"cluster_id">>, list_to_binary(ClusterId_2)},
-                               {<<"dc_id">>,      list_to_binary(DCId_2)},
-                               {<<"status">>,     list_to_binary(atom_to_list(Status))},
-                               {<<"num_of_storages">>, list_to_binary(integer_to_list(NumOfStorages))},
-                               {<<"updated_at">>,      list_to_binary(UpdatedAt_1)}
+                             {[{<<"cluster_id">>, leo_misc:any_to_binary(ClusterId_2)},
+                               {<<"dc_id">>,      leo_misc:any_to_binary(DCId_2)},
+                               {<<"status">>,     leo_misc:any_to_binary(Status)},
+                               {<<"num_of_storages">>, leo_misc:any_to_binary(NumOfStorages)},
+                               {<<"updated_at">>,      leo_misc:any_to_binary(UpdatedAt_1)}
                               ]}
                      end, Stats),
     gen_json({[{<<"cluster_stats">>, JSON}]}).
@@ -496,7 +493,7 @@ cluster_status(Stats) ->
              binary()).
 whereis(AssignedInfo) ->
     JSON = lists:map(fun({Node, not_found}) ->
-                             {[{<<"node">>,      list_to_binary(Node)},
+                             {[{<<"node">>,      leo_misc:any_to_binary(Node)},
                                {<<"vnode_id">>,      <<>>},
                                {<<"size">>,          <<>>},
                                {<<"num_of_chunks">>, 0},
@@ -506,13 +503,13 @@ whereis(AssignedInfo) ->
                                {<<"delete">>,        0}
                               ]};
                         ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
-                             {[{<<"node">>,          list_to_binary(Node)},
-                               {<<"vnode_id">>,      list_to_binary(leo_hex:integer_to_hex(VNodeId, 8))},
+                             {[{<<"node">>,          leo_misc:any_to_binary(Node)},
+                               {<<"vnode_id">>,      leo_misc:any_to_binary(leo_hex:integer_to_hex(VNodeId, 8))},
                                {<<"size">>,          DSize},
                                {<<"num_of_chunks">>, ChunkedObjs},
-                               {<<"clock">>,         list_to_binary(leo_hex:integer_to_hex(Clock, 8))},
-                               {<<"checksum">>,      list_to_binary(leo_hex:integer_to_hex(Checksum, 8))},
-                               {<<"timestamp">>,     list_to_binary(leo_date:date_format(Timestamp))},
+                               {<<"clock">>,         leo_misc:any_to_binary(leo_hex:integer_to_hex(Clock, 8))},
+                               {<<"checksum">>,      leo_misc:any_to_binary(leo_hex:integer_to_hex(Checksum, 8))},
+                               {<<"timestamp">>,     leo_misc:any_to_binary(leo_date:date_format(Timestamp))},
                                {<<"delete">>,        DelFlag}
                               ]}
                      end, AssignedInfo),
