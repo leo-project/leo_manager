@@ -536,12 +536,12 @@ credential(AccessKeyId, SecretAccessKey) ->
 
 %% @doc Format s3-users result
 %%
--spec(users(list()) ->
+-spec(users([#?S3_USER{}]) ->
              string()).
 users(Owners) ->
     Col1Len = lists:foldl(fun(User, Acc) ->
                                   UserId = leo_misc:get_value(user_id, User),
-                                  Len = length(UserId),
+                                  Len = length(binary_to_list(UserId)),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
@@ -565,11 +565,12 @@ users(Owners) ->
                   AccessKeyId = leo_misc:get_value(access_key_id, User),
                   CreatedAt   = leo_misc:get_value(created_at,    User),
 
+                  UserIdStr      = binary_to_list(UserId),
                   RoleIdStr      = integer_to_list(RoleId),
                   AccessKeyIdStr = binary_to_list(AccessKeyId),
 
                   Acc ++ io_lib:format("~s | ~s | ~s | ~s\r\n",
-                                       [string:left(UserId,         Col1Len),
+                                       [string:left(UserIdStr,      Col1Len),
                                         string:left(RoleIdStr,      Col2Len),
                                         string:left(AccessKeyIdStr, Col3Len),
                                         leo_date:date_format(CreatedAt)])

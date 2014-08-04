@@ -94,7 +94,7 @@ handle_call(_Socket, ?USER_ID, #state{formatter = Formatter} = State) ->
     {reply, Reply, State};
 
 
-%% Command: "_password_"
+% Command: "_password_"
 %%
 handle_call(_Socket, ?PASSWORD, #state{formatter = Formatter} = State) ->
     Reply = Formatter:password(),

@@ -275,7 +275,7 @@
 
 
 %% test values and default values
--define(TEST_USER_ID, "_test_leofs").
+-define(TEST_USER_ID,    <<"_test_leofs">>).
 -define(TEST_ACCESS_KEY, <<"05236">>).
 -define(TEST_SECRET_KEY, <<"802562235">>).
 
