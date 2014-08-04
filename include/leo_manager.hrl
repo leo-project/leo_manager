@@ -243,7 +243,7 @@
 -define(ERROR_BUCKET_NOT_FOUND,          "Bucket not found").
 -define(ERROR_COULD_NOT_GET_BUCKET,      "Could not get bucket(s)").
 -define(ERROR_COULD_NOT_UPDATE_BUCKET,   "Could not update bucket(s)").
--define(ERROR_NOT_STARTED,               "Storage cluster does not start, yet").
+-define(ERROR_NOT_STARTED,               "Storage cluster is not running, yet").
 -define(ERROR_ALREADY_STARTED,           "Storage cluster already started").
 -define(ERROR_STILL_RUNNING,             "still running").
 -define(ERROR_MNESIA_NOT_START,          "Mnesia does not start, yet").
