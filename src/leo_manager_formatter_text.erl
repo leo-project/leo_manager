@@ -629,7 +629,7 @@ buckets(Buckets) ->
                             ClusterIdStr = atom_to_list(ClusterId),
                             BucketStr = binary_to_list(Bucket),
                             OwnerStr  = binary_to_list(Owner),
-                            PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions),
+                            PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions),
                             Len1 = length(ClusterIdStr),
                             Len2 = length(BucketStr),
                             Len3 = length(OwnerStr),
@@ -680,7 +680,7 @@ buckets(Buckets) ->
                   ClusterIdStr = atom_to_list(ClusterId),
                   BucketStr = binary_to_list(Bucket),
                   OwnerStr  = binary_to_list(Owner),
-                  PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions1),
+                  PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions1),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
                                   false -> []
@@ -708,7 +708,7 @@ bucket_by_access_key(Buckets) ->
         lists:foldl(fun(#?BUCKET{name = Bucket,
                                  acls = Permissions}, {C1, C2}) ->
                             BucketStr = binary_to_list(Bucket),
-                            PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions),
+                            PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions),
                             Len1 = length(BucketStr),
                             Len2 = length(PermissionsStr),
                             {case (Len1 > C1) of
@@ -735,7 +735,7 @@ bucket_by_access_key(Buckets) ->
                        acls = Permissions1,
                        created_at = Created1}, Acc) ->
                   BucketStr = binary_to_list(Bucket1),
-                  PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions1),
+                  PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions1),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
                                   false -> []
