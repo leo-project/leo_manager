@@ -1865,7 +1865,7 @@ delete_bucket(AccessKey, Bucket) ->
                     {error, ?ERROR_INVALID_ARGS}
             end;
         _ ->
-            {error, ?ERROR_NOT_SATISFY_CONDITION}
+            {error, ?ERROR_NOT_STARTED}
     end.
 
 delete_bucket_1(AccessKeyBin, BucketBin) ->
@@ -1890,7 +1890,8 @@ delete_bucket_1(AccessKeyBin, BucketBin) ->
 delete_bucket_2(AccessKeyBin, BucketBin) ->
     case leo_s3_bucket:delete(AccessKeyBin, BucketBin) of
         ok ->
-            rpc_call_for_gateway(delete_bucket, [AccessKeyBin, BucketBin, undefined]);
+            _ = rpc_call_for_gateway(delete_bucket, [AccessKeyBin, BucketBin, undefined]),
+            ok;
         {error, badarg} ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
