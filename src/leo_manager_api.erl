@@ -81,9 +81,9 @@
 
 
 -record(rebalance_proc_info, {
-          members_cur    = [] :: list(#member{}),
-          members_prev   = [] :: list(#member{}),
-          system_conf    = [] :: list(tuple()),
+          members_cur    = [] :: [#member{}],
+          members_prev   = [] :: [#member{}],
+          system_conf    = [] :: #?SYSTEM_CONF{},
           rebalance_list = [] :: list()
          }).
 
@@ -217,28 +217,24 @@ get_system_status() ->
 %% @doc Retrieve members from mnesia(localdb).
 %%
 -spec(get_members() ->
-             {ok, list()}).
+             {ok, list()} | {error, any()}).
 get_members() ->
     leo_redundant_manager_api:get_members().
 
 -spec(get_members_of_all_versions() ->
-             {ok, list()}).
+             {ok, {[#member{}], [#member{}]}} | {error, any()}).
 get_members_of_all_versions() ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, MembersCur} ->
             case leo_redundant_manager_api:get_members(?VER_PREV) of
                 {ok, MembersPrev} ->
                     {ok, {MembersCur, MembersPrev}};
-                not_found = Cause ->
-                    {error, Cause};
                 {error, not_found = Cause} ->
                     {error, Cause};
                 {error, Cause} ->
                     ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
                     {error, Cause}
             end;
-        not_found ->
-            {error, not_found};
         {error, Cause} ->
             ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
             {error, Cause}
@@ -247,7 +243,7 @@ get_members_of_all_versions() ->
 
 %% @doc Retrieve cluster-node-status from each server.
 %%
--spec(get_node_status(atom()) ->
+-spec(get_node_status(string()) ->
              ok | {error, any()}).
 get_node_status(Node_1) ->
     Node_2 = list_to_atom(Node_1),
@@ -282,34 +278,27 @@ get_node_status(Node_1) ->
              {error, any()}).
 get_routing_table_chksum() ->
     case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
-        {ok, []} ->
-            {error, ?ERROR_COULD_NOT_GET_CHECKSUM};
         {ok, Chksums} ->
-            {ok, Chksums}
+            {ok, Chksums};
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_CHECKSUM}
     end.
 
 
 %% @doc Retrieve list of cluster nodes from mnesia.
 %%
 -spec(get_nodes() ->
-             {ok, list()}).
+             {ok, [atom()]}).
 get_nodes() ->
-    Nodes_0 = case catch leo_manager_mnesia:get_gateway_nodes_all() of
+    Nodes_0 = case leo_manager_mnesia:get_gateway_nodes_all() of
                   {ok, R1} ->
-                      lists:map(fun(#node_state{node  = Node,
-                                                state = State}) ->
-                                        {gateway, Node, State}
-                                end, R1);
+                      [_N1 || #node_state{node  = _N1} <- R1];
                   _ ->
                       []
               end,
-
-    Nodes_1 = case catch leo_manager_mnesia:get_storage_nodes_all() of
+    Nodes_1 = case leo_manager_mnesia:get_storage_nodes_all() of
                   {ok, R2} ->
-                      lists:map(fun(#node_state{node  = Node,
-                                                state = State}) ->
-                                        {storage, Node, State}
-                                end, R2);
+                      [_N2 || #node_state{node  = _N2} <- R2];
                   _Error ->
                       []
               end,
@@ -366,7 +355,7 @@ attach_1(_, Node,_L1, L2, Clock, NumOfVNodes, RPCPort) ->
 
 %% @doc Suspend a node.
 %%
--spec(suspend(string()) ->
+-spec(suspend(atom()) ->
              ok | {error, any()}).
 suspend(Node) ->
     case leo_redundant_manager_api:has_member(Node) of
@@ -380,7 +369,7 @@ suspend(Node) ->
                                                     }) of
                         ok ->
                             Res = leo_redundant_manager_api:suspend(Node),
-                            distribute_members(Res, []);
+                            distribute_members(Res, erlang:node());
                         {error,_Cause} ->
                             {error, ?ERROR_COULD_NOT_UPDATE_NODE}
                     end;
@@ -394,7 +383,7 @@ suspend(Node) ->
 
 %% @doc Remove a storage-node from the cluster.
 %%
--spec(detach(string()) ->
+-spec(detach(atom()) ->
              ok | {error, any()}).
 detach(Node) ->
     case leo_redundant_manager_api:has_member(Node) of
@@ -460,13 +449,9 @@ resume(sync, ok, Node) ->
                       {ok, MembersPrev} ->
                           synchronize(?CHECKSUM_RING, Node, [{?VER_CUR,  MembersCur },
                                                              {?VER_PREV, MembersPrev}]);
-                      not_found ->
-                          {error, ?ERROR_MEMBER_NOT_FOUND};
                       {error,_Cause} ->
                           {error, ?ERROR_COULD_NOT_GET_MEMBER}
                   end;
-              not_found ->
-                  {error, ?ERROR_MEMBER_NOT_FOUND};
               {error,_Cause} ->
                   {error, ?ERROR_COULD_NOT_GET_MEMBER}
           end,
@@ -490,14 +475,14 @@ resume(last,_Error, _) ->
 
 %% @doc Retrieve active storage nodes
 %%
+-spec(active_storage_nodes() ->
+             {ok, [atom()]} | {error, any()}).
 active_storage_nodes() ->
     case leo_redundant_manager_api:get_members() of
         {ok, Members} ->
             Nodes = [_N || #member{node  = _N,
                                    state = ?STATE_RUNNING} <- Members],
             {ok, Nodes};
-        not_found ->
-            {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end.
@@ -535,8 +520,6 @@ distribute_members([_|_]= Nodes) ->
                     ?error("distribute_members/2", "bad-nodes:~p", [BadNodes])
             end,
             ok;
-        not_found ->
-            {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end;
@@ -563,7 +546,8 @@ update_manager_nodes(Managers) ->
               {ok, StorageNodes} ->
                   case rpc:multicall(StorageNodes, leo_storage_api, update_manager_nodes,
                                      [Managers], ?DEF_TIMEOUT) of
-                      {_, []} -> ok;
+                      {_, []} ->
+                          ok;
                       {_, BadNodes} ->
                           ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
                           {error, BadNodes}
@@ -588,6 +572,8 @@ update_manager_nodes(Managers, ok) ->
                     ?error("update_manager_nodes/2", "bad-nodes:~p", [BadNodes]),
                     {error, BadNodes}
             end;
+        not_found = Cause ->
+            {error, Cause};
         Error ->
             Error
     end;
@@ -694,14 +680,28 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
 output_message_to_console(null,_MsgBin) ->
     ok;
 output_message_to_console(Socket, MsgBin) ->
-    ok = gen_tcp:send(Socket, << MsgBin/binary, "\r\n" >>).
+    catch gen_tcp:send(Socket, << MsgBin/binary, "\r\n" >>).
 
 -spec(output_message_to_console(port()|[], binary(), binary()) ->
              ok).
 output_message_to_console(null, _State,_MsgBin) ->
     ok;
 output_message_to_console(Socket, State, MsgBin) ->
-    ok = gen_tcp:send(Socket, << State/binary, MsgBin/binary, "\r\n" >>).
+    catch gen_tcp:send(Socket, << State/binary, MsgBin/binary, "\r\n" >>).
+
+
+%% @doc
+%% @private
+changed_nodes([], HasRunningNode, Acc) ->
+    {HasRunningNode, Acc};
+changed_nodes([#member{state = ?STATE_RUNNING}|Rest], false, Acc) ->
+    changed_nodes(Rest, true, Acc);
+changed_nodes([#member{state = State,
+                       node  = Node}|Rest], HasRunningNode, Acc) when State == ?STATE_ATTACHED;
+                                                                      State == ?STATE_DETACHED ->
+    changed_nodes(Rest, HasRunningNode, [{State, Node}|Acc]);
+changed_nodes([_|Rest], HasRunningNode, Acc) ->
+    changed_nodes(Rest, HasRunningNode, Acc).
 
 
 %% @doc Do Rebalance which affect all storage-nodes in operation.
@@ -716,28 +716,14 @@ rebalance(Socket) ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, Members_1} ->
             ok = output_message_to_console(
-                   Socket, <<"Generating rebalance-list...">>),
-            {State, Nodes} =
-                lists:foldl(
-                  fun(#member{state = ?STATE_RUNNING },{false, AccN}) ->
-                          {true, AccN};
-                     (#member{node  = Node,
-                              state = ?STATE_ATTACHED},{SoFar, AccN}) ->
-                          NS = {?STATE_ATTACHED, Node},
-                          {SoFar, [NS|AccN]};
-                     (#member{node  = Node,
-                              state = ?STATE_DETACHED},{SoFar, AccN}) ->
-                          NS = {?STATE_DETACHED, Node},
-                          {SoFar, [NS|AccN]};
-                     (_Member, SoFar) ->
-                          SoFar
-                  end, {false, []}, Members_1),
+                   Socket, << "Generating rebalance-list..." >>),
+            {State, Nodes} = changed_nodes(Members_1, false, []),
 
+            %% _Ret = rebalance_1(State, Nodes);
             case rebalance_1(State, Nodes) of
                 {ok, RetRebalance} ->
                     ok = output_message_to_console(
-                           Socket, <<"Generated rebalance-list">>),
-
+                           Socket, << "Generated rebalance-list" >>),
                     case get_members_of_all_versions() of
                         {ok, {MembersCur, MembersPrev}} ->
                             {ok, SystemConf}  = leo_cluster_tbl_conf:get(),
@@ -760,8 +746,6 @@ rebalance(Socket) ->
                 {error, Cause} ->
                     {error, Cause}
             end;
-        not_found ->
-            {error, ?ERROR_MEMBER_NOT_FOUND};
         {error, Cause} ->
             ?error("rebalance/0", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
@@ -770,7 +754,7 @@ rebalance(Socket) ->
 %% @private
 rebalance_1(false,_Nodes) ->
     {error, ?ERROR_NOT_STARTED};
-rebalance_1(_State, []) ->
+rebalance_1(_,[]) ->
     {error, ?ERROR_NOT_NEED_REBALANCE};
 rebalance_1(true, Nodes) ->
     case assign_nodes_to_ring(Nodes) of
@@ -779,8 +763,8 @@ rebalance_1(true, Nodes) ->
                 {true, _} ->
                     case leo_redundant_manager_api:rebalance() of
                         {ok, List} ->
-                            Tbl = leo_hashtable:new(),
-                            rebalance_2(Tbl, List);
+                            TblPid = leo_hashtable:new(),
+                            rebalance_2(TblPid, List);
                         {error, Cause} ->
                             ?error("rebalance_1/2", "cause:~p", [Cause]),
                             {error, ?ERROR_FAIL_REBALANCE}
@@ -794,14 +778,16 @@ rebalance_1(true, Nodes) ->
     end.
 
 %% @private
-rebalance_2(Tbl, []) ->
-    Ret = case leo_hashtable:all(Tbl) of
+-spec(rebalance_2(pid(), [{integer(), atom()}]) ->
+             {ok, [{integer(), atom()}]} | {erorr, any()}).
+rebalance_2(TblPid, []) ->
+    Ret = case leo_hashtable:all(TblPid) of
               []   -> {error, no_entry};
               List -> {ok, List}
           end,
-    catch leo_hashtable:destroy(Tbl),
+    catch leo_hashtable:destroy(TblPid),
     Ret;
-rebalance_2(Tbl, [Item|T]) ->
+rebalance_2(TblPid, [Item|T]) ->
     %% Item: [{vnode_id, VNodeId0}, {src, SrcNode}, {dest, DestNode}]
     VNodeId  = leo_misc:get_value('vnode_id', Item),
     SrcNode  = leo_misc:get_value('src',      Item),
@@ -811,9 +797,9 @@ rebalance_2(Tbl, [Item|T]) ->
         {error, no_entry} ->
             void;
         _ ->
-            ok = leo_hashtable:append(Tbl, SrcNode, {VNodeId, DestNode})
+            leo_hashtable:append(TblPid, SrcNode, {VNodeId, DestNode})
     end,
-    rebalance_2(Tbl, T).
+    rebalance_2(TblPid, T).
 
 %% @private
 rebalance_3([], _RebalanceProcInfo) ->
@@ -942,13 +928,16 @@ rebalance_4_loop(Socket, NumOfNodes, TotalMembers) ->
 
 
 %% @private
+-spec(assign_nodes_to_ring([{atom(), atom()}]) ->
+             ok | {error, any()}).
 assign_nodes_to_ring([]) ->
     ok;
 assign_nodes_to_ring([{?STATE_ATTACHED, Node}|Rest]) ->
     case leo_redundant_manager_api:get_member_by_node(Node) of
         {ok, #member{grp_level_2 = L2,
                      num_of_vnodes = NumOfVNodes}} ->
-            case leo_redundant_manager_api:attach(Node, L2, leo_date:clock(), NumOfVNodes) of
+            case leo_redundant_manager_api:attach(
+                   Node, L2, leo_date:clock(), NumOfVNodes) of
                 ok ->
                     assign_nodes_to_ring(Rest);
                 Error ->
@@ -971,12 +960,12 @@ assign_nodes_to_ring([{?STATE_DETACHED, Node}|Rest]) ->
 %%----------------------------------------------------------------------
 %% @doc Register Pid of storage-node and Pid of gateway-node into the manager-monitors.
 %%
--spec(register(first | again, pid(), atom(), atom()) ->
+-spec(register(atom(), pid(), atom(), atom()) ->
              ok).
 register(RequestedTimes, Pid, Node, Type) ->
     leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type).
 
--spec(register(first | again, pid(), atom(), atom(), string(), string(), pos_integer()) ->
+-spec(register(atom(), pid(), atom(), atom(), string(), string(), pos_integer()) ->
              ok).
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
     register(RequestedTimes, Pid, Node, Type,
@@ -1055,9 +1044,7 @@ notify_1(TargetNode) ->
                             notify_2(?STATE_RUNNING, TargetNode);
                         false ->
                             notify_1(?STATE_STOP, TargetNode, NumOfErrors)
-                    end;
-                _ ->
-                    {error, ?ERROR_COULD_NOT_UPDATE_NODE}
+                    end
             end;
         _Error ->
             {error, ?ERROR_COULD_NOT_UPDATE_NODE}
@@ -1128,13 +1115,15 @@ notify_3({error,_Cause},_State,_Node) ->
 
 %% @doc purge an object.
 %%
--spec(purge(string()) -> ok).
+-spec(purge(string()) ->
+             ok | {error, any()}).
 purge(Path) ->
     rpc_call_for_gateway(purge, [Path]).
 
 %% @doc remove a gateway-node
 %%
--spec(remove(atom()) -> ok | {error, any()}).
+-spec(remove(atom()|string()) ->
+             ok | {error, any()}).
 remove(Node) when is_atom(Node) ->
     remove_3(Node);
 remove(Node) ->
@@ -1243,7 +1232,7 @@ recover_remote([Node|Rest], AddrId, Key) ->
 
 %% @doc Recover key/node
 %%
--spec(recover(binary(), string(), boolean()) ->
+-spec(recover(string(), atom()|string(), boolean()) ->
              ok | {error, any()}).
 recover(?RECOVER_BY_FILE, Key, true) ->
     Key1 = list_to_binary(Key),
@@ -1288,8 +1277,6 @@ recover(?RECOVER_BY_RING, Node, true) ->
                 {ok, {MembersCur, MembersPrev}} ->
                     synchronize(?CHECKSUM_RING, Node_1, [{?VER_CUR,  MembersCur },
                                                          {?VER_PREV, MembersPrev}]);
-                not_found ->
-                    {error, ?ERROR_MEMBER_NOT_FOUND};
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_GET_MEMBER}
             end;
@@ -1347,7 +1334,7 @@ recover_node_2(false,_,_) ->
 %% @doc Do compact.
 %%
 -spec(compact(string(), string() | atom()) ->
-             ok).
+             ok | {ok, _} |{error, any()}).
 compact(Mode, Node) when is_list(Node) ->
     compact(Mode, list_to_atom(Node));
 compact(Mode, Node) ->
@@ -1488,13 +1475,9 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
                          (_) ->
                               ok
                       end, MembersCur);
-                not_found ->
-                    {error, ?ERROR_MEMBER_NOT_FOUND};
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_GET_MEMBER}
             end;
-        not_found ->
-            {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end;
@@ -1701,13 +1684,9 @@ synchronize_1(?SYNC_TARGET_MEMBER = Type, Node) ->
                         Error ->
                             Error
                     end;
-                not_found ->
-                    {error, ?ERROR_MEMBER_NOT_FOUND};
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_GET_MEMBER}
             end;
-        not_found ->
-            {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end;
@@ -1761,8 +1740,6 @@ synchronize_1_1(Type, Node) ->
                 timeout = Cause ->
                     {error, Cause}
             end;
-        not_found ->
-            {error, ?ERROR_MEMBER_NOT_FOUND};
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end.
@@ -1821,8 +1798,6 @@ delete_endpoint(EndPoint) ->
     case leo_s3_endpoint:delete_endpoint(EndPoint) of
         ok ->
             rpc_call_for_gateway(delete_endpoint, [EndPoint]);
-        not_found ->
-            {error, ?ERROR_ENDPOINT_NOT_FOUND};
         {error, Cause} ->
             ?error("delete_endpoint/1", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
@@ -1838,28 +1813,16 @@ add_bucket(AccessKey, Bucket) ->
 -spec(add_bucket(binary(), binary(), string()) ->
              ok | {error, any()}).
 add_bucket(AccessKey, Bucket, CannedACL) ->
-    AccessKeyBin = case is_binary(AccessKey) of
-                       true  -> AccessKey;
-                       false -> list_to_binary(AccessKey)
-                   end,
-    BucketBin    = case is_binary(Bucket) of
-                       true  -> Bucket;
-                       false -> list_to_binary(Bucket)
-                   end,
+    AccessKeyBin = leo_misc:any_to_binary(AccessKey),
+    BucketBin    = leo_misc:any_to_binary(Bucket),
 
-    %% Check preconditions
-    case is_allow_to_distribute_command() of
-        {true, _}->
-            case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
-                ok ->
-                    {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
-                not_found ->
-                    add_bucket_1(AccessKeyBin, BucketBin, CannedACL);
-                {error, _} ->
-                    {error, ?ERROR_INVALID_ARGS}
-            end;
-        _ ->
-            {error, ?ERROR_NOT_SATISFY_CONDITION}
+    case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
+        ok ->
+            {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
+        not_found ->
+            add_bucket_1(AccessKeyBin, BucketBin, CannedACL);
+        {error, _} ->
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
@@ -1874,8 +1837,9 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
     case leo_s3_bucket:put(AccessKeyBin, BucketBin,
                            CannedACL, ClusterId_1) of
         ok ->
-            rpc_call_for_gateway(add_bucket,
-                                 [AccessKeyBin, BucketBin, CannedACL, undefined]);
+            _ = rpc_call_for_gateway(add_bucket,
+                                     [AccessKeyBin, BucketBin, CannedACL, undefined]),
+            ok;
         {error, badarg} ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
@@ -1886,14 +1850,8 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
 -spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
 delete_bucket(AccessKey, Bucket) ->
-    AccessKeyBin = case is_binary(AccessKey) of
-                       true  -> AccessKey;
-                       false -> list_to_binary(AccessKey)
-                   end,
-    BucketBin    = case is_binary(Bucket) of
-                       true  -> Bucket;
-                       false -> list_to_binary(Bucket)
-                   end,
+    AccessKeyBin = leo_misc:any_to_binary(AccessKey),
+    BucketBin    = leo_misc:any_to_binary(Bucket),
 
     %% Check preconditions
     case is_allow_to_distribute_command() of
@@ -1907,7 +1865,7 @@ delete_bucket(AccessKey, Bucket) ->
                     {error, ?ERROR_INVALID_ARGS}
             end;
         _ ->
-            {error, ?ERROR_NOT_SATISFY_CONDITION}
+            {error, ?ERROR_NOT_STARTED}
     end.
 
 delete_bucket_1(AccessKeyBin, BucketBin) ->
@@ -1932,7 +1890,8 @@ delete_bucket_1(AccessKeyBin, BucketBin) ->
 delete_bucket_2(AccessKeyBin, BucketBin) ->
     case leo_s3_bucket:delete(AccessKeyBin, BucketBin) of
         ok ->
-            rpc_call_for_gateway(delete_bucket, [AccessKeyBin, BucketBin, undefined]);
+            _ = rpc_call_for_gateway(delete_bucket, [AccessKeyBin, BucketBin, undefined]),
+            ok;
         {error, badarg} ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
@@ -1982,7 +1941,7 @@ update_acl(_,_,_) ->
 
 %% @doc RPC call for Gateway-nodes
 %% @private
--spec(rpc_call_for_gateway(atom(), list()) ->
+-spec(rpc_call_for_gateway(atom(), [_]) ->
              ok | {error, any()}).
 rpc_call_for_gateway(Method, Args) ->
     case catch leo_manager_mnesia:get_gateway_nodes_all() of
@@ -2009,8 +1968,8 @@ rpc_call_for_gateway(Method, Args) ->
 
 %% @doc Join a cluster (MDC-Replication)
 %%
--spec(join_cluster(list(atom()), #system_conf{}) ->
-             {ok, #system_conf{}} | {error, any()}).
+-spec(join_cluster([atom()], #?SYSTEM_CONF{}) ->
+             {ok, #?SYSTEM_CONF{}} | {error, any()}).
 join_cluster(RemoteManagerNodes,
              #?SYSTEM_CONF{cluster_id = ClusterId,
                            dc_id = DCId,
@@ -2047,7 +2006,7 @@ join_cluster(RemoteManagerNodes,
 
 %% @doc Synchronize mdc-related tables
 %%
--spec(sync_mdc_tables(atom(), list(atom())) ->
+-spec(sync_mdc_tables(atom(), [atom()]) ->
              ok).
 sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
     %% update info of remote-managers
@@ -2071,8 +2030,8 @@ sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
 
 %% @doc Update cluster members for MDC-replication
 %%
--spec(update_cluster_manager(list(atom()), atom()) ->
-             ok).
+-spec(update_cluster_manager([atom()], atom()) ->
+             ok | {error, any()}).
 update_cluster_manager([],_ClusterId) ->
     ok;
 update_cluster_manager([Node|Rest], ClusterId) ->
@@ -2088,8 +2047,8 @@ update_cluster_manager([Node|Rest], ClusterId) ->
 
 %% @doc Remove a cluster (MDC-Replication)
 %%
--spec(remove_cluster(#system_conf{}) ->
-             {ok, #system_conf{}} | {error, any()}).
+-spec(remove_cluster(#?SYSTEM_CONF{}) ->
+             {ok, #?SYSTEM_CONF{}} | {error, any()}).
 remove_cluster(#?SYSTEM_CONF{cluster_id = ClusterId}) ->
     leo_mdcr_tbl_cluster_info:delete(ClusterId).
 
@@ -2097,12 +2056,12 @@ remove_cluster(#?SYSTEM_CONF{cluster_id = ClusterId}) ->
 %% @doc Is allow distribute to a command
 %% @private
 -spec(is_allow_to_distribute_command() ->
-             boolean()).
+             {boolean(),_}).
 is_allow_to_distribute_command() ->
-    is_allow_to_distribute_command([]).
+    is_allow_to_distribute_command(undefined).
 
 -spec(is_allow_to_distribute_command(atom()) ->
-             boolean()).
+             {boolean(),_}).
 is_allow_to_distribute_command(Node) ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     case leo_redundant_manager_api:get_members() of

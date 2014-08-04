@@ -139,6 +139,8 @@ handle_call({consume, ?QUEUE_ID_FAIL_REBALANCE, MessageBin}) ->
             recover_rebalance(Node, RebalanceInfo)
     end.
 
+-spec(handle_call(atom(), atom(), any()) ->
+                 ok | {error, any()}).
 handle_call(_,_,_) ->
     ok.
 

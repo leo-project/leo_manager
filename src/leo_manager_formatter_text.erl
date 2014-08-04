@@ -290,7 +290,7 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 
 %% @doc Format a cluster node state
 %%
--spec(node_stat(string(), #cluster_node_status{}) ->
+-spec(node_stat(string(), [tuple()]) ->
              string()).
 node_stat(?SERVER_TYPE_GATEWAY, State) ->
     Version      = leo_misc:get_value('version',       State, []),
@@ -536,12 +536,12 @@ credential(AccessKeyId, SecretAccessKey) ->
 
 %% @doc Format s3-users result
 %%
--spec(users(list()) ->
+-spec(users([#?S3_USER{}]) ->
              string()).
 users(Owners) ->
     Col1Len = lists:foldl(fun(User, Acc) ->
                                   UserId = leo_misc:get_value(user_id, User),
-                                  Len = length(UserId),
+                                  Len = length(binary_to_list(UserId)),
                                   case (Len > Acc) of
                                       true  -> Len;
                                       false -> Acc
@@ -565,11 +565,12 @@ users(Owners) ->
                   AccessKeyId = leo_misc:get_value(access_key_id, User),
                   CreatedAt   = leo_misc:get_value(created_at,    User),
 
+                  UserIdStr      = binary_to_list(UserId),
                   RoleIdStr      = integer_to_list(RoleId),
                   AccessKeyIdStr = binary_to_list(AccessKeyId),
 
                   Acc ++ io_lib:format("~s | ~s | ~s | ~s\r\n",
-                                       [string:left(UserId,         Col1Len),
+                                       [string:left(UserIdStr,      Col1Len),
                                         string:left(RoleIdStr,      Col2Len),
                                         string:left(AccessKeyIdStr, Col3Len),
                                         leo_date:date_format(CreatedAt)])
@@ -627,10 +628,11 @@ buckets(Buckets) ->
                         {C1, C2, C3, C4}) ->
                             ClusterIdStr = atom_to_list(ClusterId),
                             BucketStr = binary_to_list(Bucket),
+                            OwnerStr  = binary_to_list(Owner),
                             PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions),
                             Len1 = length(ClusterIdStr),
                             Len2 = length(BucketStr),
-                            Len3 = length(Owner),
+                            Len3 = length(OwnerStr),
                             Len4 = length(PermissionsStr),
 
 
@@ -677,6 +679,7 @@ buckets(Buckets) ->
                           created_at = Created1}, Acc) ->
                   ClusterIdStr = atom_to_list(ClusterId),
                   BucketStr = binary_to_list(Bucket),
+                  OwnerStr  = binary_to_list(Owner),
                   PermissionsStr = leo_s3_bucket:aclinfo2str(Permissions1),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
@@ -687,7 +690,7 @@ buckets(Buckets) ->
                                        [
                                         string:left(ClusterIdStr,   Col1Len),
                                         string:left(BucketStr,      Col2Len),
-                                        string:left(Owner,          Col3Len),
+                                        string:left(OwnerStr,       Col3Len),
                                         string:left(PermissionsStr, Col4Len),
                                         Created2])
           end,

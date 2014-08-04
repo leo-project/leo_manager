@@ -243,7 +243,7 @@
 -define(ERROR_BUCKET_NOT_FOUND,          "Bucket not found").
 -define(ERROR_COULD_NOT_GET_BUCKET,      "Could not get bucket(s)").
 -define(ERROR_COULD_NOT_UPDATE_BUCKET,   "Could not update bucket(s)").
--define(ERROR_NOT_STARTED,               "Storage cluster does not start, yet").
+-define(ERROR_NOT_STARTED,               "Storage cluster is not running, yet").
 -define(ERROR_ALREADY_STARTED,           "Storage cluster already started").
 -define(ERROR_STILL_RUNNING,             "still running").
 -define(ERROR_MNESIA_NOT_START,          "Mnesia does not start, yet").
@@ -275,7 +275,7 @@
 
 
 %% test values and default values
--define(TEST_USER_ID, "_test_leofs").
+-define(TEST_USER_ID,    <<"_test_leofs">>).
 -define(TEST_ACCESS_KEY, <<"05236">>).
 -define(TEST_SECRET_KEY, <<"802562235">>).
 
@@ -305,15 +305,15 @@
 -ifdef(TEST).
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = []      :: string(),
-                password = []     :: string(),
+                user_id = <<>>    :: binary(),
+                password = <<>>   :: binary(),
                 plugin_mod        :: atom()
                }).
 -else.
 -record(state, {formatter         :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = []      :: string(),
-                password = []     :: string(),
+                user_id = <<>>    :: binary(),
+                password = <<>>   :: binary(),
                 plugin_mod        :: atom()
                }).
 -endif.
