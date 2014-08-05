@@ -610,7 +610,7 @@ endpoints(EndPoints) ->
 
 %% @doc Format a bucket list
 %%
--spec(buckets(list(tuple())) ->
+-spec(buckets([#?BUCKET{}]) ->
              string()).
 buckets(Buckets) ->
     Col1MinLen = 12,  %% cluster-id
@@ -634,7 +634,6 @@ buckets(Buckets) ->
                             Len2 = length(BucketStr),
                             Len3 = length(OwnerStr),
                             Len4 = length(PermissionsStr),
-
 
                             {case (Len1 > C1) of
                                  true  -> Len1;
