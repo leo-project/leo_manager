@@ -477,6 +477,7 @@ register_fun_2({ok, [#node_state{state = ?STATE_RUNNING}|_]}, #registration{node
     %% synchronize member and ring
     catch leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
     catch leo_manager_api:synchronize(?CHECKSUM_RING,   Node),
+    catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true),
     ok;
 
 register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,
