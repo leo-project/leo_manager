@@ -88,7 +88,7 @@ stop() ->
 
 %% @doc Register gateway and storage pid in monitor.
 %%
--spec(register(first|again, pid(), atom(), storage|gateway) ->
+-spec(register(atom(), pid(), atom(), atom()) ->
              ok).
 register(RequestedTimes, Pid, Node, TypeOfNode) ->
     RegistrationInfo = #registration{pid   = Pid,
@@ -97,7 +97,8 @@ register(RequestedTimes, Pid, Node, TypeOfNode) ->
                                      times = RequestedTimes},
     gen_server:call(?MODULE, {register, RegistrationInfo}, ?DEF_TIMEOUT).
 
--spec(register(first|again, pid(), atom(), storage, string(), string(), pos_integer()) ->
+-spec(register(atom(), pid(), atom(), atom(),
+               string(), string(), pos_integer()) ->
              ok).
 register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes) ->
     register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes, ?DEF_LISTEN_PORT).
@@ -117,7 +118,8 @@ register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes, RPCPort
 
 %% @doc Demonitor pid from monitor.
 %%
--spec(demonitor(Node::atom()) -> ok | undefined).
+-spec(demonitor(atom()) ->
+             ok | undefined).
 demonitor(Node) ->
     gen_server:call(?MODULE, {demonitor, Node}, ?DEF_TIMEOUT).
 
@@ -289,7 +291,7 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %% @doc Modify node state.
 %%
--spec(update_node_state(start|down, leo_redundant_manger:node_state(), atom()) ->
+-spec(update_node_state(start|down, node_state()|not_found, atom()) ->
              ok | delete | {error, any()}).
 update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;
@@ -319,7 +321,7 @@ update_node_state_1(State, Node, Clock) ->
         ok ->
             case leo_redundant_manager_api:update_member_by_node(Node, Clock, State) of
                 ok ->
-                    leo_manager_api:distribute_members(ok, []);
+                    leo_manager_api:distribute_members(undefined);
                 Error ->
                     Error
             end;
@@ -333,18 +335,27 @@ update_node_state_1(State, Node, Clock) ->
 -spec(get_remote_node_proc_fun() ->
              ok).
 get_remote_node_proc_fun() ->
-    case leo_manager_api:get_nodes() of
-        {ok, Members} ->
-            lists:foreach(
-              fun({_Type, _Node, ?STATE_DETACHED}) -> void;
-                 ({_Type, _Node, ?STATE_SUSPEND})  -> void;
-                 ({_Type, _Node, ?STATE_STOP})     -> void;
-                 ({ Type,  Node, _}) ->
-                      get_remote_node_proc_fun(Type, Node)
-              end, Members);
-        _ ->
-            void
-    end,
+    Nodes_0 = case leo_manager_mnesia:get_gateway_nodes_all() of
+                  {ok, R1} ->
+                      [{gateway,_N1,_S1} || #node_state{node  = _N1,
+                                                        state = _S1} <- R1];
+                  _ ->
+                      []
+              end,
+    Nodes_1 = case leo_manager_mnesia:get_storage_nodes_all() of
+                  {ok, R2} ->
+                      [{storage,_N2,_S2} || #node_state{node  = _N2,
+                                                        state = _S2} <- R2];
+                  _Error ->
+                      []
+              end,
+    lists:foreach(
+      fun({_Type, _Node, ?STATE_DETACHED}) -> void;
+         ({_Type, _Node, ?STATE_SUSPEND})  -> void;
+         ({_Type, _Node, ?STATE_STOP})     -> void;
+         ({ Type,  Node, _}) ->
+              get_remote_node_proc_fun(Type, Node)
+      end,  Nodes_0 ++ Nodes_1),
     ok.
 
 get_remote_node_proc_fun(storage, Node) ->
@@ -392,7 +403,7 @@ is_exists_proc(ProcList, Node) ->
 %% @doc Retrieve a process by the node-alias
 %%
 -spec(find_by_node_alias(list(), atom()) ->
-             {pid(), reference()}).
+             undefined | {pid(), reference()}).
 find_by_node_alias(ProcList, Node) ->
     lists:foldl(fun({ Pid, {_, N,_, MonitorRef}},_S) when Node == N ->
                         {Pid, MonitorRef};
@@ -404,7 +415,7 @@ find_by_node_alias(ProcList, Node) ->
 %% @doc Returns a process by the pid
 %%
 -spec(find_by_pid(list(), pid()) ->
-             tuple()).
+             undefined | tuple()).
 find_by_pid(ProcList, Pid0) ->
     lists:foldl(fun({Pid1, ProcInfo}, undefined) when Pid0 == Pid1 ->
                         ProcInfo;
@@ -466,6 +477,7 @@ register_fun_2({ok, [#node_state{state = ?STATE_RUNNING}|_]}, #registration{node
     %% synchronize member and ring
     catch leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
     catch leo_manager_api:synchronize(?CHECKSUM_RING,   Node),
+    catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true),
     ok;
 
 register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,
