@@ -210,7 +210,7 @@ detach_0_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{state=?STATE_RUNNING}]}
+                             {ok, #node_state{state=?STATE_RUNNING}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
                      fun(_State) ->
@@ -282,7 +282,7 @@ detach_1_({Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{state=?STATE_RUNNING}]}
+                             {ok, #node_state{state=?STATE_RUNNING}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
                      fun(?STATE_DETACHED) ->
@@ -357,7 +357,7 @@ detach_2_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{state=?STATE_RUNNING}]}
+                             {ok, #node_state{state=?STATE_RUNNING}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_nodes_by_status,
                      fun(_State) ->
@@ -373,7 +373,7 @@ detach_2_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{}]}
+                             {ok, #node_state{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, delete_storage_node,
                      fun(_Node) ->
@@ -419,8 +419,8 @@ suspend_0_({Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{node  = Node0,
-                                               state = ?STATE_RUNNING}]}
+                             {ok, #node_state{node  = Node0,
+                                              state = ?STATE_RUNNING}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -476,8 +476,8 @@ suspend_1_({Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{node  = Node0,
-                                               state = ?STATE_RUNNING}]}
+                             {ok, #node_state{node  = Node0,
+                                              state = ?STATE_RUNNING}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -527,8 +527,8 @@ suspend_2_({Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{node  = Node0,
-                                               state = ?STATE_RUNNING}]}
+                             {ok, #node_state{node  = Node0,
+                                              state = ?STATE_RUNNING}}
                      end),
 
     ok = meck:new(leo_redundant_manager_api, [non_strict]),
@@ -569,8 +569,8 @@ resume_0_({Node0, _Node1, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{node  = Node0,
-                                               state = ?STATE_SUSPEND}]} %% SUSPEND
+                             {ok, #node_state{node  = Node0,
+                                              state = ?STATE_SUSPEND}} %% SUSPEND
                      end),
     ok = meck:expect(leo_manager_mnesia, get_gateway_nodes_all,
                      fun() ->
@@ -662,8 +662,8 @@ resume_1_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{node  = Node0,
-                                               state = ?STATE_RUNNING}]} %% NOT SUSPEND
+                             {ok, #node_state{node  = Node0,
+                                              state = ?STATE_RUNNING}} %% NOT SUSPEND
                      end),
     ok = meck:expect(leo_manager_mnesia, update_storage_node_status,
                      fun(_, _State) ->
@@ -1073,7 +1073,7 @@ du_0_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_) ->
-                             {ok, []}
+                             {ok, #node_state{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
                      fun(Cmd) ->
@@ -1103,7 +1103,7 @@ du_1_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_) ->
-                             {ok, []}
+                             {ok, #node_state{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
                      fun(Cmd) ->
@@ -1133,7 +1133,7 @@ du_2_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_) ->
-                             {ok, []}
+                             {ok, #node_state{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
                      fun(Cmd) ->
@@ -1165,7 +1165,7 @@ du_3_({Node0,_, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_) ->
-                             {ok, []}
+                             {ok, #node_state{}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
                      fun(Cmd) ->
@@ -1197,7 +1197,7 @@ compact_0_({Node0, _, Sock}) ->
                      end),
     ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
                      fun(_Node) ->
-                             {ok, [#node_state{state = ?STATE_RUNNING}]}
+                             {ok, #node_state{state = ?STATE_RUNNING}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
                      fun(Cmd) ->
@@ -1225,9 +1225,9 @@ compact_1_({Node0, _, Sock}) ->
                      fun(_) ->
                              ok
                      end),
-    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_name,
+    ok = meck:expect(leo_manager_mnesia, get_storage_node_by_nameo,
                      fun(_) ->
-                             {ok, [#node_state{state = ?STATE_RUNNING}]}
+                             {ok, #node_state{state = ?STATE_RUNNING}}
                      end),
     ok = meck:expect(leo_manager_mnesia, get_available_command_by_name,
                      fun(Cmd) ->

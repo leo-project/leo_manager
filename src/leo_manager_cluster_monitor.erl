@@ -248,7 +248,7 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                                             when_is = ?CURRENT_TIME});
                     storage ->
                         case catch leo_manager_mnesia:get_storage_node_by_name(Node) of
-                            {ok, [#node_state{state = State} = NodeInfo|_]} ->
+                            {ok, #node_state{state = State} = NodeInfo} ->
                                 case update_node_state(down, State, Node) of
                                     delete ->
                                         leo_manager_mnesia:delete_storage_node(NodeInfo);
@@ -443,7 +443,7 @@ delete_by_pid(ProcList, Pid0) ->
 register_fun_1(#registration{node = Node,
                              type = gateway}) ->
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
-        {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+        {ok, #node_state{state = ?STATE_RUNNING}} ->
             catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true),
             ok;
         {error, Cause} ->
@@ -470,22 +470,21 @@ register_fun_1(#registration{node = Node,
     register_fun_2(Ret, RegistrationInfo).
 
 
--spec(register_fun_2({ok, list(#node_state{})} | not_found| {error, any()}, #registration{}) ->
+-spec(register_fun_2({ok, #node_state{}} | not_found| {error, any()}, #registration{}) ->
              ok | {error, any()}).
-
-register_fun_2({ok, [#node_state{state = ?STATE_RUNNING}|_]}, #registration{node = Node,
-                                                                            type = storage}) ->
+register_fun_2({ok, #node_state{state = ?STATE_RUNNING}}, #registration{node = Node,
+                                                                        type = storage}) ->
     %% synchronize member and ring
     catch leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
     catch leo_manager_api:synchronize(?CHECKSUM_RING,   Node),
     catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true),
     ok;
 
-register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{node = Node,
-                                                                             type = storage,
-                                                                             level_1 = L1,
-                                                                             level_2 = L2,
-                                                                             num_of_vnodes = NumOfVNodes}) ->
+register_fun_2({ok, #node_state{state = ?STATE_DETACHED}}, #registration{node = Node,
+                                                                         type = storage,
+                                                                         level_1 = L1,
+                                                                         level_2 = L2,
+                                                                         num_of_vnodes = NumOfVNodes}) ->
     case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
         ok ->
             update_node_state_1(?STATE_RESTARTED, Node);
@@ -494,8 +493,8 @@ register_fun_2({ok, [#node_state{state = ?STATE_DETACHED}|_]}, #registration{nod
             {error, Cause}
     end;
 
-register_fun_2({ok, [#node_state{state = State}|_]}, #registration{node = Node,
-                                                                   type = storage}) ->
+register_fun_2({ok, #node_state{state = State}}, #registration{node = Node,
+                                                               type = storage}) ->
     update_node_state(start, State, Node);
 
 register_fun_2(not_found = State, #registration{node = Node,

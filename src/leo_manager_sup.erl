@@ -233,7 +233,14 @@ init([]) ->
                    permanent,
                    ?SHUTDOWN_WAITING_TIME,
                    worker,
-                   [leo_manager_table_sync]}
+                   [leo_manager_table_sync]},
+
+                  {leo_manager_ring_sync,
+                   {leo_manager_ring_sync, start_link, []},
+                   permanent,
+                   ?SHUTDOWN_WAITING_TIME,
+                   worker,
+                   [leo_manager_ring_sync]}
                  ],
     {ok, {_SupFlags = {one_for_one, ?MAX_RESTART, ?MAX_TIME}, ChildProcs}}.
 

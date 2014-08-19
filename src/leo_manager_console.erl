@@ -94,7 +94,7 @@ handle_call(_Socket, ?USER_ID, #state{formatter = Formatter} = State) ->
     {reply, Reply, State};
 
 
-% Command: "_password_"
+                                                % Command: "_password_"
 %%
 handle_call(_Socket, ?PASSWORD, #state{formatter = Formatter} = State) ->
     Reply = Formatter:password(),
@@ -1186,7 +1186,7 @@ detach(CmdBody, Option) ->
 
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
                 %% target-node is 'attached', then removed it from 'member-table'
-                {ok, [#node_state{state = ?STATE_ATTACHED} = NodeState|_]} ->
+                {ok, #node_state{state = ?STATE_ATTACHED} = NodeState} ->
                     ok = leo_manager_mnesia:delete_storage_node(NodeState),
                     ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
                     ok = leo_redundant_manager_api:delete_member_by_node(NodeAtom),
@@ -1234,9 +1234,9 @@ allow_to_detach_node_1(N) ->
              ok | {error, any()}).
 allow_to_detach_node_2(N, NodeAtom) ->
     IsRunning = case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                    {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                    {ok, #node_state{state = ?STATE_RUNNING}} ->
                         true;
-                    {ok, [#node_state{state = _}|_]} ->
+                    {ok, #node_state{state = _}} ->
                         false;
                     _ ->
                         {error, "Could not get node-status"}
@@ -1274,7 +1274,7 @@ suspend(CmdBody, Option) ->
         [Node|_] ->
             NodeAtom = list_to_atom(Node),
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                {ok, #node_state{state = ?STATE_RUNNING}} ->
                     case leo_manager_api:suspend(NodeAtom) of
                         ok ->
                             ok;
@@ -1300,13 +1300,13 @@ resume(CmdBody, Option) ->
         [Node|_] ->
             NodeAtom = list_to_atom(Node),
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                {ok, [#node_state{state = ?STATE_RUNNING}|_]} ->
+                {ok, #node_state{state = ?STATE_RUNNING}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
-                {ok, [#node_state{state = ?STATE_ATTACHED}|_]} ->
+                {ok, #node_state{state = ?STATE_ATTACHED}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
-                {ok, [#node_state{state = ?STATE_DETACHED}|_]} ->
+                {ok, #node_state{state = ?STATE_DETACHED}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
-                {ok, [#node_state{state = ?STATE_STOP}|_]} ->
+                {ok, #node_state{state = ?STATE_STOP}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
                 _ ->
                     case leo_manager_api:resume(NodeAtom) of
