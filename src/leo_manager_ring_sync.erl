@@ -115,9 +115,7 @@ sync_ring_1([],_,_) ->
 sync_ring_1([{_, C1, C2}|Rest], {C1, C2} = Chksum, ServerType) ->
     sync_ring_1(Rest, Chksum, ServerType);
 
-sync_ring_1([{Node, C1, C2}|Rest], {OrgC1, OrgC2} = Chksum, ServerType) ->
-    ?debugVal({Node, C1, C2, OrgC1, OrgC2}),
-
+sync_ring_1([{Node,_C1,_C2}|Rest], {OrgC1, OrgC2} = Chksum, ServerType) ->
     case rpc:call(Node, leo_redundant_manager_api, checksum, [ring]) of
         {ok, {C1_1, C2_1}} ->
             C1_2 = leo_hex:integer_to_hex(C1_1, 8),

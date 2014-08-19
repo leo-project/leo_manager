@@ -634,6 +634,10 @@ resume_0_({Node0, _Node1, Sock}) ->
                      fun(_Members) ->
                              ok
                      end),
+    ok = meck:expect(leo_redundant_manager_api, checksum,
+                     fun(_) ->
+                             {ok, {1,1}}
+                     end),
 
     Command = "resume " ++ atom_to_list(Node0) ++ "\r\n",
     ok = gen_tcp:send(Sock, list_to_binary(Command)),

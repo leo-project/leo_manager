@@ -444,7 +444,6 @@ register_fun_1(#registration{node = Node,
                              type = gateway}) ->
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
         {ok, #node_state{state = ?STATE_RUNNING}} ->
-            catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true),
             ok;
         {error, Cause} ->
             ?error("register_fun_1/2", "cause:~p", [Cause]),
