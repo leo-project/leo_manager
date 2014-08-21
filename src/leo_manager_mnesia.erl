@@ -219,7 +219,7 @@ get_storage_nodes_all() ->
 %% @doc Retrieve a storage node by node-name
 %%
 -spec(get_storage_node_by_name(atom()) ->
-             {ok, list()} | not_found | {error, any()}).
+             {ok, #node_state{}} | not_found | {error, any()}).
 get_storage_node_by_name(Node) ->
     Tbl = ?TBL_STORAGE_NODES,
 
@@ -233,14 +233,19 @@ get_storage_node_by_name(Node) ->
                         Q2 = qlc:sort(Q1, [{order, ascending}]),
                         qlc:e(Q2)
                 end,
-            leo_mnesia:read(F)
+            case leo_mnesia:read(F) of
+                {ok, [H|_]} ->
+                    {ok, H};
+                Other ->
+                    Other
+            end
     end.
 
 
 %% @doc Retrieve storage nodes by status
 %%
 -spec(get_storage_nodes_by_status(atom()) ->
-             {ok, list()} | not_found | {error, any()}).
+             {ok, [#node_state{}]} | not_found | {error, any()}).
 get_storage_nodes_by_status(Status) ->
     Tbl = ?TBL_STORAGE_NODES,
 
@@ -261,7 +266,7 @@ get_storage_nodes_by_status(Status) ->
 %% @doc Retrieve all gateway nodes
 %%
 -spec(get_gateway_nodes_all() ->
-             {ok, list()} | not_found | {error, any()}).
+             {ok, [#node_state{}]} | not_found | {error, any()}).
 get_gateway_nodes_all() ->
     Tbl = ?TBL_GATEWAY_NODES,
 
@@ -281,7 +286,7 @@ get_gateway_nodes_all() ->
 %% @doc Retrieve gateway node info by node-name
 %%
 -spec(get_gateway_node_by_name(atom()) ->
-             {ok, list()} | not_found | {error, any()}).
+             {ok, #node_state{}} | not_found | {error, any()}).
 get_gateway_node_by_name(Node) ->
     Tbl = ?TBL_GATEWAY_NODES,
 
@@ -295,7 +300,12 @@ get_gateway_node_by_name(Node) ->
                         Q2 = qlc:sort(Q1, [{order, ascending}]),
                         qlc:e(Q2)
                 end,
-            leo_mnesia:read(F)
+            case leo_mnesia:read(F) of
+                {ok, [H|_]} ->
+                    {ok, H};
+                Other ->
+                    Other
+            end
     end.
 
 
@@ -426,7 +436,7 @@ update_storage_node_status(update, NodeState) ->
 update_storage_node_status(update_state, NodeState) ->
     #node_state{node = Node, state = State} = NodeState,
     case get_storage_node_by_name(Node) of
-        {ok, [Cur|_]} ->
+        {ok, Cur} ->
             update_storage_node_status(update, Cur#node_state{state = State});
         _ ->
             ok
@@ -434,7 +444,7 @@ update_storage_node_status(update_state, NodeState) ->
 update_storage_node_status(keep_state, NodeState) ->
     #node_state{node  = Node} = NodeState,
     case get_storage_node_by_name(Node) of
-        {ok, [Cur|_]} ->
+        {ok, Cur} ->
             update_storage_node_status(update, Cur);
         _ ->
             ok
@@ -446,7 +456,7 @@ update_storage_node_status(update_chksum, NodeState) ->
                 ring_hash_old = RingHash1} = NodeState,
 
     case get_storage_node_by_name(Node) of
-        {ok, [Cur|_]} ->
+        {ok, Cur} ->
             update_storage_node_status(
               update, Cur#node_state{ring_hash_new = RingHash0,
                                      ring_hash_old = RingHash1});
@@ -457,7 +467,7 @@ update_storage_node_status(update_chksum, NodeState) ->
 update_storage_node_status(increment_error, NodeState) ->
     #node_state{node = Node} = NodeState,
     case get_storage_node_by_name(Node) of
-        {ok, [Cur|_]} ->
+        {ok, Cur} ->
             update_storage_node_status(
               update, Cur#node_state{error = Cur#node_state.error + 1});
         _ ->
@@ -467,7 +477,7 @@ update_storage_node_status(increment_error, NodeState) ->
 update_storage_node_status(init_error, NodeState) ->
     #node_state{node = Node} = NodeState,
     case get_storage_node_by_name(Node) of
-        {ok, [Cur|_]} ->
+        {ok, Cur} ->
             update_storage_node_status(
               update, Cur#node_state{error = 0});
         _ ->
@@ -562,7 +572,7 @@ insert_available_command(Command, Help) ->
              ok | {error, any()}).
 delete_storage_node(Node) when is_atom(Node) ->
     case get_storage_node_by_name(Node) of
-        {ok, [NodeInfo|_]} ->
+        {ok, NodeInfo} ->
             delete_storage_node(NodeInfo);
         Error ->
             Error
@@ -586,7 +596,7 @@ delete_storage_node(Node) ->
              ok | {error, any()}).
 delete_gateway_node(Node) when is_atom(Node) ->
     case get_gateway_node_by_name(Node) of
-        {ok, [NodeInfo|_]} ->
+        {ok, NodeInfo} ->
             delete_gateway_node(NodeInfo);
         Error ->
             Error

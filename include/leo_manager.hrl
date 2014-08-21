@@ -31,13 +31,15 @@
 -define(MAX_TIME,                60).
 
 -ifdef(TEST).
--define(DEF_TIMEOUT,           1000). %% 1sec
--define(DEF_MONITOR_INTERVAL,  3000). %% 3sec
--define(DEF_PROC_INTERVAL,      100). %% 100ms
+-define(DEF_TIMEOUT,             1000). %% 1sec
+-define(DEF_MONITOR_INTERVAL,    3000). %% 3sec
+-define(DEF_PROC_INTERVAL,        100). %% 100ms
+-define(DEF_RING_SYNC_INTERVAL,   100). %% 100ms
 -else.
--define(DEF_TIMEOUT,         120000). %% 120sec
--define(DEF_MONITOR_INTERVAL, 20000). %%  20sec
--define(DEF_PROC_INTERVAL,      250). %% 100ms
+-define(DEF_TIMEOUT,           120000). %% 120sec
+-define(DEF_MONITOR_INTERVAL,   20000). %%  20sec
+-define(DEF_PROC_INTERVAL,        250). %% 250ms
+-define(DEF_RING_SYNC_INTERVAL, 10000). %%  10sec
 -endif.
 
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").

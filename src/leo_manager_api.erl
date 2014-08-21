@@ -432,11 +432,11 @@ resume(is_alive, true,  Node) ->
     resume(is_state, Res, Node);
 
 
-resume(is_state, {ok, [#node_state{state = State}|_]}, Node) when State == ?STATE_SUSPEND;
-                                                                  State == ?STATE_RESTARTED ->
+resume(is_state, {ok, #node_state{state = State}}, Node) when State == ?STATE_SUSPEND;
+                                                              State == ?STATE_RESTARTED ->
     Res = leo_redundant_manager_api:update_member_by_node(Node, ?STATE_RUNNING),
     resume(sync, Res, Node);
-resume(is_state, {ok, [#node_state{state = State}|_]},_Node) ->
+resume(is_state, {ok, #node_state{state = State}},_Node) ->
     {error, atom_to_list(State)};
 resume(is_state,_Error, _Node) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE};
@@ -506,9 +506,10 @@ distribute_members([_|_]= Nodes) ->
             %% they're destination nodes in order to update "members"
             DestNodes = case leo_manager_mnesia:get_gateway_nodes_all() of
                             {ok, List} ->
-                                lists:merge(StorageNodes,
-                                            [_N || #member{node  = _N,
-                                                           state = ?STATE_RUNNING} <- List]);
+                                lists:merge(
+                                  StorageNodes,
+                                  [_N || #node_state{node  = _N,
+                                                     state = ?STATE_RUNNING} <- List]);
                             _ ->
                                 StorageNodes
                         end,
@@ -847,7 +848,7 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
 
 rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
     case leo_manager_mnesia:get_storage_node_by_name(Node) of
-        {ok, [NodeInfo|_]} ->
+        {ok, NodeInfo} ->
             _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
             rebalance_3(Rest, RebalanceProcInfo);
         {error, Cause} ->
@@ -1027,8 +1028,8 @@ notify(_,_,_,_) ->
 %% @private
 notify_1(TargetNode) ->
     case leo_manager_mnesia:get_storage_node_by_name(TargetNode) of
-        {ok, [#node_state{state = State,
-                          error = NumOfErrors}|_]} ->
+        {ok, #node_state{state = State,
+                         error = NumOfErrors}} ->
             case (State == ?STATE_SUSPEND  orelse
                   State == ?STATE_ATTACHED orelse
                   State == ?STATE_DETACHED orelse
@@ -1150,7 +1151,7 @@ remove_2(Node, IP) ->
 %% @private
 remove_3(Node) ->
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
-        {ok, [#node_state{state = ?STATE_STOP} = NodeState|_]} ->
+        {ok, #node_state{state = ?STATE_STOP} = NodeState} ->
             remove_4(NodeState);
         {ok, _} ->
             {error, ?ERROR_STILL_RUNNING};
@@ -1488,8 +1489,8 @@ synchronize(Node) when is_atom(Node) ->
     case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
         {ok, {RingHashCur, RingHashPrev}} ->
             case leo_manager_mnesia:get_storage_node_by_name(Node) of
-                {ok, [#node_state{ring_hash_new = RingHashCurHex,
-                                  ring_hash_old = RingHashPrevHex}|_]} ->
+                {ok, #node_state{ring_hash_new = RingHashCurHex,
+                                 ring_hash_old = RingHashPrevHex}} ->
                     RingHashCur_1  = leo_hex:hex_to_integer(RingHashCurHex),
                     RingHashPrev_1 = leo_hex:hex_to_integer(RingHashPrevHex),
 
@@ -1528,24 +1529,46 @@ synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
     MembersCur  = leo_misc:get_value(?VER_CUR,  MembersList),
     MembersPrev = leo_misc:get_value(?VER_PREV, MembersList),
 
-    case rpc:call(Node, leo_redundant_manager_api, synchronize,
-                  [?SYNC_TARGET_BOTH, [{?VER_CUR,  MembersCur },
-                                       {?VER_PREV, MembersPrev}], Options], ?DEF_TIMEOUT) of
-        {ok, Hashes} ->
-            {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
-            leo_manager_mnesia:update_storage_node_status(
-              update_chksum, #node_state{node          = Node,
-                                         ring_hash_new = leo_hex:integer_to_hex(RingHashCur, 8),
-                                         ring_hash_old = leo_hex:integer_to_hex(RingHashPrev,8)}),
+    {ok, OrgChksum} = leo_redundant_manager_api:checksum(Type),
+    case rpc:call(Node, leo_redundant_manager_api,
+                  checksum, [Type], ?DEF_TIMEOUT) of
+        {ok, Chksum} when OrgChksum == Chksum ->
             ok;
-        not_found ->
-            {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
-        {_, Cause} ->
-            ?warn("synchronize/3", "cause:~p", [Cause]),
-            {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
-        timeout = Cause ->
-            ?warn("synchronize/3", "cause:~p", [Cause]),
-            {error, Cause}
+        _ ->
+            case rpc:call(Node, leo_redundant_manager_api, synchronize,
+                          [?SYNC_TARGET_BOTH, [{?VER_CUR,  MembersCur },
+                                               {?VER_PREV, MembersPrev}], Options], ?DEF_TIMEOUT) of
+                {ok, Hashes} ->
+                    {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
+                    RingHashCur_1  = leo_hex:integer_to_hex(RingHashCur, 8),
+                    RingHashPrev_1 = leo_hex:integer_to_hex(RingHashPrev,8),
+
+                    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+                        {ok,_} ->
+                            leo_manager_mnesia:update_storage_node_status(
+                              update_chksum, #node_state{node          = Node,
+                                                         ring_hash_new = RingHashCur_1,
+                                                         ring_hash_old = RingHashPrev_1});
+                        _ ->
+                            case leo_manager_mnesia:get_gateway_node_by_name(Node) of
+                                {ok, NodeState} ->
+                                    leo_manager_mnesia:update_gateway_node(
+                                      NodeState#node_state{ring_hash_new = RingHashCur_1,
+                                                           ring_hash_old = RingHashPrev_1});
+                                _ ->
+                                    void
+                            end
+                    end,
+                    ok;
+                not_found ->
+                    {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
+                {_, Cause} ->
+                    ?warn("synchronize/3", "cause:~p", [Cause]),
+                    {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
+                timeout = Cause ->
+                    ?warn("synchronize/3", "cause:~p", [Cause]),
+                    {error, Cause}
+            end
     end;
 
 %% @doc Synchronize cluster-tables for between local and remote clusters
@@ -1624,7 +1647,7 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
     Ret = case (Node_1 == node()) of
               true ->
                   case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
-                      {ok, [#node_state{state = ?STATE_STOP}|_]} ->
+                      {ok, #node_state{state = ?STATE_STOP}} ->
                           notify_1(Node_2);
                       _ ->
                           not_match
@@ -1749,13 +1772,13 @@ synchronize_2(Node, Hashes) ->
     {RingHashCur, RingHashPrev} = leo_misc:get_value(?CHECKSUM_RING, Hashes),
 
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
-        {ok, [NodeState|_]} ->
+        {ok, NodeState} ->
             leo_manager_mnesia:update_gateway_node(
               NodeState#node_state{ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
                                    ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)});
         _ ->
             case leo_manager_mnesia:get_storage_node_by_name(Node) of
-                {ok, _} ->
+                {ok,_} ->
                     leo_manager_mnesia:update_storage_node_status(
                       update_chksum,
                       #node_state{node  = Node,
