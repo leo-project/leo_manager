@@ -599,7 +599,7 @@ handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command,
 %%
 handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case leo_manager_mnesia:get_histories_all() of
+                  case leo_manager_mnesia:get_histories() of
                       {ok, Histories} ->
                           Formatter:histories(Histories);
                       not_found ->

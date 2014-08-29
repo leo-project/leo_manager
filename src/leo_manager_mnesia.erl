@@ -49,6 +49,8 @@
          get_rebalance_info_all/0,
          get_rebalance_info_by_node/1,
          get_histories_all/0,
+         get_histories/0,
+         get_histories/1,
          get_available_commands_all/0,
          get_available_command_by_name/1,
 
@@ -363,6 +365,34 @@ get_histories_all() ->
         _ ->
             F = fun() ->
                         Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
+                        Q2 = qlc:sort(Q1, [{order, ascending}]),
+                        qlc:e(Q2)
+                end,
+            leo_mnesia:read(F)
+    end.
+
+%% @doc Retrieve histories with default
+%%
+-spec(get_histories() ->
+             {ok, list()} | not_found | {error, any()}).
+get_histories() ->
+    get_histories(?env_console_num_of_histories()).
+
+%% @doc Retrieve histories with specified number
+%%
+-spec(get_histories(pos_integer()) ->
+             {ok, list()} | not_found | {error, any()}).
+get_histories(Count) ->
+    Tbl = ?TBL_HISTORIES,
+
+    case catch mnesia:table_info(Tbl, all) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        _ ->
+            F = fun() ->
+                        Total = mnesia:table_info(Tbl, size),
+                        StartPos = Total - Count + 1,
+                        Q1 = qlc:q([X || {_, ID, _, _} = X <- mnesia:table(Tbl), ID >= StartPos]),
                         Q2 = qlc:sort(Q1, [{order, ascending}]),
                         qlc:e(Q2)
                 end,
