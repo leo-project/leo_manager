@@ -483,19 +483,21 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
                    Fun(LastStart), Fun(LastEnd)]);
 
 du(detail, StatsList) when is_list(StatsList) ->
-    Fun = fun({ok, #storage_stats{file_path   = FilePath,
-                                  compaction_histories = Histories,
-                                  total_sizes = TotalSize,
+    Fun = fun({ok, #storage_stats{file_path = FilePath,
+                                  compaction_hist = Histories,
+                                  total_sizes  = TotalSize,
                                   active_sizes = ActiveSize,
-                                  total_num  = Total,
-                                  active_num = Active}}, Acc) ->
-                  {LatestStart1, LatestEnd1} =
+                                  total_num    = Total,
+                                  active_num   = Active}}, Acc) ->
+                  {Start_1, End_1} =
                       case length(Histories) of
-                          0 -> {?NULL_DATETIME, ?NULL_DATETIME};
+                          0 ->
+                              {?NULL_DATETIME, ?NULL_DATETIME};
                           _ ->
-                              {StartComp, FinishComp} = hd(Histories),
-                              {leo_date:date_format(StartComp),
-                               leo_date:date_format(FinishComp)}
+                              #compaction_hist{
+                                 start_datetime = Start,
+                                 end_datetime   = End} = hd(Histories),
+                              {Start, End}
                       end,
                   Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
@@ -515,8 +517,8 @@ du(detail, StatsList) when is_list(StatsList) ->
                                    ActiveSize,
                                    TotalSize,
                                    Ratio,
-                                   LatestStart1,
-                                   LatestEnd1])]);
+                                   Start_1,
+                                   End_1])]);
              (_Error, Acc) ->
                   Acc
           end,

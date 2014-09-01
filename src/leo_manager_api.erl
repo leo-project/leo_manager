@@ -1433,25 +1433,28 @@ stats(Mode, Node) ->
 stats1(summary, List) ->
     {ok, lists:foldl(
            fun({ok, #storage_stats{file_path  = _ObjPath,
-                                   compaction_histories = Histories,
+                                   compaction_hist = Histories,
                                    total_sizes = TotalSize,
                                    active_sizes = ActiveSize,
                                    total_num  = Total,
                                    active_num = Active}},
                {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
-                   {LatestStart1, LatestEnd1} =
+                   {LatestStart_1, LatestEnd_1} =
                        case length(Histories) of
-                           0 -> {LatestStart, LatestEnd};
+                           0 ->
+                               {LatestStart, LatestEnd};
                            _ ->
-                               {StartComp, FinishComp} = hd(Histories),
-                               {max(LatestStart, StartComp), max(LatestEnd, FinishComp)}
+                              #compaction_hist{
+                                 start_datetime = Start,
+                                 end_datetime   = End} = hd(Histories),
+                               {max(LatestStart, Start), max(LatestEnd, End)}
                        end,
-                   {SumTotal + Total,
+                   {SumTotal  + Total,
                     SumActive + Active,
-                    SumTotalSize + TotalSize,
+                    SumTotalSize  + TotalSize,
                     SumActiveSize + ActiveSize,
-                    LatestStart1,
-                    LatestEnd1};
+                    LatestStart_1,
+                    LatestEnd_1};
               (_, Acc) ->
                    Acc
            end, {0, 0, 0, 0, 0, 0}, List)};
