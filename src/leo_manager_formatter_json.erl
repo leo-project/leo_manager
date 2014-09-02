@@ -326,15 +326,20 @@ du(detail, StatsList) when is_list(StatsList) ->
                                              active_sizes = ActiveSize,
                                              total_num    = Total,
                                              active_num   = Active}}) ->
-                             {LatestStart_1, LatestEnd_1} =
+                             {LatestStart_1, LatestEnd_1, Duration_1, CompactionRet_1} =
                                  case length(Histories) of
                                      0 ->
-                                         {?NULL_DATETIME, ?NULL_DATETIME};
+                                         {?NULL_DATETIME, ?NULL_DATETIME, 0, ''};
                                      _ ->
                                          #compaction_hist{
                                             start_datetime = Start,
-                                            end_datetime   = End} = hd(Histories),
-                                         {Start, End}
+                                            end_datetime   = End,
+                                            duration = Duration,
+                                            result = CompactionRet} = hd(Histories),
+                                         {leo_date:date_format(Start),
+                                          leo_date:date_format(End),
+                                          Duration,
+                                          CompactionRet}
                                  end,
                              Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
@@ -345,7 +350,9 @@ du(detail, StatsList) when is_list(StatsList) ->
                                {<<"total_size_of_objects">>,  TotalSize},
                                {<<"ratio_of_active_size">>,   Ratio},
                                {<<"last_compaction_start">>,  leo_misc:any_to_binary(LatestStart_1)},
-                               {<<"last_compaction_end">>,    leo_misc:any_to_binary(LatestEnd_1)}
+                               {<<"last_compaction_end">>,    leo_misc:any_to_binary(LatestEnd_1)},
+                               {<<"compaction_duration">>,    Duration_1},
+                               {<<"compaction_result">>,      leo_misc:any_to_binary(CompactionRet_1)}
                               ]};
                         (_) ->
                              []

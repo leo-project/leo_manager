@@ -489,28 +489,36 @@ du(detail, StatsList) when is_list(StatsList) ->
                                   active_sizes = ActiveSize,
                                   total_num    = Total,
                                   active_num   = Active}}, Acc) ->
-                  {Start_1, End_1} =
+                  {Start_1, End_1, Duration_1, CompactionRet_1} =
                       case length(Histories) of
                           0 ->
-                              {?NULL_DATETIME, ?NULL_DATETIME};
+                              {?NULL_DATETIME, ?NULL_DATETIME, 0, ''};
                           _ ->
                               #compaction_hist{
                                  start_datetime = Start,
-                                 end_datetime   = End} = hd(Histories),
-                              {Start, End}
+                                 end_datetime   = End,
+                                 duration = Duration,
+                                 result = CompactionRet} = hd(Histories),
+                              {leo_date:date_format(Start),
+                               leo_date:date_format(End),
+                               Duration,
+                               CompactionRet}
                       end,
                   Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
                   lists:append([Acc,
                                 io_lib:format(
-                                  lists:append(["              file path: ~s\r\n",
+                                  lists:append(["                file path: ~s\r\n",
                                                 " active number of objects: ~w\r\n",
                                                 "  total number of objects: ~w\r\n",
                                                 "   active size of objects: ~w\r\n"
                                                 "    total size of objects: ~w\r\n",
                                                 "     ratio of active size: ~w%\r\n",
                                                 "    last compaction start: ~s\r\n"
-                                                "      last compaction end: ~s\r\n\r\n"]),
+                                                "      last compaction end: ~s\r\n"
+                                                "                 duration: ~ws\r\n"
+                                                "                   result: ~w\r\n\r\n"
+                                               ]),
                                   [FilePath,
                                    Active,
                                    Total,
@@ -518,7 +526,10 @@ du(detail, StatsList) when is_list(StatsList) ->
                                    TotalSize,
                                    Ratio,
                                    Start_1,
-                                   End_1])]);
+                                   End_1,
+                                   Duration_1,
+                                   CompactionRet_1
+                                  ])]);
              (_Error, Acc) ->
                   Acc
           end,
