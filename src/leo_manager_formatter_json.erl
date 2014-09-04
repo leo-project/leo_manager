@@ -320,18 +320,26 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
               ]});
 
 du(detail, StatsList) when is_list(StatsList) ->
-    JSON = lists:map(fun({ok, #storage_stats{file_path   = FilePath,
-                                             compaction_histories = Histories,
-                                             total_sizes = TotalSize,
+    JSON = lists:map(fun({ok, #storage_stats{file_path = FilePath,
+                                             compaction_hist = Histories,
+                                             total_sizes  = TotalSize,
                                              active_sizes = ActiveSize,
-                                             total_num  = Total,
-                                             active_num = Active}}) ->
-                             {LatestStart1, LatestEnd1} =
+                                             total_num    = Total,
+                                             active_num   = Active}}) ->
+                             {LatestStart_1, LatestEnd_1, Duration_1, CompactionRet_1} =
                                  case length(Histories) of
-                                     0 -> {?NULL_DATETIME, ?NULL_DATETIME};
+                                     0 ->
+                                         {?NULL_DATETIME, ?NULL_DATETIME, 0, ''};
                                      _ ->
-                                         {StartComp, FinishComp} = hd(Histories),
-                                         {leo_date:date_format(StartComp), leo_date:date_format(FinishComp)}
+                                         #compaction_hist{
+                                            start_datetime = Start,
+                                            end_datetime   = End,
+                                            duration = Duration,
+                                            result = CompactionRet} = hd(Histories),
+                                         {leo_date:date_format(Start),
+                                          leo_date:date_format(End),
+                                          Duration,
+                                          CompactionRet}
                                  end,
                              Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
 
@@ -341,8 +349,10 @@ du(detail, StatsList) when is_list(StatsList) ->
                                {<<"active_size_of_objects">>, ActiveSize},
                                {<<"total_size_of_objects">>,  TotalSize},
                                {<<"ratio_of_active_size">>,   Ratio},
-                               {<<"last_compaction_start">>,  leo_misc:any_to_binary(LatestStart1)},
-                               {<<"last_compaction_end">>,    leo_misc:any_to_binary(LatestEnd1)}
+                               {<<"last_compaction_start">>,  leo_misc:any_to_binary(LatestStart_1)},
+                               {<<"last_compaction_end">>,    leo_misc:any_to_binary(LatestEnd_1)},
+                               {<<"compaction_duration">>,    Duration_1},
+                               {<<"compaction_result">>,      leo_misc:any_to_binary(CompactionRet_1)}
                               ]};
                         (_) ->
                              []

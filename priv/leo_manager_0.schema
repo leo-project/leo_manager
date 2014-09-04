@@ -97,7 +97,7 @@
  "leo_manager.system_version",
  [
   {datatype, string},
-  {default, "1.1.1"}
+  {default, "1.1.2"}
  ]}.
 
 %% @doc Mode of Manager: [master|slave]
@@ -157,6 +157,14 @@
   {default, 16}
  ]}.
 
+%% @doc # of histories to display at once
+{mapping,
+ "console.histories.num_of_display",
+ "leo_manager.num_of_histories",
+ [
+  {datatype, integer},
+  {default, 200}
+ ]}.
 
 %% --------------------------------------------------------------------
 %% MANAGER - System

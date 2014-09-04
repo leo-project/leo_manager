@@ -380,6 +380,12 @@
             _ -> 3
         end).
 
+-define(env_console_num_of_histories(),
+        case application:get_env(leo_manager, num_of_histories) of
+            {ok, EnvNumOfHistories} -> EnvNumOfHistories;
+            _ -> 200
+        end).
+
 -define(env_console_user_id(),
         case application:get_env(leo_manager, console_user_id) of
             {ok, EnvConsoleUserId} -> EnvConsoleUserId;
