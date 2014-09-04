@@ -1438,7 +1438,8 @@ stats_1(summary, List) ->
                                     active_sizes = ActiveSize,
                                     total_num  = Total,
                                     active_num = Active}},
-                {SumTotal, SumActive, SumTotalSize, SumActiveSize, LatestStart, LatestEnd}) ->
+                {SumTotal, SumActive, SumTotalSize, SumActiveSize,
+                 LatestStart, LatestEnd}) ->
                     {LatestStart_1, LatestEnd_1} =
                         case length(Histories) of
                             0 ->

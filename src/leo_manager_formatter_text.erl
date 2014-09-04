@@ -470,7 +470,6 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
              (D) -> leo_date:date_format(D)
           end,
     Ratio = ?ratio_of_active_size(ActiveSize, TotalSize),
-
     io_lib:format(lists:append([" active number of objects: ~w\r\n",
                                 "  total number of objects: ~w\r\n",
                                 "   active size of objects: ~w\r\n",
