@@ -41,13 +41,14 @@
 
 %% External API
 -export([start_link/0, stop/0]).
--export([create_mnesia_tables/2]).
+-export([create_mnesia_tables/2, migrate_mnesia_tables/1]).
 
 
 %% Callbacks
 -export([init/1]).
 
 -define(CHECK_INTERVAL, 250).
+-define(CHECK_INTERVAL_FOR_MNESIA, 3000).
 -define(ENV_REPLICA_PARTNER, 'partner').
 
 
@@ -163,7 +164,7 @@ start_link() ->
                     timer:apply_after(?CHECK_INTERVAL, ?MODULE,
                                       create_mnesia_tables, [Mode, ReplicaNodes_2]);
                 _ ->
-                    create_mnesia_tables_2()
+                    create_mnesia_tables_2(Mode, ReplicaNodes_2)
             end,
             {ok, Pid};
         Error ->
@@ -316,34 +317,37 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                     false ->
                         void
                 end,
-                create_mnesia_tables_2()
+                create_mnesia_tables_2(Mode, Nodes)
             catch _:Reason ->
                     ?error("create_mnesia_tables_1/2", "cause:~p", [Reason])
             end,
             ok;
         {error,{_,{already_exists, _}}} ->
-            create_mnesia_tables_2();
+            create_mnesia_tables_2(Mode, Nodes);
         {_, Cause} ->
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes]),
             ?error("create_mnesia_tables_1/2", "cause:~p", [Cause]),
             {error, Cause}
     end;
 create_mnesia_tables_1(slave,_Nodes) ->
-    create_mnesia_tables_2().
+    create_mnesia_tables_2(slave, _Nodes).
 
 %% @doc Create mnesia tables and execute to migrate data
 %% @private
--spec(create_mnesia_tables_2() ->
+-spec(create_mnesia_tables_2(master | slave, list()) ->
              ok | {error, any()}).
-create_mnesia_tables_2() ->
+create_mnesia_tables_2(Mode, Nodes) ->
     application:start(mnesia),
     case catch mnesia:system_info(tables) of
         Tbls when length(Tbls) > 1 ->
             ok = mnesia:wait_for_tables(Tbls, 60000),
-
             %% Execute to migrate data
-            catch leo_manager_transformer:transform(),
-            leo_manager_api:update_mdc_items_in_system_conf(),
+            case Mode of
+                master ->
+                    migrate_mnesia_tables(Nodes);
+                _ ->
+                    void
+            end,
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};
@@ -352,6 +356,20 @@ create_mnesia_tables_2() ->
             Error
     end.
 
+%% @doc Function migrating datas 
+%%      Should be called on the leo_manager master after all partner nodes finished initialization processes
+%%
+-spec(migrate_mnesia_tables(list()) ->
+             ok | {error, any()}).
+migrate_mnesia_tables(Nodes) ->
+    try
+        leo_manager_transformer:transform(),
+        leo_manager_api:update_mdc_items_in_system_conf()
+    catch _:Cause ->
+        ?error("migrate_mnesia_tables/1", "cause:~p", [Cause]),
+        timer:apply_after(?CHECK_INTERVAL_FOR_MNESIA, ?MODULE,
+                          migrate_mnesia_tables, [Nodes])
+    end.
 
 %% @doc Get log-file appender from env
 %% @private
