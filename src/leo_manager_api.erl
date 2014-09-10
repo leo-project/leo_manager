@@ -962,9 +962,10 @@ assign_nodes_to_ring([{?STATE_DETACHED, Node}|Rest]) ->
 %% @doc Register Pid of storage-node and Pid of gateway-node into the manager-monitors.
 %%
 -spec(register(atom(), pid(), atom(), atom()) ->
-             ok).
+             {ok, #?SYSTEM_CONF{}}).
 register(RequestedTimes, Pid, Node, Type) ->
-    leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type).
+    ok = leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type),
+    register_1().
 
 -spec(register(atom(), pid(), atom(), atom(), string(), string(), pos_integer()) ->
              ok).
@@ -973,9 +974,19 @@ register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
              IdL1, IdL2, NumOfVNodes, ?DEF_LISTEN_PORT).
 
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes, RPCPort) ->
-    leo_manager_cluster_monitor:register(
-      RequestedTimes, Pid, Node, Type,
-      IdL1, IdL2, NumOfVNodes, RPCPort).
+    ok = leo_manager_cluster_monitor:register(
+           RequestedTimes, Pid, Node, Type,
+           IdL1, IdL2, NumOfVNodes, RPCPort),
+    register_1().
+
+%% @private
+register_1() ->
+    case leo_cluster_tbl_conf:get() of
+        {ok, SystemConf} ->
+            {ok, SystemConf};
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_CONF}
+    end.
 
 
 %% @doc Notified "Synchronized" from cluster-nods.
