@@ -296,7 +296,7 @@ code_change(_OldVsn, State, _Extra) ->
 update_node_state(start, ?STATE_ATTACHED, _Node) -> ok;
 update_node_state(start, ?STATE_DETACHED, _Node) -> ok;
 update_node_state(start, ?STATE_SUSPEND,   Node) -> update_node_state_1(?STATE_RESTARTED, Node);
-update_node_state(start, ?STATE_RUNNING,  _Node) -> ok;
+update_node_state(start, ?STATE_RUNNING,   Node) -> update_node_state_1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_STOP,      Node) -> update_node_state_1(?STATE_RESTARTED, Node);
 update_node_state(start, ?STATE_RESTARTED,_Node) -> ok;
 update_node_state(start, not_found,        Node) -> update_node_state_1(?STATE_ATTACHED,  Node, leo_date:clock());
