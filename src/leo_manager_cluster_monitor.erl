@@ -54,14 +54,6 @@
          code_change/3]).
 
 
-%% -ifdef(TEST).
-%% -define(CURRENT_TIME, 65432100000).
-%% -define(APPLY_AFTER_TIME, 0).
-%% -else.
-%% -define(CURRENT_TIME, leo_date:now()).
-%% -define(APPLY_AFTER_TIME, 200).
-%% -endif.
-
 -undef(DEF_TIMEOUT).
 -define(DEF_TIMEOUT, 30000).
 
