@@ -45,6 +45,15 @@
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
 
 
+-ifdef(TEST).
+-define(CURRENT_TIME, 65432100000).
+-define(APPLY_AFTER_TIME, 0).
+-else.
+-define(CURRENT_TIME, leo_date:now()).
+-define(APPLY_AFTER_TIME, 200).
+-endif.
+
+
 %% manager-related tables
 -define(TBL_STORAGE_NODES,  'leo_storage_nodes').
 -define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').

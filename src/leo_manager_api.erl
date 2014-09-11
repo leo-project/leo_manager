@@ -968,7 +968,7 @@ register(RequestedTimes, Pid, Node, Type) ->
     register_1().
 
 -spec(register(atom(), pid(), atom(), atom(), string(), string(), pos_integer()) ->
-             ok).
+             {ok, #?SYSTEM_CONF{}}).
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
     register(RequestedTimes, Pid, Node, Type,
              IdL1, IdL2, NumOfVNodes, ?DEF_LISTEN_PORT).

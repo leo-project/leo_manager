@@ -50,11 +50,9 @@
 
 -undef(DEF_TIMEOUT).
 -ifdef(TEST).
--define(CURRENT_TIME,  65432100000).
 -define(DEF_INTERVAL,  1000).
 -define(DEF_TIMEOUT,   1000).
 -else.
--define(CURRENT_TIME,  leo_date:now()).
 -define(DEF_INTERVAL,  timer:seconds(30)).
 -define(DEF_TIMEOUT,   30000).
 -endif.
