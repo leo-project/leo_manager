@@ -44,7 +44,9 @@
          demonitor/1,
          get_remote_node_proc/0,
          get_remote_node_proc/2,
-         get_server_node_alias/1]).
+         get_server_node_alias/1,
+         sync_ring/1
+        ]).
 
 -export([init/1,
          handle_call/3,
@@ -145,6 +147,13 @@ get_server_node_alias(Node) ->
               end,
     gen_server:call(?MODULE, {get_server_node_alias, NewNode}, ?DEF_TIMEOUT).
 
+%% @doc Syncronize RING between manager and storage/gateway
+%%
+-spec(sync_ring(Node) ->
+             ok when Node::atom()).
+sync_ring(Node) ->
+    gen_server:cast(?MODULE, {sync_ring, Node}).
+
 
 %%--------------------------------------------------------------------
 %% GEN_SERVER CALLBACKS
@@ -235,6 +244,21 @@ handle_cast(get_remote_node_proc, State) ->
 
 handle_cast({get_remote_node_proc, ServerType, Node}, State) ->
     _ = get_remote_node_proc_fun(ServerType, Node),
+    {noreply, State};
+
+handle_cast({sync_ring, Node}, State) ->
+    case sync_ring_fun(Node) of
+        ok ->
+            ok;
+        _Other ->
+            case leo_misc:node_existence(Node) of
+                true ->
+                    timer:apply_after(
+                      ?APPLY_AFTER_TIME, ?MODULE, sync_ring, [Node]);
+                false ->
+                    void
+            end
+    end,
     {noreply, State};
 
 handle_cast(_Message, State) ->
@@ -416,6 +440,26 @@ get_remote_node_proc_fun(gateway, Node) ->
     end.
 
 
+%% @doc Sync RING between manager and storage/gateway node
+sync_ring_fun(Node) ->
+    case catch leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node) of
+        ok ->
+            case catch leo_manager_api:synchronize(?CHECKSUM_RING, Node) of
+                ok ->
+                    case catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true) of
+                        ok ->
+                            ok;
+                        Other ->
+                            Other
+                    end;
+                Other ->
+                    Other
+            end;
+        Other ->
+            Other
+    end.
+
+
 %% @doc Returns true if exists a process, false otherwise
 %%
 -spec(is_exists_proc(list(), pid(), atom()) ->
@@ -503,9 +547,13 @@ register_fun_1(#registration{node = Node,
 register_fun_2({ok, #node_state{state = ?STATE_RUNNING}}, #registration{node = Node,
                                                                         type = storage}) ->
     %% synchronize member and ring
-    catch leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
-    catch leo_manager_api:synchronize(?CHECKSUM_RING,   Node),
-    catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true),
+    case sync_ring_fun(Node) of
+        ok ->
+            ok;
+        _ ->
+            timer:apply_after(
+              ?APPLY_AFTER_TIME, ?MODULE, sync_ring, [Node])
+    end,
     ok;
 
 register_fun_2({ok, #node_state{state = ?STATE_DETACHED}}, #registration{node = Node,
