@@ -29,6 +29,7 @@
 
 -behaviour(application).
 
+-include("leo_manager.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 %% Application and Supervisor callbacks
@@ -38,7 +39,14 @@
 %% Application behaviour callbacks
 %%----------------------------------------------------------------------
 start(_Type, _Args) ->
-    leo_manager_sup:start_link().
+    case leo_manager_sup:start_link() of
+        {ok,_Pid} = Ret ->
+            _ = timer:apply_after(?APPLY_AFTER_TIME, leo_manager_cluster_monitor,
+                                  get_remote_node_proc, []),
+            Ret;
+        Other ->
+            Other
+    end.
 
 prep_stop(_State) ->
     leo_redundant_manager_sup:stop(),

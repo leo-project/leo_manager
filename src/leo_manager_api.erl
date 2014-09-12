@@ -61,6 +61,7 @@
 
 -export([attach/1, attach/4, attach/5,
          detach/1, suspend/1, resume/1,
+         rollback/1,
          active_storage_nodes/0,
          distribute_members/1, distribute_members/2,
          start/1, rebalance/1]).
@@ -433,7 +434,8 @@ resume(is_alive, true,  Node) ->
 
 
 resume(is_state, {ok, #node_state{state = State}}, Node) when State == ?STATE_SUSPEND;
-                                                              State == ?STATE_RESTARTED ->
+                                                              State == ?STATE_RESTARTED;
+                                                              State == ?STATE_DETACHED ->
     Res = leo_redundant_manager_api:update_member_by_node(Node, ?STATE_RUNNING),
     resume(sync, Res, Node);
 resume(is_state, {ok, #node_state{state = State}},_Node) ->
@@ -471,6 +473,13 @@ resume(last, ok, Node) ->
                   when_is = leo_date:now()});
 resume(last,_Error, _) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE}.
+
+
+%% @doc Rollback detach operation
+-spec(rollback(Node) ->
+             ok | {error, any()} when Node::atom()).
+rollback(Node) ->
+    resume(Node).
 
 
 %% @doc Retrieve active storage nodes
@@ -962,20 +971,31 @@ assign_nodes_to_ring([{?STATE_DETACHED, Node}|Rest]) ->
 %% @doc Register Pid of storage-node and Pid of gateway-node into the manager-monitors.
 %%
 -spec(register(atom(), pid(), atom(), atom()) ->
-             ok).
+             {ok, #?SYSTEM_CONF{}}).
 register(RequestedTimes, Pid, Node, Type) ->
-    leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type).
+    ok = leo_manager_cluster_monitor:register(RequestedTimes, Pid, Node, Type),
+    register_1().
 
 -spec(register(atom(), pid(), atom(), atom(), string(), string(), pos_integer()) ->
-             ok).
+             {ok, #?SYSTEM_CONF{}}).
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
     register(RequestedTimes, Pid, Node, Type,
              IdL1, IdL2, NumOfVNodes, ?DEF_LISTEN_PORT).
 
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes, RPCPort) ->
-    leo_manager_cluster_monitor:register(
-      RequestedTimes, Pid, Node, Type,
-      IdL1, IdL2, NumOfVNodes, RPCPort).
+    ok = leo_manager_cluster_monitor:register(
+           RequestedTimes, Pid, Node, Type,
+           IdL1, IdL2, NumOfVNodes, RPCPort),
+    register_1().
+
+%% @private
+register_1() ->
+    case leo_cluster_tbl_conf:get() of
+        {ok, SystemConf} ->
+            {ok, SystemConf};
+        _ ->
+            {error, ?ERROR_COULD_NOT_GET_CONF}
+    end.
 
 
 %% @doc Notified "Synchronized" from cluster-nods.

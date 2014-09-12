@@ -43,7 +43,10 @@
 -export([register/4, register/7, register/8,
          demonitor/1,
          get_remote_node_proc/0,
-         get_server_node_alias/1]).
+         get_remote_node_proc/2,
+         get_server_node_alias/1,
+         sync_ring/1
+        ]).
 
 -export([init/1,
          handle_call/3,
@@ -53,21 +56,13 @@
          code_change/3]).
 
 
--ifdef(TEST).
--define(CURRENT_TIME, 65432100000).
--define(APPLY_AFTER_TIME, 0).
--else.
--define(CURRENT_TIME, leo_date:now()).
--define(APPLY_AFTER_TIME, 1000).
--endif.
-
 -undef(DEF_TIMEOUT).
 -define(DEF_TIMEOUT, 30000).
 
 -record(registration, {pid           :: pid(),
                        node          :: atom(),
-                       type          :: gateway|storage,
-                       times         :: integer(),
+                       type          :: atom(),
+                       times         :: atom(),
                        level_1 = []  :: string(),
                        level_2 = []  :: string(),
                        num_of_vnodes = ?DEF_NUMBER_OF_VNODES :: pos_integer(),
@@ -103,6 +98,9 @@ register(RequestedTimes, Pid, Node, TypeOfNode) ->
 register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes) ->
     register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes, ?DEF_LISTEN_PORT).
 
+-spec(register(atom(), pid(), atom(), atom(),
+               string(), string(), pos_integer(), pos_integer()) ->
+             ok).
 register(RequestedTimes, Pid, Node, TypeOfNode, L1Id, L2Id, NumOfVNodes, RPCPort) ->
     RegistrationInfo = #registration{pid   = Pid,
                                      node  = Node,
@@ -128,7 +126,15 @@ demonitor(Node) ->
 %%
 -spec(get_remote_node_proc() -> ok ).
 get_remote_node_proc() ->
-    gen_server:cast(?MODULE, {get_remote_node_proc}).
+    gen_server:cast(?MODULE, get_remote_node_proc).
+
+%% @doc Retrieve pid of remote-nodes.
+%%
+-spec(get_remote_node_proc(ServerType, Node) ->
+             ok when ServerType::atom(),
+                     Node::atom()).
+get_remote_node_proc(ServerType, Node) ->
+    gen_server:cast(?MODULE, {get_remote_node_proc, ServerType, Node}).
 
 
 %% @doc Retrieve node-alias.
@@ -141,6 +147,13 @@ get_server_node_alias(Node) ->
               end,
     gen_server:call(?MODULE, {get_server_node_alias, NewNode}, ?DEF_TIMEOUT).
 
+%% @doc Syncronize RING between manager and storage/gateway
+%%
+-spec(sync_ring(Node) ->
+             ok when Node::atom()).
+sync_ring(Node) ->
+    gen_server:cast(?MODULE, {sync_ring, Node}).
+
 
 %%--------------------------------------------------------------------
 %% GEN_SERVER CALLBACKS
@@ -151,7 +164,6 @@ get_server_node_alias(Node) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 init([]) ->
-    _Res = timer:apply_after(?APPLY_AFTER_TIME, ?MODULE, get_remote_node_proc, []),
     {ok, {_Refs = [],
           _Htbl = [],
           _Pids = []}}.
@@ -169,17 +181,25 @@ handle_call({register, RegistrationInfo}, _From, {Refs, Htbl, Pids} = Arg) ->
                   node  = Node,
                   type  = TypeOfNode} = RegistrationInfo,
 
-    case is_exists_proc(Htbl, Node) of
+    case is_exists_proc(Htbl, Pid, Node) of
         true ->
             Ret = register_fun_1(RegistrationInfo),
             {reply, Ret, Arg};
         false ->
+            Htbl_1 = case find_by_node_alias(Htbl, Node) of
+                         undefined ->
+                             Htbl;
+                         {Pid_1, MonitorRef_1} ->
+                             erlang:demonitor(MonitorRef_1),
+                             delete_by_pid(Htbl, Pid_1)
+                     end,
+
             case register_fun_1(RegistrationInfo) of
                 ok ->
                     MonitorRef = erlang:monitor(process, Pid),
                     ProcInfo   = {Pid, {atom_to_list(Node), Node, TypeOfNode, MonitorRef}},
-                    {reply, ok, {_Refs = [MonitorRef | Refs],
-                                 _Htbl = [ProcInfo   | Htbl],
+                    {reply, ok, {_Refs = [MonitorRef | Refs  ],
+                                 _Htbl = [ProcInfo   | Htbl_1],
                                  _Pids = Pids}};
                 Error ->
                     {reply, Error, Arg}
@@ -218,8 +238,27 @@ handle_call({get_server_node_alias, Node}, _From, {Refs, Htbl, Pids}) ->
 %%                                      {noreply, State, Timeout} |
 %%                                      {stop, Reason, State}
 %% Description: Handling cast messages
-handle_cast({get_remote_node_proc}, State) ->
+handle_cast(get_remote_node_proc, State) ->
     ok = get_remote_node_proc_fun(),
+    {noreply, State};
+
+handle_cast({get_remote_node_proc, ServerType, Node}, State) ->
+    _ = get_remote_node_proc_fun(ServerType, Node),
+    {noreply, State};
+
+handle_cast({sync_ring, Node}, State) ->
+    case sync_ring_fun(Node) of
+        ok ->
+            ok;
+        _Other ->
+            case leo_misc:node_existence(Node) of
+                true ->
+                    timer:apply_after(
+                      ?APPLY_AFTER_TIME, ?MODULE, sync_ring, [Node]);
+                false ->
+                    void
+            end
+    end,
     {noreply, State};
 
 handle_cast(_Message, State) ->
@@ -232,7 +271,6 @@ handle_cast(_Message, State) ->
 %% Description: Handling all non call/cast messages
 handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) ->
     timer:sleep(random:uniform(500)),
-
     NewHtbl =
         case find_by_pid(Htbl, Pid) of
             undefined ->
@@ -354,49 +392,84 @@ get_remote_node_proc_fun() ->
          ({_Type, _Node, ?STATE_SUSPEND})  -> void;
          ({_Type, _Node, ?STATE_STOP})     -> void;
          ({ Type,  Node, _}) ->
-              get_remote_node_proc_fun(Type, Node)
+              spawn(
+                fun() ->
+                        case get_remote_node_proc_fun(Type, Node) of
+                            ok ->
+                                void;
+                            {error,_Cause} ->
+                                timer:apply_after(
+                                  ?APPLY_AFTER_TIME, ?MODULE,
+                                  get_remote_node_proc, [Type, Node])
+                        end
+                end)
       end,  Nodes_0 ++ Nodes_1),
     ok.
 
+%% @private
 get_remote_node_proc_fun(storage, Node) ->
-    timer:sleep(50),
-
     case leo_misc:node_existence(Node) of
         true ->
             Mod = leo_storage_api,
-            case rpc:call(Node, Mod, register_in_monitor, [again], ?DEF_TIMEOUT) of
-                ok              -> ok;
-                {_, Cause}      -> {error, Cause};
-                timeout = Cause -> {error, Cause}
+            case rpc:call(Node, Mod, register_in_monitor, [again], 5000) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    {error, Cause};
+                timeout = Cause ->
+                    {error, Cause}
             end;
         false ->
             {error, 'not_connected'}
     end;
 
 get_remote_node_proc_fun(gateway, Node) ->
-    timer:sleep(50),
     case leo_misc:node_existence(Node) of
         true ->
             Mod = leo_gateway_api,
             case rpc:call(Node, Mod, register_in_monitor, [again], ?DEF_TIMEOUT) of
-                ok              -> ok;
-                {_, Cause}      -> {error, Cause};
-                timeout = Cause -> {error, Cause}
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    {error, Cause};
+                timeout = Cause ->
+                    {error, Cause}
             end;
         false ->
             {error, 'not_connected'}
     end.
 
 
+%% @doc Sync RING between manager and storage/gateway node
+sync_ring_fun(Node) ->
+    case catch leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node) of
+        ok ->
+            case catch leo_manager_api:synchronize(?CHECKSUM_RING, Node) of
+                ok ->
+                    case catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true) of
+                        ok ->
+                            ok;
+                        Other ->
+                            Other
+                    end;
+                Other ->
+                    Other
+            end;
+        Other ->
+            Other
+    end.
+
+
 %% @doc Returns true if exists a process, false otherwise
 %%
--spec(is_exists_proc(list(), atom()) ->
+-spec(is_exists_proc(list(), pid(), atom()) ->
              boolean()).
-is_exists_proc(ProcList, Node) ->
-    lists:foldl(fun({_K, {_, N,_,_}},_S) when Node == N ->
+is_exists_proc(ProcList, Pid, Node) ->
+    lists:foldl(fun({P, {_,N,_,_}},_) when Node == N,
+                                           Pid  == P ->
                         true;
-                   ({_K, {_,_N,_,_}}, S) ->
-                        S
+                   ({_, {_,_,_,_}},SoFar) ->
+                        SoFar
                 end, false, ProcList).
 
 
@@ -474,9 +547,13 @@ register_fun_1(#registration{node = Node,
 register_fun_2({ok, #node_state{state = ?STATE_RUNNING}}, #registration{node = Node,
                                                                         type = storage}) ->
     %% synchronize member and ring
-    catch leo_manager_api:synchronize(?CHECKSUM_MEMBER, Node),
-    catch leo_manager_api:synchronize(?CHECKSUM_RING,   Node),
-    catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true),
+    case sync_ring_fun(Node) of
+        ok ->
+            ok;
+        _ ->
+            timer:apply_after(
+              ?APPLY_AFTER_TIME, ?MODULE, sync_ring, [Node])
+    end,
     ok;
 
 register_fun_2({ok, #node_state{state = ?STATE_DETACHED}}, #registration{node = Node,

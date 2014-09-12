@@ -190,6 +190,22 @@ handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command,
     {reply, Reply, State};
 
 
+%% Command: "rollback ${NODE_NAME}"
+%%
+handle_call(_Socket, <<?CMD_ROLLBACK, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case rollback(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_ROLLBACK, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "start"
 %%
 handle_call(Socket, <<?CMD_START, ?LF>> = Command,
@@ -1315,6 +1331,34 @@ resume(CmdBody, Option) ->
                         {error, Cause} ->
                             {error, Cause}
                     end
+            end
+    end.
+
+
+%% @doc Rollback storage-node from detach to running
+%% @private
+-spec(rollback(binary(), binary()) ->
+             ok | {error, any()}).
+rollback(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [] ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        [Node|_] ->
+            NodeAtom = list_to_atom(Node),
+            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                {ok, #node_state{state = ?STATE_RUNNING}} ->
+                    {error, "Already running"};
+                {ok, #node_state{state = ?STATE_DETACHED}} ->
+                    case leo_manager_api:rollback(NodeAtom) of
+                        ok ->
+                            ok;
+                        {error, Cause} ->
+                            {error, Cause}
+                    end;
+                _ ->
+                    {error, ?ERROR_COULD_NOT_ROLLBACK}
             end
     end.
 

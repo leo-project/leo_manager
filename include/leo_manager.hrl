@@ -45,6 +45,15 @@
 -define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
 
 
+-ifdef(TEST).
+-define(CURRENT_TIME, 65432100000).
+-define(APPLY_AFTER_TIME, 0).
+-else.
+-define(CURRENT_TIME, leo_date:now()).
+-define(APPLY_AFTER_TIME, 200).
+-endif.
+
+
 %% manager-related tables
 -define(TBL_STORAGE_NODES,  'leo_storage_nodes').
 -define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
@@ -102,6 +111,7 @@
 -define(CMD_DETACH,    "detach").
 -define(CMD_SUSPEND,   "suspend").
 -define(CMD_RESUME,    "resume").
+-define(CMD_ROLLBACK,  "rollback").
 -define(CMD_START,     "start").
 -define(CMD_REBALANCE, "rebalance").
 -define(CMD_COMPACT,   "compact").
@@ -147,6 +157,7 @@
                    {?CMD_DETACH,    "detach ${storage-node}"},
                    {?CMD_SUSPEND,   "suspend ${storage-node}"},
                    {?CMD_RESUME,    "resume ${storage-node}"},
+                   {?CMD_ROLLBACK,  "rollback ${storage-node}"},
                    {?CMD_START,     "start"},
                    {?CMD_REBALANCE, "rebalance"},
                    %% for Storage
@@ -232,6 +243,7 @@
 -define(ERROR_COULD_NOT_DETACH_NODE,     "Could not detach the node").
 -define(ERROR_COULD_NOT_SUSPEND_NODE,    "Could not suspend the node").
 -define(ERROR_COULD_NOT_RESUME_NODE,     "Could not resume the node").
+-define(ERROR_COULD_NOT_ROLLBACK,        "Could not rollback the node").
 -define(ERROR_COULD_NOT_UPDATE_NODE,     "Could not update state of a node").
 -define(ERROR_COULD_NOT_UPDATE_MANAGER,  "Could not update manager(s)").
 -define(ERROR_COULD_NOT_CREATE_RING,     "Could not create RING").

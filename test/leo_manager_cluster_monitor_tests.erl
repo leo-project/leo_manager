@@ -117,9 +117,6 @@ all_(Node) ->
     {ok, _Pid} = leo_manager_cluster_monitor:start_link(),
     timer:sleep(1000),
 
-    ?assertNotEqual([], meck:history(leo_storage_api)),
-    ?assertNotEqual([], meck:history(leo_gateway_api)),
-
     Res0 = leo_manager_cluster_monitor:register(first, self(), Node, storage),
     Res1 = leo_manager_cluster_monitor:register(first, self(), Node, storage),
     Res2 = leo_manager_cluster_monitor:register(first, self(), 'gateway_0@127.0.0.1', gateway),
