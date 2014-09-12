@@ -243,6 +243,7 @@
 -define(ERROR_COULD_NOT_DETACH_NODE,     "Could not detach the node").
 -define(ERROR_COULD_NOT_SUSPEND_NODE,    "Could not suspend the node").
 -define(ERROR_COULD_NOT_RESUME_NODE,     "Could not resume the node").
+-define(ERROR_COULD_NOT_ROLLBACK,        "Could not rollback the node").
 -define(ERROR_COULD_NOT_UPDATE_NODE,     "Could not update state of a node").
 -define(ERROR_COULD_NOT_UPDATE_MANAGER,  "Could not update manager(s)").
 -define(ERROR_COULD_NOT_CREATE_RING,     "Could not create RING").
