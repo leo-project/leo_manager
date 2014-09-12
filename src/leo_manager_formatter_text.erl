@@ -81,6 +81,7 @@ help(PluginMod) ->
                                  ?CMD_SUSPEND,
                                  ?CMD_RESUME,
                                  ?CMD_START,
+                                 ?CMD_ROLLBACK,
                                  ?CMD_REBALANCE,
                                  ?CMD_WHEREIS,
                                  ?CMD_RECOVER], []),

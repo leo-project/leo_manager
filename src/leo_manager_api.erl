@@ -61,6 +61,7 @@
 
 -export([attach/1, attach/4, attach/5,
          detach/1, suspend/1, resume/1,
+         rollback/1,
          active_storage_nodes/0,
          distribute_members/1, distribute_members/2,
          start/1, rebalance/1]).
@@ -433,7 +434,8 @@ resume(is_alive, true,  Node) ->
 
 
 resume(is_state, {ok, #node_state{state = State}}, Node) when State == ?STATE_SUSPEND;
-                                                              State == ?STATE_RESTARTED ->
+                                                              State == ?STATE_RESTARTED;
+                                                              State == ?STATE_DETACHED ->
     Res = leo_redundant_manager_api:update_member_by_node(Node, ?STATE_RUNNING),
     resume(sync, Res, Node);
 resume(is_state, {ok, #node_state{state = State}},_Node) ->
@@ -471,6 +473,13 @@ resume(last, ok, Node) ->
                   when_is = leo_date:now()});
 resume(last,_Error, _) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE}.
+
+
+%% @doc Rollback detach operation
+-spec(rollback(Node) ->
+             ok | {error, any()} when Node::atom()).
+rollback(Node) ->
+    resume(Node).
 
 
 %% @doc Retrieve active storage nodes

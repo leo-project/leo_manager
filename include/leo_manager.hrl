@@ -111,6 +111,7 @@
 -define(CMD_DETACH,    "detach").
 -define(CMD_SUSPEND,   "suspend").
 -define(CMD_RESUME,    "resume").
+-define(CMD_ROLLBACK,  "rollback").
 -define(CMD_START,     "start").
 -define(CMD_REBALANCE, "rebalance").
 -define(CMD_COMPACT,   "compact").
@@ -156,6 +157,7 @@
                    {?CMD_DETACH,    "detach ${storage-node}"},
                    {?CMD_SUSPEND,   "suspend ${storage-node}"},
                    {?CMD_RESUME,    "resume ${storage-node}"},
+                   {?CMD_ROLLBACK,  "rollback ${storage-node}"},
                    {?CMD_START,     "start"},
                    {?CMD_REBALANCE, "rebalance"},
                    %% for Storage
