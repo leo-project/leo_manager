@@ -1349,9 +1349,7 @@ rollback(CmdBody, Option) ->
             NodeAtom = list_to_atom(Node),
             case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
                 {ok, #node_state{state = ?STATE_RUNNING}} ->
-                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
-                {ok, #node_state{state = ?STATE_ATTACHED}} ->
-                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
+                    {error, "Already running"};
                 {ok, #node_state{state = ?STATE_DETACHED}} ->
                     case leo_manager_api:rollback(NodeAtom) of
                         ok ->
@@ -1359,10 +1357,8 @@ rollback(CmdBody, Option) ->
                         {error, Cause} ->
                             {error, Cause}
                     end;
-                {ok, #node_state{state = ?STATE_STOP}} ->
-                    {error, ?ERROR_COULD_NOT_RESUME_NODE};
                 _ ->
-                    ok
+                    {error, ?ERROR_COULD_NOT_ROLLBACK}
             end
     end.
 
