@@ -1255,7 +1255,7 @@ recover_remote([Node|Rest], AddrId, Key) ->
 %%
 -spec(recover(string(), atom()|string(), boolean()) ->
              ok | {error, any()}).
-recover(?RECOVER_BY_FILE, Key, true) ->
+recover(?RECOVER_FILE, Key, true) ->
     Key1 = list_to_binary(Key),
     case leo_redundant_manager_api:get_redundancies_by_key(Key1) of
         {ok, #redundancies{nodes = Redundancies, id = AddrId}} ->
@@ -1271,9 +1271,9 @@ recover(?RECOVER_BY_FILE, Key, true) ->
             {error, ?ERROR_COULD_NOT_GET_RING}
     end;
 
-recover(?RECOVER_BY_NODE, Node, true) when is_list(Node) ->
-    recover(?RECOVER_BY_NODE, list_to_atom(Node), true);
-recover(?RECOVER_BY_NODE, Node, true) ->
+recover(?RECOVER_NODE, Node, true) when is_list(Node) ->
+    recover(?RECOVER_NODE, list_to_atom(Node), true);
+recover(?RECOVER_NODE, Node, true) ->
     %% Check the target node and system-state
     case leo_misc:node_existence(Node) of
         true ->
@@ -1286,7 +1286,7 @@ recover(?RECOVER_BY_NODE, Node, true) ->
             {error, ?ERROR_COULD_NOT_CONNECT}
     end;
 
-recover(?RECOVER_BY_RING, Node, true) ->
+recover(?RECOVER_RING, Node, true) ->
     Node_1 = case is_atom(Node) of
                  true  -> Node;
                  false -> list_to_atom(Node)
