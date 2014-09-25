@@ -217,9 +217,9 @@
 
 
 %% recover type
--define(RECOVER_BY_FILE, "file").
--define(RECOVER_BY_NODE, "node").
--define(RECOVER_BY_RING, "ring").
+-define(RECOVER_FILE, "file").
+-define(RECOVER_NODE, "node").
+-define(RECOVER_RING, "ring").
 -define(RECOVER_REMOTE_CLUSTER, "cluster").
 
 %% membership
