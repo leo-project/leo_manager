@@ -1487,7 +1487,8 @@ stats_1(detail, List) ->
 %% @doc Synchronize Members and Ring (both New and Old).
 %%
 synchronize(Type) when Type == ?CHECKSUM_RING;
-                       Type == ?CHECKSUM_MEMBER ->
+                       Type == ?CHECKSUM_MEMBER;
+                       Type == ?CHECKSUM_WORKER ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, MembersCur} ->
             case leo_redundant_manager_api:get_members(?VER_PREV) of
@@ -1539,7 +1540,8 @@ synchronize(_) ->
 
 %% @doc Synchronize cluster-members for local-cluster
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
-                                          Type == ?CHECKSUM_MEMBER ->
+                                          Type == ?CHECKSUM_MEMBER;
+                                          Type == ?CHECKSUM_WORKER ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     Options = [{cluster_id, SystemConf#?SYSTEM_CONF.cluster_id},
                {dc_id,      SystemConf#?SYSTEM_CONF.dc_id},
@@ -1659,12 +1661,12 @@ resolve_inconsist_table([Node|Rest], Mod) ->
 %% @doc From manager-node
 synchronize(?CHECKSUM_MEMBER, Node) when is_atom(Node) ->
     synchronize_1(?SYNC_TARGET_MEMBER, Node);
-
 synchronize(?CHECKSUM_RING, Node) when is_atom(Node) ->
     synchronize_1(?SYNC_TARGET_RING_CUR,  Node),
     synchronize_1(?SYNC_TARGET_RING_PREV, Node),
     ok;
-
+synchronize(?CHECKSUM_WORKER, Node) ->
+    synchronize(?CHECKSUM_RING, Node);
 
 %% @doc From gateway and storage-node
 synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
@@ -1741,7 +1743,8 @@ synchronize_1(?SYNC_TARGET_MEMBER = Type, Node) ->
 
 synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
                                Type == ?SYNC_TARGET_RING_PREV ->
-    {ok, {L_RingHashCur, L_RingHashPrev}} = leo_redundant_manager_api:checksum(?CHECKSUM_RING),
+    {ok, {L_RingHashCur, L_RingHashPrev}} =
+        leo_redundant_manager_api:checksum(?CHECKSUM_RING),
 
     case rpc:call(Node, leo_redundant_manager_api, checksum,
                   [?CHECKSUM_RING], ?DEF_TIMEOUT) of
