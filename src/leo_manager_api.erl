@@ -1665,8 +1665,10 @@ synchronize(?CHECKSUM_RING, Node) when is_atom(Node) ->
     synchronize_1(?SYNC_TARGET_RING_CUR,  Node),
     synchronize_1(?SYNC_TARGET_RING_PREV, Node),
     ok;
-synchronize(?CHECKSUM_WORKER, Node) ->
-    synchronize(?CHECKSUM_RING, Node);
+synchronize(?CHECKSUM_WORKER, Node) when is_atom(Node) ->
+    synchronize_1_1(?SYNC_TARGET_RING_CUR,  Node),
+    synchronize_1_1(?SYNC_TARGET_RING_PREV, Node),
+    ok;
 
 %% @doc From gateway and storage-node
 synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
@@ -1710,7 +1712,9 @@ synchronize(?CHECKSUM_RING = Type, [{Node_1, {RingHashCur_1, RingHashPrev_1}},
     _ = compare_local_chksum_with_remote_chksum(
           ?SYNC_TARGET_RING_PREV, Node_1, LocalRingHashPrev, RingHashPrev_1),
     _ = compare_local_chksum_with_remote_chksum(
-          ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashPrev, RingHashPrev_2).
+          ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashPrev, RingHashPrev_2);
+synchronize(_,_) ->
+    ok.
 
 
 %% @doc Synchronize members-list or rings
