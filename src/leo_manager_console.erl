@@ -40,7 +40,6 @@
 -export([start_link/2, start_link/3, stop/0]).
 -export([init/1, handle_call/3]).
 
-
 %%----------------------------------------------------------------------
 %% API
 %%----------------------------------------------------------------------
@@ -1527,10 +1526,13 @@ whereis(CmdBody, Option) ->
 
 %% @private
 escape_large_obj_sep(SrcKey) ->
-    case string:tokens(SrcKey, "\\n") of
-        [SrcKey] ->
+    case string:str(SrcKey, "\\n") of
+        0 ->
             SrcKey;
-        [DstKey, CNum] ->
+        Index ->
+            Len = length(SrcKey),
+            DstKey = string:substr(SrcKey, 1, Index - 1),
+            CNum = string:substr(SrcKey, Index + 2, Len - Index + 1),
             string:join([DstKey, CNum], "\n")
     end.
 
