@@ -267,6 +267,20 @@ handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command,
     {reply, Reply, State};
 
 
+handle_call(_Socket, <<?CMD_DIAGNOSE_DATA, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case diagnose_data(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DIAGNOSE_DATA, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %%----------------------------------------------------------------------
 %% Operation-3
 %%----------------------------------------------------------------------
@@ -1504,19 +1518,31 @@ compact(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
+%% @doc
+diagnose_data(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node|_] ->
+            leo_manager_api:diagnose_data(list_to_atom(Node));
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
+
+
 %% @doc Retrieve information of an Assigned object
 %% @private
 -spec(whereis(binary(), binary()) ->
              ok | {error, any()}).
 whereis(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+    case string:tokens(binary_to_list(Option), ?CRLF) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
-        Key ->
+        [Key|_]->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
+            Key2 = escape_large_obj_sep(Key),
 
-            case catch leo_manager_api:whereis(Key, HasRoutingTable) of
+            case catch leo_manager_api:whereis([Key2], HasRoutingTable) of
                 {ok, AssignedInfo} ->
                     {ok, AssignedInfo};
                 {_, Cause} ->
@@ -1524,6 +1550,17 @@ whereis(CmdBody, Option) ->
             end
     end.
 
+%% @private
+escape_large_obj_sep(SrcKey) ->
+    case string:str(SrcKey, "\\n") of
+        0 ->
+            SrcKey;
+        Index ->
+            Len = length(SrcKey),
+            DstKey = string:substr(SrcKey, 1, Index - 1),
+            CNum = string:substr(SrcKey, Index + 2, Len - Index + 1),
+            string:join([DstKey, CNum], "\n")
+    end.
 
 %% @doc Recover object(s) by a key/node
 %% @private

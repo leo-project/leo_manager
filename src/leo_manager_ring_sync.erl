@@ -143,7 +143,7 @@ sync_ring_1([{Node,_C1,_C2}|Rest], {OrgC1, OrgC2} = Chksum, ServerType) ->
                             void
                     end;
                 false ->
-                    catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true)
+                    catch leo_manager_api:recover(?RECOVER_RING, Node, true)
             end;
         _ ->
             void

@@ -1305,7 +1305,6 @@ whereis_({Node0, _Node1, Sock}) ->
     timer:sleep(100),
 
     ?assertNotEqual([], meck:history(leo_redundant_manager_api)),
-    ?assertNotEqual([], meck:history(leo_object_storage_api)),
     catch gen_tcp:close(Sock),
     ok.
 

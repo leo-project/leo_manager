@@ -446,7 +446,7 @@ sync_ring_fun(Node) ->
         ok ->
             case catch leo_manager_api:synchronize(?CHECKSUM_RING, Node) of
                 ok ->
-                    case catch leo_manager_api:recover(?RECOVER_BY_RING, Node, true) of
+                    case catch leo_manager_api:recover(?RECOVER_RING, Node, true) of
                         ok ->
                             ok;
                         Other ->

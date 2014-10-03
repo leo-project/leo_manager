@@ -68,7 +68,9 @@
 
 -export([register/4, register/7, register/8,
          notify/3, notify/4, purge/1, remove/1,
-         whereis/2, recover/3, compact/2, compact/4, stats/2,
+         whereis/2, recover/3,
+         compact/2, compact/4, diagnose_data/1,
+         stats/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1, delete_endpoint/1, add_bucket/2, add_bucket/3, delete_bucket/2,
          update_acl/3
@@ -1255,7 +1257,7 @@ recover_remote([Node|Rest], AddrId, Key) ->
 %%
 -spec(recover(string(), atom()|string(), boolean()) ->
              ok | {error, any()}).
-recover(?RECOVER_BY_FILE, Key, true) ->
+recover(?RECOVER_FILE, Key, true) ->
     Key1 = list_to_binary(Key),
     case leo_redundant_manager_api:get_redundancies_by_key(Key1) of
         {ok, #redundancies{nodes = Redundancies, id = AddrId}} ->
@@ -1271,9 +1273,9 @@ recover(?RECOVER_BY_FILE, Key, true) ->
             {error, ?ERROR_COULD_NOT_GET_RING}
     end;
 
-recover(?RECOVER_BY_NODE, Node, true) when is_list(Node) ->
-    recover(?RECOVER_BY_NODE, list_to_atom(Node), true);
-recover(?RECOVER_BY_NODE, Node, true) ->
+recover(?RECOVER_NODE, Node, true) when is_list(Node) ->
+    recover(?RECOVER_NODE, list_to_atom(Node), true);
+recover(?RECOVER_NODE, Node, true) ->
     %% Check the target node and system-state
     case leo_misc:node_existence(Node) of
         true ->
@@ -1286,7 +1288,7 @@ recover(?RECOVER_BY_NODE, Node, true) ->
             {error, ?ERROR_COULD_NOT_CONNECT}
     end;
 
-recover(?RECOVER_BY_RING, Node, true) ->
+recover(?RECOVER_RING, Node, true) ->
     Node_1 = case is_atom(Node) of
                  true  -> Node;
                  false -> list_to_atom(Node)
@@ -1419,6 +1421,30 @@ compact(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
+%% @doc Diagnose data of the storage-node
+%%
+-spec(diagnose_data(Node) ->
+             ok | {error, any()} when Node::atom()).
+diagnose_data(Node) ->
+    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+        {ok, _} ->
+            case leo_misc:node_existence(Node) of
+                true ->
+                    case rpc:call(Node, leo_storage_api,
+                                  diagnose_data, [], ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        Error ->
+                            Error
+                    end;
+                false ->
+                    {error, ?ERR_TYPE_NODE_DOWN}
+            end;
+        _ ->
+            {error, ?ERROR_NODE_NOT_EXISTS}
+    end.
+
+
 %% @doc get storage stats.
 %%
 -spec(stats(summary | detail, string() | atom()) ->
@@ -1487,7 +1513,8 @@ stats_1(detail, List) ->
 %% @doc Synchronize Members and Ring (both New and Old).
 %%
 synchronize(Type) when Type == ?CHECKSUM_RING;
-                       Type == ?CHECKSUM_MEMBER ->
+                       Type == ?CHECKSUM_MEMBER;
+                       Type == ?CHECKSUM_WORKER ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, MembersCur} ->
             case leo_redundant_manager_api:get_members(?VER_PREV) of
@@ -1539,7 +1566,8 @@ synchronize(_) ->
 
 %% @doc Synchronize cluster-members for local-cluster
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
-                                          Type == ?CHECKSUM_MEMBER ->
+                                          Type == ?CHECKSUM_MEMBER;
+                                          Type == ?CHECKSUM_WORKER ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
     Options = [{cluster_id, SystemConf#?SYSTEM_CONF.cluster_id},
                {dc_id,      SystemConf#?SYSTEM_CONF.dc_id},
@@ -1659,12 +1687,14 @@ resolve_inconsist_table([Node|Rest], Mod) ->
 %% @doc From manager-node
 synchronize(?CHECKSUM_MEMBER, Node) when is_atom(Node) ->
     synchronize_1(?SYNC_TARGET_MEMBER, Node);
-
 synchronize(?CHECKSUM_RING, Node) when is_atom(Node) ->
     synchronize_1(?SYNC_TARGET_RING_CUR,  Node),
     synchronize_1(?SYNC_TARGET_RING_PREV, Node),
     ok;
-
+synchronize(?CHECKSUM_WORKER, Node) when is_atom(Node) ->
+    synchronize_1_1(?SYNC_TARGET_RING_CUR,  Node),
+    synchronize_1_1(?SYNC_TARGET_RING_PREV, Node),
+    ok;
 
 %% @doc From gateway and storage-node
 synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
@@ -1708,7 +1738,9 @@ synchronize(?CHECKSUM_RING = Type, [{Node_1, {RingHashCur_1, RingHashPrev_1}},
     _ = compare_local_chksum_with_remote_chksum(
           ?SYNC_TARGET_RING_PREV, Node_1, LocalRingHashPrev, RingHashPrev_1),
     _ = compare_local_chksum_with_remote_chksum(
-          ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashPrev, RingHashPrev_2).
+          ?SYNC_TARGET_RING_PREV, Node_2, LocalRingHashPrev, RingHashPrev_2);
+synchronize(_,_) ->
+    ok.
 
 
 %% @doc Synchronize members-list or rings
@@ -1741,7 +1773,8 @@ synchronize_1(?SYNC_TARGET_MEMBER = Type, Node) ->
 
 synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
                                Type == ?SYNC_TARGET_RING_PREV ->
-    {ok, {L_RingHashCur, L_RingHashPrev}} = leo_redundant_manager_api:checksum(?CHECKSUM_RING),
+    {ok, {L_RingHashCur, L_RingHashPrev}} =
+        leo_redundant_manager_api:checksum(?CHECKSUM_RING),
 
     case rpc:call(Node, leo_redundant_manager_api, checksum,
                   [?CHECKSUM_RING], ?DEF_TIMEOUT) of
