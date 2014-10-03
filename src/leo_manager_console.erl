@@ -1510,7 +1510,7 @@ compact(_,_,_,_) ->
              ok | {error, any()}).
 whereis(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+    case string:tokens(binary_to_list(Option), ?CRLF) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
         Key ->
