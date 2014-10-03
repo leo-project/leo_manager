@@ -40,6 +40,7 @@
 -export([start_link/2, start_link/3, stop/0]).
 -export([init/1, handle_call/3]).
 
+
 %%----------------------------------------------------------------------
 %% API
 %%----------------------------------------------------------------------
@@ -263,6 +264,20 @@ handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command,
                   end
           end,
     Reply = invoke(?CMD_COMPACT, Formatter, Fun),
+    {reply, Reply, State};
+
+
+handle_call(_Socket, <<?CMD_DIAGNOSE_DATA, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case diagnose_data(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DIAGNOSE_DATA, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -1503,6 +1518,17 @@ compact(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
+%% @doc
+diagnose_data(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node|_] ->
+            leo_manager_api:diagnose_data(list_to_atom(Node));
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
+
+
 %% @doc Retrieve information of an Assigned object
 %% @private
 -spec(whereis(binary(), binary()) ->
@@ -1535,7 +1561,6 @@ escape_large_obj_sep(SrcKey) ->
             CNum = string:substr(SrcKey, Index + 2, Len - Index + 1),
             string:join([DstKey, CNum], "\n")
     end.
-
 
 %% @doc Recover object(s) by a key/node
 %% @private

@@ -68,7 +68,9 @@
 
 -export([register/4, register/7, register/8,
          notify/3, notify/4, purge/1, remove/1,
-         whereis/2, recover/3, compact/2, compact/4, stats/2,
+         whereis/2, recover/3,
+         compact/2, compact/4, diagnose_data/1,
+         stats/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1, delete_endpoint/1, add_bucket/2, add_bucket/3, delete_bucket/2,
          update_acl/3
@@ -1417,6 +1419,30 @@ compact(?COMPACT_START, Node, NumOfTargets, MaxProc) ->
     end;
 compact(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
+
+
+%% @doc Diagnose data of the storage-node
+%%
+-spec(diagnose_data(Node) ->
+             ok | {error, any()} when Node::atom()).
+diagnose_data(Node) ->
+    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+        {ok, _} ->
+            case leo_misc:node_existence(Node) of
+                true ->
+                    case rpc:call(Node, leo_storage_api,
+                                  diagnose_data, [], ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        Error ->
+                            Error
+                    end;
+                false ->
+                    {error, ?ERR_TYPE_NODE_DOWN}
+            end;
+        _ ->
+            {error, ?ERROR_NODE_NOT_EXISTS}
+    end.
 
 
 %% @doc get storage stats.

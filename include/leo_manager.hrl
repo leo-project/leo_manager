@@ -107,16 +107,17 @@
 -define(CMD_UPDATE_ACL,               "update-acl").
 
 %% For Storage
--define(CMD_ATTACH,    "attach").
--define(CMD_DETACH,    "detach").
--define(CMD_SUSPEND,   "suspend").
--define(CMD_RESUME,    "resume").
--define(CMD_ROLLBACK,  "rollback").
--define(CMD_START,     "start").
--define(CMD_REBALANCE, "rebalance").
--define(CMD_COMPACT,   "compact").
--define(CMD_DU,        "du").
--define(CMD_WHEREIS,   "whereis").
+-define(CMD_ATTACH,        "attach").
+-define(CMD_DETACH,        "detach").
+-define(CMD_SUSPEND,       "suspend").
+-define(CMD_RESUME,        "resume").
+-define(CMD_ROLLBACK,      "rollback").
+-define(CMD_START,         "start").
+-define(CMD_REBALANCE,     "rebalance").
+-define(CMD_COMPACT,       "compact").
+-define(CMD_DIAGNOSE_DATA, "diagnose-data").
+-define(CMD_DU,            "du").
+-define(CMD_WHEREIS,       "whereis").
 
 %% For Gateway
 -define(CMD_PURGE,           "purge").
@@ -143,62 +144,63 @@
 -define(COMMANDS, [{?CMD_HELP,      "help"},
                    {?CMD_QUIT,      "quit"},
                    {?CMD_VERSION,   "version"},
-                   {?CMD_STATUS,    "status [${storage-node}|${gateway-node}]"},
+                   {?CMD_STATUS,    "status [<storage-node>|<gateway-node>]"},
                    {?CMD_HISTORY,   "history"},
-                   {?CMD_DUMP_RING, "dump-ring ${manager-node}|${storage-node}|${gateway-node}"},
+                   {?CMD_DUMP_RING, "dump-ring <manager-node>|<storage-node>|<gateway-node>"},
                    %% for Cluster
-                   {?CMD_WHEREIS,   "whereis ${path}"},
+                   {?CMD_WHEREIS,   "whereis <path>"},
                    {?CMD_RECOVER,   lists:append(
-                                      ["recover file ${path}", ?CRLF,
-                                       "recover node ${storage-node}", ?CRLF,
-                                       "recover ring ${storage-node}", ?CRLF,
-                                       "recover cluster ${cluster-id}"
+                                      ["recover file <path>", ?CRLF,
+                                       "recover node <storage-node>", ?CRLF,
+                                       "recover ring <storage-node>", ?CRLF,
+                                       "recover cluster <cluster-id>"
                                       ])},
-                   {?CMD_DETACH,    "detach ${storage-node}"},
-                   {?CMD_SUSPEND,   "suspend ${storage-node}"},
-                   {?CMD_RESUME,    "resume ${storage-node}"},
-                   {?CMD_ROLLBACK,  "rollback ${storage-node}"},
+                   {?CMD_DETACH,    "detach <storage-node>"},
+                   {?CMD_SUSPEND,   "suspend <storage-node>"},
+                   {?CMD_RESUME,    "resume <storage-node>"},
+                   {?CMD_ROLLBACK,  "rollback <storage-node>"},
                    {?CMD_START,     "start"},
                    {?CMD_REBALANCE, "rebalance"},
                    %% for Storage
                    {?CMD_COMPACT,   lists:append(
-                                      ["compact start ${storage-node} all|${num_of_targets} [${num_of_compact_procs}]", ?CRLF,
-                                       "compact suspend ${storage-node}", ?CRLF,
-                                       "compact resume  ${storage-node}", ?CRLF,
-                                       "compact status  ${storage-node}"
+                                      ["compact start <storage-node> all|<num_of_targets> [<num_of_compact_procs>]", ?CRLF,
+                                       "compact suspend <storage-node>", ?CRLF,
+                                       "compact resume  <storage-node>", ?CRLF,
+                                       "compact status  <storage-node>"
                                       ])},
-                   {?CMD_DU, "du ${storage-node}"},
+                   {?CMD_DIAGNOSE_DATA, "diagnose-data <storage-node>"},
+                   {?CMD_DU, "du <storage-node>"},
                    %% for Gateway
-                   {?CMD_PURGE,  "purge ${path}"},
-                   {?CMD_REMOVE, "remove ${gateway-node}"},
+                   {?CMD_PURGE,  "purge <path>"},
+                   {?CMD_REMOVE, "remove <gateway-node>"},
                    %% for S3-API
                    %% - user-related
-                   {?CMD_CREATE_USER,      "create-user ${user-id} [${password}]"},
-                   {?CMD_DELETE_USER,      "delete-user ${user-id}"},
-                   {?CMD_UPDATE_USER_ROLE, "update-user-role ${user-id} ${role-id}"},
-                   {?CMD_UPDATE_USER_PW,   "update-user-password ${user-id} ${password}"},
+                   {?CMD_CREATE_USER,      "create-user <user-id> [<password>]"},
+                   {?CMD_DELETE_USER,      "delete-user <user-id>"},
+                   {?CMD_UPDATE_USER_ROLE, "update-user-role <user-id> <role-id>"},
+                   {?CMD_UPDATE_USER_PW,   "update-user-password <user-id> <password>"},
                    {?CMD_GET_USERS,        "get-users"},
                    %% - endpoint-related
-                   {?CMD_ADD_ENDPOINT,  "add-endpoint ${endpoint}"},
-                   {?CMD_SET_ENDPOINT,  "set-endpoint ${endpoint}"},
-                   {?CMD_DEL_ENDPOINT,  "delete-endpoint ${endpoint}"},
+                   {?CMD_ADD_ENDPOINT,  "add-endpoint <endpoint>"},
+                   {?CMD_SET_ENDPOINT,  "set-endpoint <endpoint>"},
+                   {?CMD_DEL_ENDPOINT,  "delete-endpoint <endpoint>"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
                    %% - bucket-related
-                   {?CMD_ADD_BUCKET,    "add-bucket ${bucket} ${access-key-id}"},
-                   {?CMD_DELETE_BUCKET, "delete-bucket ${bucket} ${access-key-id}"},
+                   {?CMD_ADD_BUCKET,    "add-bucket <bucket> <access-key-id>"},
+                   {?CMD_DELETE_BUCKET, "delete-bucket <bucket> <access-key-id>"},
                    {?CMD_GET_BUCKETS,   "get-buckets"},
-                   {?CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket ${access-key-id}"},
-                   {?CMD_CHANGE_BUCKET_OWNER,      "chown-bucket ${bucket} ${new-access-key-id}"},
+                   {?CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket <access-key-id>"},
+                   {?CMD_CHANGE_BUCKET_OWNER,      "chown-bucket <bucket> <new-access-key-id>"},
                    %% - acl-related
-                   {?CMD_UPDATE_ACL, "update-acl ${bucket} ${access-key-id} private|public-read|public-read-write"},
+                   {?CMD_UPDATE_ACL, "update-acl <bucket> <access-key-id> private|public-read|public-read-write"},
                    %% - multi-dc replication
-                   {?CMD_JOIN_CLUSTER,   "join-cluster ${remote-manager-master} ${remote-manager-slave}"},
-                   {?CMD_REMOVE_CLUSTER, "remove-cluster ${remote-manager-master} ${remote-manager-slave}"},
+                   {?CMD_JOIN_CLUSTER,   "join-cluster <remote-manager-master> <remote-manager-slave>"},
+                   {?CMD_REMOVE_CLUSTER, "remove-cluster <remote-manager-master> <remote-manager-slave>"},
                    {?CMD_CLUSTER_STAT,   "cluster-status"},
                    %% for Manager
-                   {?CMD_UPDATE_MANAGERS, "update-managers ${manager-master} ${manager-slave}"},
-                   {?CMD_BACKUP_MNESIA,   "backup-mnesia ${backupfilepath}"},
-                   {?CMD_RESTORE_MNESIA,  "restore-mnesia ${backupfilepath}"}
+                   {?CMD_UPDATE_MANAGERS, "update-managers <manager-master> <manager-slave>"},
+                   {?CMD_BACKUP_MNESIA,   "backup-mnesia <backupfilepath>"},
+                   {?CMD_RESTORE_MNESIA,  "restore-mnesia <backupfilepath>"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),
