@@ -1513,15 +1513,25 @@ whereis(CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?CRLF) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
-        Key ->
+        [Key|_]->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
+            Key2 = escape_large_obj_sep(Key),
 
-            case catch leo_manager_api:whereis(Key, HasRoutingTable) of
+            case catch leo_manager_api:whereis([Key2], HasRoutingTable) of
                 {ok, AssignedInfo} ->
                     {ok, AssignedInfo};
                 {_, Cause} ->
                     {error, Cause}
             end
+    end.
+
+%% @private
+escape_large_obj_sep(SrcKey) ->
+    case string:tokens(SrcKey, "\\n") of
+        [SrcKey] ->
+            SrcKey;
+        [DstKey, CNum] ->
+            string:join([DstKey, CNum], "\n")
     end.
 
 
