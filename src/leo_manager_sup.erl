@@ -285,38 +285,9 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 %% Update available commands
                 ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
 
-                case ?env_use_s3_api() of
-                    true ->
-                        %% Create S3-related tables
-                        leo_s3_auth:create_table(disc_copies, Nodes_1),
-                        leo_s3_endpoint:create_table(disc_copies, Nodes_1),
-                        leo_s3_bucket:create_table(disc_copies, Nodes_1),
-                        leo_s3_user:create_table(disc_copies, Nodes_1),
-                        leo_s3_user_credential:create_table(disc_copies, Nodes_1),
+                %% Create S3-API related tables
+                ok = create_s3api_related_tables(Nodes_1),
 
-                        %% Insert test-related values
-                        CreatedAt = leo_date:now(),
-                        ok = leo_s3_libs_data_handler:insert({mnesia, leo_s3_users},
-                                                             {[], #?S3_USER{id         = ?TEST_USER_ID,
-                                                                            role_id    = 9,
-                                                                            created_at = CreatedAt
-                                                                           }}),
-                        ok = leo_s3_libs_data_handler:insert({mnesia, leo_s3_user_credential},
-                                                             {[], #user_credential{user_id       = ?TEST_USER_ID,
-                                                                                   access_key_id = ?TEST_ACCESS_KEY,
-                                                                                   created_at    = CreatedAt
-                                                                                  }}),
-                        ok = leo_s3_libs_data_handler:insert({mnesia, leo_s3_credentials},
-                                                             {[], #credential{access_key_id     = ?TEST_ACCESS_KEY,
-                                                                              secret_access_key = ?TEST_SECRET_KEY,
-                                                                              created_at        = CreatedAt
-                                                                             }}),
-                        %% Insert default s3-endpoint values
-                        leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_1),
-                        leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2);
-                    false ->
-                        void
-                end,
                 create_mnesia_tables_2(Mode, Nodes)
             catch _:Reason ->
                     ?error("create_mnesia_tables_1/2", "cause:~p", [Reason])
@@ -356,7 +327,7 @@ create_mnesia_tables_2(Mode, Nodes) ->
             Error
     end.
 
-%% @doc Function migrating datas 
+%% @doc Function migrating datas
 %%      Should be called on the leo_manager master after all partner nodes finished initialization processes
 %%
 -spec(migrate_mnesia_tables(list()) ->
@@ -370,6 +341,49 @@ migrate_mnesia_tables(Nodes) ->
         timer:apply_after(?CHECK_INTERVAL_FOR_MNESIA, ?MODULE,
                           migrate_mnesia_tables, [Nodes])
     end.
+
+
+%% @doc Create S3API-related tables
+-spec(create_s3api_related_tables(Nodes) ->
+             ok when Nodes::[atom()]).
+create_s3api_related_tables(Nodes) ->
+    create_s3api_related_tables(?env_use_s3_api(), Nodes).
+
+%% @private
+create_s3api_related_tables(false,_Nodes) ->
+    ok;
+create_s3api_related_tables(true, Nodes) ->
+    %% Create S3-related tables
+    leo_s3_auth:create_table(disc_copies, Nodes),
+    leo_s3_endpoint:create_table(disc_copies, Nodes),
+    leo_s3_bucket:create_table(disc_copies, Nodes),
+    leo_s3_user:create_table(disc_copies, Nodes),
+    leo_s3_user_credential:create_table(disc_copies, Nodes),
+
+    %% Insert test-related values
+    CreatedAt = leo_date:now(),
+    ok = leo_s3_libs_data_handler:insert({mnesia, leo_s3_users},
+                                         {[], #?S3_USER{id         = ?TEST_USER_ID,
+                                                        role_id    = 9,
+                                                        created_at = CreatedAt
+                                                       }}),
+    ok = leo_s3_libs_data_handler:insert({mnesia, leo_s3_user_credential},
+                                         {[], #user_credential{user_id       = ?TEST_USER_ID,
+                                                               access_key_id = ?TEST_ACCESS_KEY,
+                                                               created_at    = CreatedAt
+                                                              }}),
+    ok = leo_s3_libs_data_handler:insert({mnesia, leo_s3_credentials},
+                                         {[], #credential{access_key_id     = ?TEST_ACCESS_KEY,
+                                                          secret_access_key = ?TEST_SECRET_KEY,
+                                                          created_at        = CreatedAt
+                                                         }}),
+    %% Insert default s3-endpoint values
+    leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_1),
+    leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2),
+    ok.
+
+
+
 
 %% @doc Get log-file appender from env
 %% @private
