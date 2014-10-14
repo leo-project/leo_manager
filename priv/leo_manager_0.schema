@@ -97,7 +97,7 @@
  "leo_manager.system_version",
  [
   {datatype, string},
-  {default, "1.1.4"}
+  {default, "1.1.5"}
  ]}.
 
 %% @doc Mode of Manager: [master|slave]
