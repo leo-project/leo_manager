@@ -336,8 +336,7 @@ migrate_mnesia_tables(Nodes) ->
     try
         leo_manager_transformer:transform(),
         leo_manager_api:update_mdc_items_in_system_conf()
-    catch _:Cause ->
-        ?error("migrate_mnesia_tables/1", "cause:~p", [Cause]),
+    catch _:_Cause ->
         timer:apply_after(?CHECK_INTERVAL_FOR_MNESIA, ?MODULE,
                           migrate_mnesia_tables, [Nodes])
     end.
