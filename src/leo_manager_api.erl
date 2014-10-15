@@ -1605,25 +1605,17 @@ synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER;
                                           Type == ?CHECKSUM_WORKER ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
-    Options = [{cluster_id, SystemConf#?SYSTEM_CONF.cluster_id},
-               {dc_id,      SystemConf#?SYSTEM_CONF.dc_id},
-               {n, SystemConf#?SYSTEM_CONF.n},
-               {r, SystemConf#?SYSTEM_CONF.r},
-               {w, SystemConf#?SYSTEM_CONF.w},
-               {d, SystemConf#?SYSTEM_CONF.d},
-               {bit_of_ring,          SystemConf#?SYSTEM_CONF.bit_of_ring},
-               {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
-               {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
-              ],
+    Options = lists:zip(record_info(fields, ?SYSTEM_CONF),
+                        tl(tuple_to_list(SystemConf))),
     MembersCur  = leo_misc:get_value(?VER_CUR,  MembersList),
     MembersPrev = leo_misc:get_value(?VER_PREV, MembersList),
-
     {ok, OrgChksum} = leo_redundant_manager_api:checksum(Type),
+
     case rpc:call(Node, leo_redundant_manager_api,
                   checksum, [Type], ?DEF_TIMEOUT) of
         {ok, Chksum} when OrgChksum == Chksum ->
             ok;
-        _ ->
+        _Other ->
             case rpc:call(Node, leo_redundant_manager_api, synchronize,
                           [?SYNC_TARGET_BOTH, [{?VER_CUR,  MembersCur },
                                                {?VER_PREV, MembersPrev}], Options], ?DEF_TIMEOUT) of
