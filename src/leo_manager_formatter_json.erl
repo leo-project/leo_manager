@@ -69,7 +69,7 @@ error(Cause) ->
 
 %% @doc Format 'error'
 %%
--spec(error(atom() | string(), string()) ->
+-spec(error(atom()|string()|binary(), any()) ->
              binary()).
 error(Node, Cause) when is_atom(Node) ->
     gen_json({[{error,
@@ -93,7 +93,7 @@ help() ->
 
 %% Format 'version'
 %%
--spec(version(string()) ->
+-spec(version(string()|binary()) ->
              binary()).
 version(Version) ->
     gen_json({[{result, leo_misc:any_to_binary(Version)}]}).
@@ -119,10 +119,11 @@ login(User, Credential) ->
 -spec(bad_nodes([atom()]) ->
              binary()).
 bad_nodes(BadNodes) ->
-    Cause = lists:foldl(fun(Node, [] ) ->        io_lib:format("~w",  [Node]);
-                           (Node, Acc) -> Acc ++ io_lib:format(",~w", [Node])
-                        end, [], BadNodes),
-    ?MODULE:error(Cause).
+    Cause = lists:flatten(
+              lists:foldl(fun(Node, [] ) ->        io_lib:format("~w",  [Node]);
+                             (Node, Acc) -> Acc ++ io_lib:format(",~w", [Node])
+                          end, [], BadNodes)),
+    gen_json({[{error, leo_misc:any_to_binary(Cause)}]}).
 
 
 %% @doc Format a cluster-node list

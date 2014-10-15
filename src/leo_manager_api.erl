@@ -118,20 +118,35 @@ load_system_config() ->
 -spec(load_system_config_with_store_data() ->
              {ok, #?SYSTEM_CONF{}} | {error, any()}).
 load_system_config_with_store_data() ->
+    %% Load the system-conf via the conf-file
     SystemConf = load_system_config(),
+    #?SYSTEM_CONF{cluster_id = ClusterId,
+                  dc_id = DCId,
+                  n = N,
+                  r = R,
+                  w = W,
+                  d = D,
+                  bit_of_ring = BitOfRing,
+                  max_mdc_targets      = MaxMDCTargets,
+                  num_of_dc_replicas   = NumOfDCReplicas,
+                  num_of_rack_replicas = NumOfRackReplicas
+                 } = SystemConf,
+
+    %% Compare the current conf
+    case leo_cluster_tbl_conf:get() of
+        {ok, PrevSystemConf} ->
+            ok = compare_system_conf(
+                   lists:zip(record_info(fields, ?SYSTEM_CONF),
+                             tl(tuple_to_list(PrevSystemConf))),
+                   lists:zip(record_info(fields, ?SYSTEM_CONF),
+                             tl(tuple_to_list(SystemConf))));
+        _ ->
+            void
+    end,
+
+    %% Update the system-conf
     case leo_cluster_tbl_conf:update(SystemConf) of
         ok ->
-            #?SYSTEM_CONF{cluster_id = ClusterId,
-                          dc_id = DCId,
-                          n = N,
-                          r = R,
-                          w = W,
-                          d = D,
-                          bit_of_ring = BitOfRing,
-                          max_mdc_targets      = MaxMDCTargets,
-                          num_of_dc_replicas   = NumOfReplicas,
-                          num_of_rack_replicas = NumOfRaclReplicas
-                         } = SystemConf,
             case leo_mdcr_tbl_cluster_info:update(
                    #?CLUSTER_INFO{cluster_id = ClusterId,
                                   dc_id = DCId,
@@ -141,8 +156,8 @@ load_system_config_with_store_data() ->
                                   d = D,
                                   bit_of_ring = BitOfRing,
                                   max_mdc_targets      = MaxMDCTargets,
-                                  num_of_dc_replicas   = NumOfReplicas,
-                                  num_of_rack_replicas = NumOfRaclReplicas}) of
+                                  num_of_dc_replicas   = NumOfDCReplicas,
+                                  num_of_rack_replicas = NumOfRackReplicas}) of
                 ok ->
                     {ok, SystemConf};
                 Error ->
@@ -151,6 +166,27 @@ load_system_config_with_store_data() ->
         Error ->
             Error
     end.
+
+
+%% @doc Compare with the system-conf
+%% @private
+compare_system_conf([],_SystemConf) ->
+    ok;
+compare_system_conf([{K,V}|Rest], SystemConf) ->
+    V_1 = leo_misc:get_value(K, SystemConf),
+    case (V /= V_1) of
+        true -> error_logger:error_msg(
+                  "~p,~p,~p,~p~n",
+                  [{module, ?MODULE_STRING},
+                   {function, "load_system_config_with_store_data/0"},
+                   {line, ?LINE}, {body, {?ERROR_UPDATED_SYSTEM_CONF,
+                                          K, [{prev, V},
+                                              {cur, V_1}]}}
+                  ]);
+        false ->
+            void
+    end,
+    compare_system_conf(Rest, SystemConf).
 
 
 %% @doc Modify the system config
@@ -1569,25 +1605,17 @@ synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER;
                                           Type == ?CHECKSUM_WORKER ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
-    Options = [{cluster_id, SystemConf#?SYSTEM_CONF.cluster_id},
-               {dc_id,      SystemConf#?SYSTEM_CONF.dc_id},
-               {n, SystemConf#?SYSTEM_CONF.n},
-               {r, SystemConf#?SYSTEM_CONF.r},
-               {w, SystemConf#?SYSTEM_CONF.w},
-               {d, SystemConf#?SYSTEM_CONF.d},
-               {bit_of_ring,          SystemConf#?SYSTEM_CONF.bit_of_ring},
-               {num_of_dc_replicas,   SystemConf#?SYSTEM_CONF.num_of_dc_replicas},
-               {num_of_rack_replicas, SystemConf#?SYSTEM_CONF.num_of_rack_replicas}
-              ],
+    Options = lists:zip(record_info(fields, ?SYSTEM_CONF),
+                        tl(tuple_to_list(SystemConf))),
     MembersCur  = leo_misc:get_value(?VER_CUR,  MembersList),
     MembersPrev = leo_misc:get_value(?VER_PREV, MembersList),
-
     {ok, OrgChksum} = leo_redundant_manager_api:checksum(Type),
+
     case rpc:call(Node, leo_redundant_manager_api,
                   checksum, [Type], ?DEF_TIMEOUT) of
         {ok, Chksum} when OrgChksum == Chksum ->
             ok;
-        _ ->
+        _Other ->
             case rpc:call(Node, leo_redundant_manager_api, synchronize,
                           [?SYNC_TARGET_BOTH, [{?VER_CUR,  MembersCur },
                                                {?VER_PREV, MembersPrev}], Options], ?DEF_TIMEOUT) of
@@ -2057,7 +2085,7 @@ join_cluster(RemoteManagerNodes,
                            n = N, r = R, w = W, d = D,
                            bit_of_ring = BitOfRing,
                            num_of_dc_replicas = NumOfReplicas,
-                           num_of_rack_replicas = NumOfRaclReplicas
+                           num_of_rack_replicas = NumOfRackReplicas
                           }) ->
     %% update cluster info in order to
     %%    communicate with remote-cluster(s)
@@ -2069,7 +2097,7 @@ join_cluster(RemoteManagerNodes,
                                   n = N, r = R, w = W, d = D,
                                   bit_of_ring = BitOfRing,
                                   num_of_dc_replicas = NumOfReplicas,
-                                  num_of_rack_replicas = NumOfRaclReplicas}) of
+                                  num_of_rack_replicas = NumOfRackReplicas}) of
                 ok ->
                     %% update info of remote-managers
                     %% and force sync remote state/conf
