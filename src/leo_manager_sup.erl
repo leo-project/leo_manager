@@ -111,7 +111,7 @@ start_link() ->
                             master ->
                                 {leo_redundant_manager_sup,
                                  {leo_redundant_manager_sup, start_link,
-                                  [Mode,
+                                  [?MONITOR_NODE,
                                    ReplicaNodes_1,
                                    ?env_queue_dir(leo_manager),
                                    [{n,           SystemConf#?SYSTEM_CONF.n},
@@ -130,7 +130,7 @@ start_link() ->
                             _ ->
                                 {leo_redundant_manager_sup,
                                  {leo_redundant_manager_sup, start_link,
-                                  [Mode,
+                                  [?MONITOR_NODE,
                                    ReplicaNodes_1,
                                    ?env_queue_dir(leo_manager),
                                    [],
