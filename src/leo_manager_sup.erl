@@ -198,6 +198,9 @@ create_mnesia_tables(Mode, ReplicaNodes) ->
     end.
 
 
+
+
+
 %% @spec () -> ok |
 %%             not_started
 %% @doc stop process.
