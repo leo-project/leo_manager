@@ -1927,7 +1927,9 @@ add_bucket(AccessKey, Bucket, CannedACL) ->
 
     case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
         ok ->
-            {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
+            {error, already_yours};
+        {error, forbidden} ->
+            {error, already_exists};
         not_found ->
             add_bucket_1(AccessKeyBin, BucketBin, CannedACL);
         {error, _} ->
