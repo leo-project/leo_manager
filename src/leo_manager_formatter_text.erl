@@ -44,6 +44,9 @@
          authorized/0, user_id/0, password/0
         ]).
 
+-define(BOOL_TO_ENABLE, [{true,  enabled},
+                         {false, disabled}]).
+
 %% @doc Format 'ok'
 %%
 -spec(ok() ->
@@ -306,10 +309,10 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
 
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
-    io_lib:format(lists:append(["[config-1]\r\n",
+    io_lib:format(lists:append(["[config-1: basic]\r\n",
+                                "  -- basic --\r\n",
                                 "                      version : ~s\r\n",
                                 "                      log dir : ~s\r\n",
-                                "[config-2]\r\n",
                                 "  -- http-server-related --\r\n",
                                 "          using api [s3|rest] : ~w\r\n",
                                 "               listening port : ~w\r\n",
@@ -321,17 +324,17 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                                 "                 cache expire : ~w\r\n",
                                 "        cache max content len : ~w\r\n",
                                 "           ram cache capacity : ~w\r\n",
-                                "       disc cache capacity    : ~w\r\n",
-                                "       disc cache threshold   : ~w\r\n",
-                                "       disc cache data dir    : ~s\r\n",
-                                "       disc cache journal dir : ~s\r\n",
+                                "       disk cache capacity    : ~w\r\n",
+                                "       disk cache threshold   : ~w\r\n",
+                                "       disk cache data dir    : ~s\r\n",
+                                "       disk cache journal dir : ~s\r\n",
                                 "  -- large-object-related --\r\n",
-                                "        max # of chunked objs : ~w\r\n",
+                                "          max # of chunk objs : ~w\r\n",
                                 "          chunk object length : ~w\r\n",
                                 "            max object length : ~w\r\n",
-                                "   reading_chunked_obj_length : ~w\r\n",
+                                "    reading  chunk obj length : ~w\r\n",
                                 "    threshold of chunk length : ~w\r\n",
-                                "\r\n[config-3: watchdog]\r\n",
+                                "\r\n[config-2: watchdog]\r\n",
                                 "                 cpu watchdog : ~w\r\n",
                                 "                  io watchdog : ~w\r\n",
                                 "          monitoring interval : ~w\r\n",
@@ -378,8 +381,10 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                    leo_misc:get_value('reading_chunked_obj_len',  HttpConf, 0),
                    leo_misc:get_value('threshold_of_chunk_len',   HttpConf, 0),
                    %% config-3:watchdog
-                   leo_misc:get_value('cpu_enabled',    WatchdogProps),
-                   leo_misc:get_value('io_enabled',     WatchdogProps),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('cpu_enabled', WatchdogProps)),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('io_enabled',  WatchdogProps)),
                    leo_misc:get_value('watch_interval', WatchdogProps),
                    leo_misc:get_value('rex_max_mem_capacity', WatchdogProps),
                    leo_misc:get_value('cpu_max_cpu_load_avg', WatchdogProps),
@@ -453,8 +458,10 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    ObjContainer,
                    leo_misc:get_value('log', Directories, []),
                    %% Watchdog
-                   leo_misc:get_value('cpu_enabled',    WatchdogProps),
-                   leo_misc:get_value('io_enabled',     WatchdogProps),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('cpu_enabled', WatchdogProps)),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('io_enabled',  WatchdogProps)),
                    leo_misc:get_value('watch_interval', WatchdogProps),
                    leo_misc:get_value('rex_max_mem_capacity', WatchdogProps),
                    leo_misc:get_value('cpu_max_cpu_load_avg', WatchdogProps),
@@ -479,6 +486,15 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    leo_misc:get_value('num_of_sync_vnode_msg',  CustomItems, 0),
                    leo_misc:get_value('num_of_rebalance_msg',   CustomItems, 0)
                   ]).
+
+
+%% @private
+exchange_value([], Ret) ->
+    Ret;
+exchange_value([{Ret, NewRet}|_], Ret) ->
+    NewRet;
+exchange_value([{_,_}|Rest], Ret) ->
+    exchange_value(Rest, Ret).
 
 
 %% @doc Status of compaction
