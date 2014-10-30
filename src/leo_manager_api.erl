@@ -286,14 +286,18 @@ get_members_of_all_versions() ->
              ok | {error, any()}).
 get_node_status(Node_1) ->
     Node_2 = list_to_atom(Node_1),
-    {Type, Mod} = case leo_manager_mnesia:get_gateway_node_by_name(Node_2) of
-                      {ok, _} -> {?SERVER_TYPE_GATEWAY, ?API_GATEWAY};
-                      _ ->
-                          case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
-                              {ok, _} -> {?SERVER_TYPE_STORAGE, ?API_STORAGE};
-                              _       -> {[], undefined}
-                          end
-                  end,
+    {Type, Mod} =
+        case leo_manager_mnesia:get_gateway_node_by_name(Node_2) of
+            {ok, _} ->
+                {?SERVER_TYPE_GATEWAY, ?API_GATEWAY};
+            _ ->
+                case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
+                    {ok, _} ->
+                        {?SERVER_TYPE_STORAGE, ?API_STORAGE};
+                    _ ->
+                        {[], undefined}
+                end
+        end,
 
     case Mod of
         undefined ->
