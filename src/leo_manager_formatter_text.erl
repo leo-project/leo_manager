@@ -435,6 +435,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 " io   - max input size/sec  : ~w\r\n",
                                 " io   - max output size/sec : ~w\r\n",
                                 " disk - max disk util       : ~w%\r\n",
+                                " disk - max iowait          : ~w%\r\n",
                                 "\r\n[status-1: ring]\r\n",
                                 "          ring state (cur)  : ~s\r\n",
                                 "          ring state (prev) : ~s\r\n",
@@ -473,6 +474,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    leo_misc:get_value('io_max_input_per_sec',  WatchdogProps),
                    leo_misc:get_value('io_max_output_per_sec', WatchdogProps),
                    leo_misc:get_value('disk_max_disk_util',    WatchdogProps),
+                   leo_misc:get_value('disk_max_io_wait',      WatchdogProps),
                    %% RING
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
