@@ -419,7 +419,6 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     ObjContainer  = leo_misc:get_value('avs',           State, []),
     CustomItems   = leo_misc:get_value('storage',  Statistics, []),
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
-    ?debugVal(WatchdogProps),
 
     io_lib:format(lists:append(["[config-1: basic]\r\n",
                                 "                        version : ~s\r\n",
