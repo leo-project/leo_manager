@@ -656,8 +656,8 @@ du(_, _) ->
 mq_stats([]) ->
     [];
 mq_stats(Stats) ->
-    Header = "              id                |    state    | num of msgs |        description        \r\n"
-        ++   "--------------------------------+-------------+-------------|---------------------------\r\n",
+    Header = "              id                |    state    | num of msgs |            description            \r\n"
+        ++   "--------------------------------+-------------+-------------|-----------------------------------\r\n",
     Output = lists:foldl(
                fun(#mq_state{id = Id,
                              state = State,
@@ -667,7 +667,7 @@ mq_stats(Stats) ->
                                      string:left(" " ++ atom_to_list(Id),    31), ?SEPARATOR,
                                      string:centre(atom_to_list(State),      11), ?SEPARATOR,
                                      string:left(integer_to_list(NumOfMsgs), 11), ?SEPARATOR,
-                                     string:left(Desc, 26), ?CRLF])
+                                     string:left(Desc, 34), ?CRLF])
                end, Header, Stats),
     Output.
 
