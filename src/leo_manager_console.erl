@@ -282,6 +282,49 @@ handle_call(_Socket, <<?CMD_DIAGNOSE_DATA, ?SPACE, Option/binary>> = Command,
 
 
 %%----------------------------------------------------------------------
+%% Operation for MQ
+%%----------------------------------------------------------------------
+handle_call(_Socket, <<?CMD_MQ_STATS, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case mq_stats(Command, Option) of
+                      {ok, Stats} ->
+                          Formatter:mq_stats(Stats);
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_MQ_STATS, Formatter, Fun),
+    {reply, Reply, State};
+
+handle_call(_Socket, <<?CMD_MQ_SUSPEND, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case mq_suspend(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_MQ_SUSPEND, Formatter, Fun),
+    {reply, Reply, State};
+
+handle_call(_Socket, <<?CMD_MQ_RESUME, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case mq_resume(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_MQ_RESUME, Formatter, Fun),
+    {reply, Reply, State};
+
+
+%%----------------------------------------------------------------------
 %% Operation-3
 %%----------------------------------------------------------------------
 %% Command: "create-user ${USER_ID} ${PASSWORD}"
@@ -1090,11 +1133,6 @@ status(_CmdBody, Option) ->
                 'master' ->
                     case leo_cluster_tbl_conf:get() of
                         {ok, SystemConf} ->
-                            %% case leo_manager_api:load_system_config() of
-                            %%     SystemConf -> void;
-                            %%     _ ->
-                            %%         leo_manager_api:load_system_config_with_store_data()
-                            %% end;
                             SystemConf;
                         _ ->
                             void
@@ -1518,12 +1556,47 @@ compact(_,_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
 
-%% @doc
+%% @doc Execute data-diagnosis
 diagnose_data(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Node|_] ->
             leo_manager_api:diagnose_data(list_to_atom(Node));
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
+
+
+%% @doc Execute data-diagnosis
+mq_stats(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node|_] ->
+            leo_manager_api:mq_stats(list_to_atom(Node));
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
+
+
+%% @doc Execute data-diagnosis
+mq_suspend(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node, MQId|_] ->
+            leo_manager_api:mq_suspend(
+              list_to_atom(Node), list_to_atom(MQId));
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
+
+
+%% @doc Execute data-diagnosis
+mq_resume(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node, MQId|_] ->
+            leo_manager_api:mq_resume(
+              list_to_atom(Node), list_to_atom(MQId));
         _ ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
     end.

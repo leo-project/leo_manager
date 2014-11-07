@@ -71,6 +71,7 @@
          whereis/2, recover/3,
          compact/2, compact/4, diagnose_data/1,
          stats/2,
+         mq_stats/1, mq_suspend/2, mq_resume/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1, delete_endpoint/1, add_bucket/2, add_bucket/3, delete_bucket/2,
          update_acl/3
@@ -286,14 +287,18 @@ get_members_of_all_versions() ->
              ok | {error, any()}).
 get_node_status(Node_1) ->
     Node_2 = list_to_atom(Node_1),
-    {Type, Mod} = case leo_manager_mnesia:get_gateway_node_by_name(Node_2) of
-                      {ok, _} -> {?SERVER_TYPE_GATEWAY, ?API_GATEWAY};
-                      _ ->
-                          case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
-                              {ok, _} -> {?SERVER_TYPE_STORAGE, ?API_STORAGE};
-                              _       -> {[], undefined}
-                          end
-                  end,
+    {Type, Mod} =
+        case leo_manager_mnesia:get_gateway_node_by_name(Node_2) of
+            {ok, _} ->
+                {?SERVER_TYPE_GATEWAY, ?API_GATEWAY};
+            _ ->
+                case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
+                    {ok, _} ->
+                        {?SERVER_TYPE_STORAGE, ?API_STORAGE};
+                    _ ->
+                        {[], undefined}
+                end
+        end,
 
     case Mod of
         undefined ->
@@ -1546,6 +1551,45 @@ stats_1(detail, List) ->
     {ok, List}.
 
 
+%% @doc Retrieve mq-stats of the storage-node
+mq_stats(Node) ->
+    case rpc:call(Node, ?API_STORAGE, get_mq_consumer_state,
+                  [], ?DEF_TIMEOUT) of
+        {ok, Stats} ->
+            {ok, Stats};
+        timeout = Cause ->
+            {error, Cause};
+        Other ->
+            Other
+    end.
+
+
+%% @doc Suspend mq-consumption msg of the node
+mq_suspend(Node, MQId) ->
+    case rpc:call(Node, ?API_STORAGE, mq_suspend,
+                  [MQId], ?DEF_TIMEOUT) of
+        ok ->
+            ok;
+        timeout = Cause ->
+            {error, Cause};
+        Other ->
+            Other
+    end.
+
+
+%% @doc Resume mq-consumption msg of the node
+mq_resume(Node, MQId) ->
+    case rpc:call(Node, ?API_STORAGE, mq_resume,
+                  [MQId], ?DEF_TIMEOUT) of
+        ok ->
+            ok;
+        timeout = Cause ->
+            {error, Cause};
+        Other ->
+            Other
+    end.
+
+
 %% @doc Synchronize Members and Ring (both New and Old).
 %%
 synchronize(Type) when Type == ?CHECKSUM_RING;
@@ -1927,7 +1971,9 @@ add_bucket(AccessKey, Bucket, CannedACL) ->
 
     case leo_s3_bucket:head(AccessKeyBin, BucketBin) of
         ok ->
-            {error, ?ERROR_COULD_NOT_UPDATE_BUCKET};
+            {error, already_yours};
+        {error, forbidden} ->
+            {error, already_exists};
         not_found ->
             add_bucket_1(AccessKeyBin, BucketBin, CannedACL);
         {error, _} ->

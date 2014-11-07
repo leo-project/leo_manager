@@ -119,6 +119,11 @@
 -define(CMD_DU,            "du").
 -define(CMD_WHEREIS,       "whereis").
 
+%% For Storage-MQ
+-define(CMD_MQ_STATS,   "mq-stats").
+-define(CMD_MQ_SUSPEND, "mq-suspend").
+-define(CMD_MQ_RESUME,  "mq-resume").
+
 %% For Gateway
 -define(CMD_PURGE,           "purge").
 -define(CMD_REMOVE,          "remove").
@@ -130,6 +135,7 @@
 -define(CMD_RECOVER,   "recover").
 -define(CMD_HISTORY,   "history").
 -define(CMD_DUMP_RING, "dump-ring").
+
 
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER,   "join-cluster").
@@ -170,6 +176,10 @@
                                       ])},
                    {?CMD_DIAGNOSE_DATA, "diagnose-data <storage-node>"},
                    {?CMD_DU, "du <storage-node>"},
+                   %% for Storage-mq
+                   {?CMD_MQ_STATS,   "mq-stats <storage-node>"},
+                   {?CMD_MQ_SUSPEND, "mq-suspend <storage-node> <mq-id>"},
+                   {?CMD_MQ_RESUME,  "mq-resume <storage-node> <mq-id>"},
                    %% for Gateway
                    {?CMD_PURGE,  "purge <path>"},
                    {?CMD_REMOVE, "remove <gateway-node>"},

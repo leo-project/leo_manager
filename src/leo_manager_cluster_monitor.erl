@@ -279,12 +279,12 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                 ?error("handle_call - DOWN", "node:~w", [Node]),
 
                 case TypeOfNode of
-                    gateway ->
+                    ?WORKER_NODE ->
                         catch leo_manager_mnesia:update_gateway_node(
                                 #node_state{node    = Node,
                                             state   = ?STATE_STOP,
                                             when_is = ?CURRENT_TIME});
-                    storage ->
+                    ?PERSISTENT_NODE ->
                         case catch leo_manager_mnesia:get_storage_node_by_name(Node) of
                             {ok, #node_state{state = State} = NodeInfo} ->
                                 case update_node_state(down, State, Node) of
@@ -514,7 +514,7 @@ delete_by_pid(ProcList, Pid0) ->
 -spec(register_fun_1(#registration{}) ->
              ok | {error, any()}).
 register_fun_1(#registration{node = Node,
-                             type = gateway}) ->
+                             type = ?WORKER_NODE}) ->
     case leo_manager_mnesia:get_gateway_node_by_name(Node) of
         {ok, #node_state{state = ?STATE_RUNNING}} ->
             ok;
@@ -537,7 +537,7 @@ register_fun_1(#registration{node = Node,
     end;
 
 register_fun_1(#registration{node = Node,
-                             type = storage} = RegistrationInfo) ->
+                             type = ?PERSISTENT_NODE} = RegistrationInfo) ->
     Ret = leo_manager_mnesia:get_storage_node_by_name(Node),
     register_fun_2(Ret, RegistrationInfo).
 
@@ -545,7 +545,7 @@ register_fun_1(#registration{node = Node,
 -spec(register_fun_2({ok, #node_state{}} | not_found| {error, any()}, #registration{}) ->
              ok | {error, any()}).
 register_fun_2({ok, #node_state{state = ?STATE_RUNNING}}, #registration{node = Node,
-                                                                        type = storage}) ->
+                                                                        type = ?PERSISTENT_NODE}) ->
     %% synchronize member and ring
     case sync_ring_fun(Node) of
         ok ->
@@ -557,7 +557,7 @@ register_fun_2({ok, #node_state{state = ?STATE_RUNNING}}, #registration{node = N
     ok;
 
 register_fun_2({ok, #node_state{state = ?STATE_DETACHED}}, #registration{node = Node,
-                                                                         type = storage,
+                                                                         type = ?PERSISTENT_NODE,
                                                                          level_1 = L1,
                                                                          level_2 = L2,
                                                                          num_of_vnodes = NumOfVNodes}) ->
@@ -570,11 +570,11 @@ register_fun_2({ok, #node_state{state = ?STATE_DETACHED}}, #registration{node = 
     end;
 
 register_fun_2({ok, #node_state{state = State}}, #registration{node = Node,
-                                                               type = storage}) ->
+                                                               type = ?PERSISTENT_NODE}) ->
     update_node_state(start, State, Node);
 
 register_fun_2(not_found = State, #registration{node = Node,
-                                                type = storage,
+                                                type = ?PERSISTENT_NODE,
                                                 level_1 = L1,
                                                 level_2 = L2,
                                                 num_of_vnodes = NumOfVNodes,
@@ -595,6 +595,6 @@ register_fun_2(not_found = State, #registration{node = Node,
     end;
 
 register_fun_2({error, Cause}, #registration{node = Node,
-                                             type = storage}) ->
+                                             type = ?PERSISTENT_NODE}) ->
     ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
     {error, Cause}.

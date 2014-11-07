@@ -29,6 +29,7 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_mq/include/leo_mq.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
@@ -37,12 +38,17 @@
 
 -export([ok/0, error/1, error/2, help/1, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, credential/2, users/1, endpoints/1,
+         compact_status/1, du/2,
+         mq_stats/1,
+         credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
          acls/1, cluster_status/1,
          whereis/1, histories/1,
          authorized/0, user_id/0, password/0
         ]).
+
+-define(BOOL_TO_ENABLE, [{true,  enabled},
+                         {false, disabled}]).
 
 %% @doc Format 'ok'
 %%
@@ -303,50 +309,81 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
     MaxChunkedObjs = leo_misc:get_value('max_chunked_objs', HttpConf, 0),
     ChunkedObjLen  = leo_misc:get_value('chunked_obj_len',  HttpConf, 0),
     MaxObjLen = MaxChunkedObjs * ChunkedObjLen,
+    WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
-    io_lib:format(lists:append(["[config-1]\r\n",
-                                "                      version : ~s\r\n",
-                                "                      log dir : ~s\r\n",
-                                "[config-2]\r\n",
-                                "  -- http-server-related --\r\n",
-                                "          using api [s3|rest] : ~w\r\n",
-                                "               listening port : ~w\r\n",
-                                "           listening ssl port : ~w\r\n",
-                                "               # of_acceptors : ~w\r\n",
-                                "  -- cache-related --\r\n",
-                                "      http cache [true|false] : ~w\r\n",
-                                "           # of cache_workers : ~w\r\n",
-                                "                 cache expire : ~w\r\n",
-                                "        cache max content len : ~w\r\n",
-                                "           ram cache capacity : ~w\r\n",
-                                "       disc cache capacity    : ~w\r\n",
-                                "       disc cache threshold   : ~w\r\n",
-                                "       disc cache data dir    : ~s\r\n",
-                                "       disc cache journal dir : ~s\r\n",
-                                "  -- large-object-related --\r\n",
-                                "        max # of chunked objs : ~w\r\n",
-                                "          chunk object length : ~w\r\n",
-                                "            max object length : ~w\r\n",
-                                "   reading_chunked_obj_length : ~w\r\n",
-                                "    threshold of chunk length : ~w\r\n",
+    io_lib:format(lists:append(["[config-1: basic]\r\n",
+                                "-------------------------------+------------------\r\n",
+                                " basic\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "                       version | ~s\r\n",
+                                "                using protocol | ~w\r\n",
+                                "                       log dir | ~s\r\n",
+                                "-------------------------------+------------------\r\n",
+                                " http-server-related for REST/S3 API\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "                listening port | ~w\r\n",
+                                "            listening ssl port | ~w\r\n",
+                                "                # of_acceptors | ~w\r\n",
+                                "-------------------------------+------------------\r\n",
+                                " cache-related\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "       http cache [true|false] | ~w\r\n",
+                                "            # of cache_workers | ~w\r\n",
+                                "                  cache expire | ~w\r\n",
+                                "         cache max content len | ~w\r\n",
+                                "            ram cache capacity | ~w\r\n",
+                                "        disk cache capacity    | ~w\r\n",
+                                "        disk cache threshold   | ~w\r\n",
+                                "        disk cache data dir    | ~s\r\n",
+                                "        disk cache journal dir | ~s\r\n",
+                                "-------------------------------+------------------\r\n",
+                                " large-object-related\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "           max # of chunk objs | ~w\r\n",
+                                "           chunk object length | ~w\r\n",
+                                "             max object length | ~w\r\n",
+                                "     reading  chunk obj length | ~w\r\n",
+                                "     threshold of chunk length | ~w\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "\r\n[config-2: watchdog]\r\n",
+                                "-------------------------------+------------------\r\n",
+                                " rex - watch interval(sec)     | ~w\r\n",
+                                " rex - threshold mem capacity  | ~w\r\n",
+                                "-------------------------------+------------------\r\n",
+                                " cpu - watchdog eanbled        | ~w\r\n",
+                                " cpu - watch interval(sec)     | ~w\r\n",
+                                " cpu - threshold cpu load avg  | ~w\r\n",
+                                " cpu - threshold cpu util(%)   | ~w\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "  io - watchdog enabled        | ~w\r\n",
+                                "  io - watch interval(sec)     | ~w\r\n",
+                                "  io - threshold input size/s  | ~w\r\n",
+                                "  io - threshold output size/s | ~w\r\n",
+                                "-------------------------------+------------------\r\n",
                                 "\r\n[status-1: ring]\r\n",
-                                "            ring state (cur)  : ~s\r\n",
-                                "            ring state (prev) : ~s\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "             ring state (cur)  | ~s\r\n",
+                                "             ring state (prev) | ~s\r\n",
+                                "-------------------------------+------------------\r\n",
                                 "\r\n[status-2: erlang-vm]\r\n",
-                                "                   vm version : ~s\r\n",
-                                "              total mem usage : ~w\r\n",
-                                "             system mem usage : ~w\r\n",
-                                "              procs mem usage : ~w\r\n",
-                                "                ets mem usage : ~w\r\n",
-                                "                        procs : ~w/~w\r\n",
-                                "                  kernel_poll : ~w\r\n",
-                                "             thread_pool_size : ~w\r\n\r\n"]),
+                                "-------------------------------+------------------\r\n",
+                                "                    vm version | ~s\r\n",
+                                "               total mem usage | ~w\r\n",
+                                "              system mem usage | ~w\r\n",
+                                "               procs mem usage | ~w\r\n",
+                                "                 ets mem usage | ~w\r\n",
+                                "                         procs | ~w/~w\r\n",
+                                "                   kernel_poll | ~w\r\n",
+                                "              thread_pool_size | ~w\r\n",
+                                "-------------------------------+------------------\r\n",
+                                "\r\n"
+                               ]),
                   [
                    %% config-1 [2]
                    Version,
+                   leo_misc:get_value('handler',                  HttpConf, ''),
                    leo_misc:get_value('log', Directories, []),
                    %% config-2 [17]
-                   leo_misc:get_value('handler',                  HttpConf, ''),
                    leo_misc:get_value('port',                     HttpConf, 0),
                    leo_misc:get_value('ssl_port',                 HttpConf, 0),
                    leo_misc:get_value('num_of_acceptors',         HttpConf, 0),
@@ -366,6 +403,19 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                    MaxObjLen,
                    leo_misc:get_value('reading_chunked_obj_len',  HttpConf, 0),
                    leo_misc:get_value('threshold_of_chunk_len',   HttpConf, 0),
+                   %% config-3:watchdog
+                   leo_misc:get_value('rex_interval',                WatchdogProps),
+                   leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('cpu_enabled',  WatchdogProps)),
+                   leo_misc:get_value('cpu_interval',                WatchdogProps),
+                   leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps),
+                   leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('io_enabled',   WatchdogProps)),
+                   leo_misc:get_value('io_interval',                 WatchdogProps),
+                   leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps),
+                   leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps),
                    %% status-1 [2]
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
@@ -382,46 +432,97 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   ]);
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
-    Version      = leo_misc:get_value('version',       State, []),
-    NumOfVNodes  = leo_misc:get_value('num_of_vnodes', State, []),
-    GrpLevel2    = leo_misc:get_value('grp_level_2',   State, []),
-    Directories  = leo_misc:get_value('dirs',          State, []),
-    RingHashes   = leo_misc:get_value('ring_checksum', State, []),
-    Statistics   = leo_misc:get_value('statistics',    State, []),
-    ObjContainer = leo_misc:get_value('avs',           State, []),
-    CustomItems  = leo_misc:get_value('storage', Statistics, []),
+    Version       = leo_misc:get_value('version',       State, []),
+    NumOfVNodes   = leo_misc:get_value('num_of_vnodes', State, []),
+    GrpLevel2     = leo_misc:get_value('grp_level_2',   State, []),
+    Directories   = leo_misc:get_value('dirs',          State, []),
+    RingHashes    = leo_misc:get_value('ring_checksum', State, []),
+    Statistics    = leo_misc:get_value('statistics',    State, []),
+    ObjContainer  = leo_misc:get_value('avs',           State, []),
+    CustomItems   = leo_misc:get_value('storage',  Statistics, []),
+    WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
-    io_lib:format(lists:append(["[config]\r\n",
-                                "            version : ~s\r\n",
-                                "        # of vnodes : ~w\r\n",
-                                "      group level-1 :   \r\n",
-                                "      group level-2 : ~s\r\n",
-                                "      obj-container : ~p\r\n",
-                                "            log dir : ~s\r\n",
+    io_lib:format(lists:append(["[config-1: basic]\r\n",
+                                "--------------------------------+------------------\r\n",
+                                "                        version | ~s\r\n",
+                                "               number of vnodes | ~w\r\n",
+                                "                  group level-1 |   \r\n",
+                                "                  group level-2 | ~s\r\n",
+                                "            object container(s) | ~p\r\n",
+                                "                        log dir | ~s\r\n",
+                                "--------------------------------+------------------\r\n",
+                                "\r\n[config-2: watchdog]\r\n",
+                                "--------------------------------+------------------\r\n",
+                                " rex  - watch interval(sec)     | ~w\r\n",
+                                " rex  - threshold mem capacity  | ~w\r\n",
+                                "--------------------------------+------------------\r\n",
+                                " cpu  - watchdog enabled        | ~w\r\n",
+                                " cpu  - watch interval(sec)     | ~w\r\n",
+                                " cpu  - threshold cpu load avg  | ~w\r\n",
+                                " cpu  - threshold cpu util(%)   | ~w\r\n",
+                                "--------------------------------+------------------\r\n",
+                                "  io  - watchdog enabled        | ~w\r\n",
+                                "  io  - watch interval(sec)     | ~w\r\n",
+                                "  io  - threshold input size/s  | ~w\r\n",
+                                "  io  - threshold output size/s | ~w\r\n",
+                                "--------------------------------+------------------\r\n",
+                                " disk - watchdog enabled        | ~w\r\n",
+                                " disk - watch interval(sec)     | ~w\r\n",
+                                " disk - threshold disk use(%)   | ~w\r\n",
+                                " disk - threshold disk util(%)  | ~w\r\n",
+                                "--------------------------------+------------------\r\n",
                                 "\r\n[status-1: ring]\r\n",
-                                "  ring state (cur)  : ~s\r\n",
-                                "  ring state (prev) : ~s\r\n",
+                                "--------------------------------+------------------\r\n",
+                                "              ring state (cur)  | ~s\r\n",
+                                "              ring state (prev) | ~s\r\n",
+                                "--------------------------------+------------------\r\n",
                                 "\r\n[status-2: erlang-vm]\r\n",
-                                "         vm version : ~s\r\n",
-                                "    total mem usage : ~w\r\n",
-                                "   system mem usage : ~w\r\n",
-                                "    procs mem usage : ~w\r\n",
-                                "      ets mem usage : ~w\r\n",
-                                "              procs : ~w/~w\r\n",
-                                "        kernel_poll : ~w\r\n",
-                                "   thread_pool_size : ~w\r\n",
+                                "--------------------------------+------------------\r\n",
+                                "                     vm version | ~s\r\n",
+                                "                total mem usage | ~w\r\n",
+                                "               system mem usage | ~w\r\n",
+                                "                procs mem usage | ~w\r\n",
+                                "                  ets mem usage | ~w\r\n",
+                                "                          procs | ~w/~w\r\n",
+                                "                    kernel_poll | ~w\r\n",
+                                "               thread_pool_size | ~w\r\n",
+                                "--------------------------------+------------------\r\n",
                                 "\r\n[status-3: # of msgs]\r\n",
-                                "   replication msgs : ~w\r\n",
-                                "    vnode-sync msgs : ~w\r\n",
-                                "     rebalance msgs : ~w\r\n",
+                                "--------------------------------+------------------\r\n",
+                                "               replication msgs | ~w\r\n",
+                                "                vnode-sync msgs | ~w\r\n",
+                                "                 rebalance msgs | ~w\r\n",
+                                "--------------------------------+------------------\r\n",
                                 "\r\n"]),
-                  [Version,
+                  [
+                   %% Basic Conf
+                   Version,
                    NumOfVNodes,
                    GrpLevel2,
                    ObjContainer,
                    leo_misc:get_value('log', Directories, []),
+                   %% Watchdog
+                   leo_misc:get_value('rex_interval',                WatchdogProps),
+                   leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('cpu_enabled',  WatchdogProps)),
+                   leo_misc:get_value('cpu_interval',                WatchdogProps),
+                   leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps),
+                   leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('io_enabled',   WatchdogProps)),
+                   leo_misc:get_value('io_interval',                 WatchdogProps),
+                   leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps),
+                   leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps),
+                   exchange_value(?BOOL_TO_ENABLE,
+                                  leo_misc:get_value('disk_enabled', WatchdogProps)),
+                   leo_misc:get_value('disk_interval',               WatchdogProps),
+                   leo_misc:get_value('disk_threshold_disk_use',     WatchdogProps),
+                   leo_misc:get_value('disk_threshold_disk_util',    WatchdogProps),
+                   %% RING
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
+                   %% Erlang-VM
                    leo_misc:get_value('vm_version',       Statistics, []),
                    leo_misc:get_value('total_mem_usage',  Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
@@ -431,10 +532,20 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    leo_misc:get_value('process_limit',    Statistics, 0),
                    leo_misc:get_value('kernel_poll',      Statistics, false),
                    leo_misc:get_value('thread_pool_size', Statistics, 0),
+                   %% MQ
                    leo_misc:get_value('num_of_replication_msg', CustomItems, 0),
                    leo_misc:get_value('num_of_sync_vnode_msg',  CustomItems, 0),
                    leo_misc:get_value('num_of_rebalance_msg',   CustomItems, 0)
                   ]).
+
+
+%% @private
+exchange_value([], Ret) ->
+    Ret;
+exchange_value([{Ret, NewRet}|_], Ret) ->
+    NewRet;
+exchange_value([{_,_}|Rest], Ret) ->
+    exchange_value(Rest, Ret).
 
 
 %% @doc Status of compaction
@@ -464,7 +575,8 @@ compact_status(#compaction_stats{status = Status,
 
 %% @doc Format storge stats-list
 %%
--spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
+-spec(du(summary | detail, {integer(), integer(), integer(),
+                            integer(), integer(), integer()} | list()) ->
              string()).
 du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
     Fun = fun(0) -> ?NULL_DATETIME;
@@ -536,6 +648,28 @@ du(detail, StatsList) when is_list(StatsList) ->
     lists:append([lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList), "\r\n"]);
 du(_, _) ->
     [].
+
+
+%% @doc Format result of mq-stats
+-spec(mq_stats(Stats) ->
+             string() when Stats::[tuple()]).
+mq_stats([]) ->
+    [];
+mq_stats(Stats) ->
+    Header = "              id                |    state    | num of msgs |            description            \r\n"
+        ++   "--------------------------------+-------------+-------------|-----------------------------------\r\n",
+    Output = lists:foldl(
+               fun(#mq_state{id = Id,
+                             state = State,
+                             num_of_messages = NumOfMsgs,
+                             desc = Desc}, Acc) ->
+                       lists:append([Acc,
+                                     string:left(" " ++ atom_to_list(Id),    31), ?SEPARATOR,
+                                     string:centre(atom_to_list(State),      11), ?SEPARATOR,
+                                     string:left(integer_to_list(NumOfMsgs), 11), ?SEPARATOR,
+                                     string:left(Desc, 34), ?CRLF])
+               end, Header, Stats),
+    Output.
 
 
 %% @doc Format s3-gen-key result
