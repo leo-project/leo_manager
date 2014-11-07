@@ -662,7 +662,7 @@ mq_stats(Stats) ->
                fun(#mq_state{id = Id,
                              state = State,
                              num_of_messages = NumOfMsgs,
-                             alias = Desc}, Acc) ->
+                             desc = Desc}, Acc) ->
                        lists:append([Acc,
                                      string:left(" " ++ atom_to_list(Id),    31), ?SEPARATOR,
                                      string:centre(atom_to_list(State),      11), ?SEPARATOR,
