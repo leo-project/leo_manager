@@ -29,6 +29,7 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_mq/include/leo_mq.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
@@ -37,7 +38,9 @@
 
 -export([ok/0, error/1, error/2, help/1, version/1,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, credential/2, users/1, endpoints/1,
+         compact_status/1, du/2,
+         mq_stats/1,
+         credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
          acls/1, cluster_status/1,
          whereis/1, histories/1,
@@ -572,7 +575,8 @@ compact_status(#compaction_stats{status = Status,
 
 %% @doc Format storge stats-list
 %%
--spec(du(summary | detail, {integer(), integer(), integer(), integer(), integer(), integer()} | list()) ->
+-spec(du(summary | detail, {integer(), integer(), integer(),
+                            integer(), integer(), integer()} | list()) ->
              string()).
 du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
     Fun = fun(0) -> ?NULL_DATETIME;
@@ -644,6 +648,28 @@ du(detail, StatsList) when is_list(StatsList) ->
     lists:append([lists:foldl(Fun, "[du(storage stats)]\r\n", StatsList), "\r\n"]);
 du(_, _) ->
     [].
+
+
+%% @doc Format result of mq-stats
+-spec(mq_stats(Stats) ->
+             string() when Stats::[tuple()]).
+mq_stats([]) ->
+    [];
+mq_stats(Stats) ->
+    Header = "              id                |    state    | num of msgs |        description        \r\n"
+        ++   "--------------------------------+-------------+-------------|---------------------------\r\n",
+    Output = lists:foldl(
+               fun(#mq_state{id = Id,
+                             state = State,
+                             num_of_messages = NumOfMsgs,
+                             alias = Desc}, Acc) ->
+                       lists:append([Acc,
+                                     string:left(" " ++ atom_to_list(Id),    31), ?SEPARATOR,
+                                     string:centre(atom_to_list(State),      11), ?SEPARATOR,
+                                     string:left(integer_to_list(NumOfMsgs), 11), ?SEPARATOR,
+                                     string:left(Desc, 26), ?CRLF])
+               end, Header, Stats),
+    Output.
 
 
 %% @doc Format s3-gen-key result

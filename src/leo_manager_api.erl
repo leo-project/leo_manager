@@ -71,6 +71,7 @@
          whereis/2, recover/3,
          compact/2, compact/4, diagnose_data/1,
          stats/2,
+         mq_stats/1, mq_suspend/2, mq_resume/2,
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1, delete_endpoint/1, add_bucket/2, add_bucket/3, delete_bucket/2,
          update_acl/3
@@ -1548,6 +1549,45 @@ stats_1(summary, List) ->
     {ok, Ret};
 stats_1(detail, List) ->
     {ok, List}.
+
+
+%% @doc Retrieve mq-stats of the storage-node
+mq_stats(Node) ->
+    case rpc:call(Node, ?API_STORAGE, get_mq_consumer_state,
+                  [], ?DEF_TIMEOUT) of
+        {ok, Stats} ->
+            {ok, Stats};
+        timeout = Cause ->
+            {error, Cause};
+        Other ->
+            Other
+    end.
+
+
+%% @doc Suspend mq-consumption msg of the node
+mq_suspend(Node, MQId) ->
+    case rpc:call(Node, ?API_STORAGE, mq_suspend,
+                  [MQId], ?DEF_TIMEOUT) of
+        ok ->
+            ok;
+        timeout = Cause ->
+            {error, Cause};
+        Other ->
+            Other
+    end.
+
+
+%% @doc Resume mq-consumption msg of the node
+mq_resume(Node, MQId) ->
+    case rpc:call(Node, ?API_STORAGE, mq_resume,
+                  [MQId], ?DEF_TIMEOUT) of
+        ok ->
+            ok;
+        timeout = Cause ->
+            {error, Cause};
+        Other ->
+            Other
+    end.
 
 
 %% @doc Synchronize Members and Ring (both New and Old).
