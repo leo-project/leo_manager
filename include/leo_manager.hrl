@@ -483,3 +483,9 @@
             {ok, EnvPluginModMnesia} -> EnvPluginModMnesia;
             _ -> undefined
         end).
+
+
+%% @doc boolean value to enabled/disabled
+%%
+-define(BOOL_TO_ENABLE, [{true,  enabled},
+                         {false, disabled}]).

@@ -197,15 +197,20 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
     MaxChunkedObjs = leo_misc:get_value('max_chunked_objs', HttpConf, 0),
     ChunkedObjLen  = leo_misc:get_value('chunked_obj_len',  HttpConf, 0),
     MaxObjLen = MaxChunkedObjs * ChunkedObjLen,
+    WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
     gen_json({[{<<"node_stat">>,
                 {[
                   %% config-1
-                  {<<"version">>,          leo_misc:any_to_binary(Version)},
-                  {<<"log_dir">>,          leo_misc:any_to_binary(leo_misc:get_value('log', Directories, []))},
+                  {<<"version">>, leo_misc:any_to_binary(Version)},
+                  {<<"log_dir">>, leo_misc:any_to_binary(leo_misc:get_value('log', Directories, []))},
                   %% config-2
-                  {<<"ring_cur">>,         leo_misc:any_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8))},
-                  {<<"ring_prev">>,        leo_misc:any_to_binary(leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
+                  {<<"ring_cur">>,  leo_misc:any_to_binary(
+                                      leo_hex:integer_to_hex(
+                                        leo_misc:get_value('ring_cur', RingHashes, 0), 8))},
+                  {<<"ring_prev">>, leo_misc:any_to_binary(
+                                      leo_hex:integer_to_hex(
+                                        leo_misc:get_value('ring_prev', RingHashes, 0), 8))},
                   {<<"vm_version">>,       leo_misc:any_to_binary(leo_misc:get_value('vm_version', Statistics, []))},
                   {<<"total_mem_usage">>,  leo_misc:get_value('total_mem_usage',  Statistics, 0)},
                   {<<"system_mem_usage">>, leo_misc:get_value('system_mem_usage', Statistics, 0)},
@@ -226,15 +231,36 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   {<<"cache_ram_capacity">>,       leo_misc:get_value('cache_ram_capacity',       HttpConf, 0)},
                   {<<"cache_disc_capacity">>,      leo_misc:get_value('cache_disc_capacity',      HttpConf, 0)},
                   {<<"cache_disc_threshold_len">>, leo_misc:get_value('cache_disc_threshold_len', HttpConf, 0)},
-                  {<<"cache_disc_dir_data">>,      leo_misc:any_to_binary(leo_misc:get_value('cache_disc_dir_data',    HttpConf, ""))},
-                  {<<"cache_disc_dir_journal">>,   leo_misc:any_to_binary(leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
-                  {<<"cache_max_content_len">>,    leo_misc:get_value('cache_max_content_len',    HttpConf, 0)},
+                  {<<"cache_disc_dir_data">>,      leo_misc:any_to_binary(
+                                                     leo_misc:get_value('cache_disc_dir_data', HttpConf, ""))},
+                  {<<"cache_disc_dir_journal">>,   leo_misc:any_to_binary(
+                                                     leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
+                  {<<"cache_max_content_len">>,    leo_misc:get_value('cache_max_content_len', HttpConf, 0)},
                   %% large-object
                   {<<"max_chunked_objs">>,         MaxChunkedObjs},
                   {<<"chunked_obj_len">>,          ChunkedObjLen},
                   {<<"max_len_for_obj">>,          MaxObjLen},
-                  {<<"reading_chunked_obj_len">>,  leo_misc:get_value('reading_chunked_obj_len',  HttpConf, 0)},
-                  {<<"threshold_of_chunk_len">>,   leo_misc:get_value('threshold_of_chunk_len',   HttpConf, 0)}
+                  {<<"reading_chunked_obj_len">>,  leo_misc:get_value('reading_chunked_obj_len', HttpConf, 0)},
+                  {<<"threshold_of_chunk_len">>,   leo_misc:get_value('threshold_of_chunk_len',  HttpConf, 0)},
+                  %% watchdog
+                  {<<"wd_rex_interval">>,                leo_misc:get_value('rex_interval',                WatchdogProps)},
+                  {<<"wd_rex_threshold_mem_capacity">>,  leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps)},
+                  {<<"wd_cpu_enabled">>,                 list_to_binary(
+                                                           atom_to_list(
+                                                             leo_manager_formatter_commons:exchange_value(
+                                                               ?BOOL_TO_ENABLE,
+                                                               leo_misc:get_value('cpu_enabled',  WatchdogProps))))},
+                  {<<"wd_cpu_interval">>,                leo_misc:get_value('cpu_interval',                WatchdogProps)},
+                  {<<"wd_cpu_threshold_cpu_load_avg">>,  leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps)},
+                  {<<"wd_cpu_threshold_cpu_util">>,      leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps)},
+                  {<<"wd_io_enabled">>,                  list_to_binary(
+                                                           atom_to_list(
+                                                             leo_manager_formatter_commons:exchange_value(
+                                                               ?BOOL_TO_ENABLE,
+                                                               leo_misc:get_value('io_enabled',   WatchdogProps))))},
+                  {<<"wd_io_interval">>,                 leo_misc:get_value('io_interval',                 WatchdogProps)},
+                  {<<"wd_io_threshold_input_per_sec">>,  leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps)},
+                  {<<"wd_io_threshold_output_per_sec">>, leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps)}
                  ]}}
               ]});
 
@@ -246,6 +272,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     RingHashes  = leo_misc:get_value('ring_checksum', State, []),
     Statistics  = leo_misc:get_value('statistics',    State, []),
     MsgQueue    = leo_misc:get_value('storage', Statistics, []),
+    WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
     gen_json({[{<<"node_stat">>,
                 {[{<<"version">>,          leo_misc:any_to_binary(Version)},
@@ -265,7 +292,34 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
                   {<<"replication_msgs">>, leo_misc:get_value('num_of_replication_msg', MsgQueue, 0)},
                   {<<"sync_vnode_msgs">>,  leo_misc:get_value('num_of_sync_vnode_msg',  MsgQueue, 0)},
-                  {<<"rebalance_msgs">>,   leo_misc:get_value('num_of_rebalance_msg',   MsgQueue, 0)}
+                  {<<"rebalance_msgs">>,   leo_misc:get_value('num_of_rebalance_msg',   MsgQueue, 0)},
+                  %% watchdog
+                  {<<"wd_rex_interval">>,                leo_misc:get_value('rex_interval',                WatchdogProps)},
+                  {<<"wd_rex_threshold_mem_capacity">>,  leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps)},
+                  {<<"wd_cpu_enabled">>,                 list_to_binary(
+                                                           atom_to_list(
+                                                             leo_manager_formatter_commons:exchange_value(
+                                                               ?BOOL_TO_ENABLE,
+                                                               leo_misc:get_value('cpu_enabled', WatchdogProps))))},
+                  {<<"wd_cpu_interval">>,                leo_misc:get_value('cpu_interval',                WatchdogProps)},
+                  {<<"wd_cpu_threshold_cpu_load_avg">>,  leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps)},
+                  {<<"wd_cpu_threshold_cpu_util">>,      leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps)},
+                  {<<"wd_io_enabled">>,                  list_to_binary(
+                                                           atom_to_list(
+                                                             leo_manager_formatter_commons:exchange_value(
+                                                               ?BOOL_TO_ENABLE,
+                                                               leo_misc:get_value('io_enabled', WatchdogProps))))},
+                  {<<"wd_io_interval">>,                 leo_misc:get_value('io_interval',                 WatchdogProps)},
+                  {<<"wd_io_threshold_input_per_sec">>,  leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps)},
+                  {<<"wd_io_threshold_output_per_sec">>, leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps)},
+                  {<<"wd_disk_enabled">>,  list_to_binary(
+                                             atom_to_list(
+                                               leo_manager_formatter_commons:exchange_value(
+                                                 ?BOOL_TO_ENABLE,
+                                                 leo_misc:get_value('disk_enabled', WatchdogProps))))},
+                  {<<"wd_disk_interval">>,            leo_misc:get_value('disk_interval',            WatchdogProps)},
+                  {<<"wd_disk_threshold_disk_use">>,  leo_misc:get_value('disk_threshold_disk_use',  WatchdogProps)},
+                  {<<"wd_disk_threshold_disk_util">>, leo_misc:get_value('disk_threshold_disk_util', WatchdogProps)}
                  ]}}
               ]}).
 
