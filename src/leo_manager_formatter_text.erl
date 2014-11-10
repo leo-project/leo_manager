@@ -47,9 +47,6 @@
          authorized/0, user_id/0, password/0
         ]).
 
--define(BOOL_TO_ENABLE, [{true,  enabled},
-                         {false, disabled}]).
-
 %% @doc Format 'ok'
 %%
 -spec(ok() ->
@@ -312,7 +309,7 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
     io_lib:format(lists:append(["[config-1: basic]\r\n",
-                                "-------------------------------+------------------\r\n",
+                                "--------------------------------------------------\r\n",
                                 " basic\r\n",
                                 "-------------------------------+------------------\r\n",
                                 "                       version | ~s\r\n",
@@ -406,13 +403,15 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                    %% config-3:watchdog
                    leo_misc:get_value('rex_interval',                WatchdogProps),
                    leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps),
-                   exchange_value(?BOOL_TO_ENABLE,
-                                  leo_misc:get_value('cpu_enabled',  WatchdogProps)),
+                   leo_manager_formatter_commons:exchange_value(
+                     ?BOOL_TO_ENABLE,
+                     leo_misc:get_value('cpu_enabled',  WatchdogProps)),
                    leo_misc:get_value('cpu_interval',                WatchdogProps),
                    leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps),
                    leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps),
-                   exchange_value(?BOOL_TO_ENABLE,
-                                  leo_misc:get_value('io_enabled',   WatchdogProps)),
+                   leo_manager_formatter_commons:exchange_value(
+                     ?BOOL_TO_ENABLE,
+                     leo_misc:get_value('io_enabled',   WatchdogProps)),
                    leo_misc:get_value('io_interval',                 WatchdogProps),
                    leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps),
                    leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps),
@@ -504,18 +503,21 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    %% Watchdog
                    leo_misc:get_value('rex_interval',                WatchdogProps),
                    leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps),
-                   exchange_value(?BOOL_TO_ENABLE,
-                                  leo_misc:get_value('cpu_enabled',  WatchdogProps)),
+                   leo_manager_formatter_commons:exchange_value(
+                     ?BOOL_TO_ENABLE,
+                     leo_misc:get_value('cpu_enabled',  WatchdogProps)),
                    leo_misc:get_value('cpu_interval',                WatchdogProps),
                    leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps),
                    leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps),
-                   exchange_value(?BOOL_TO_ENABLE,
-                                  leo_misc:get_value('io_enabled',   WatchdogProps)),
+                   leo_manager_formatter_commons:exchange_value(
+                     ?BOOL_TO_ENABLE,
+                     leo_misc:get_value('io_enabled',   WatchdogProps)),
                    leo_misc:get_value('io_interval',                 WatchdogProps),
                    leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps),
                    leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps),
-                   exchange_value(?BOOL_TO_ENABLE,
-                                  leo_misc:get_value('disk_enabled', WatchdogProps)),
+                   leo_manager_formatter_commons:exchange_value(
+                     ?BOOL_TO_ENABLE,
+                     leo_misc:get_value('disk_enabled', WatchdogProps)),
                    leo_misc:get_value('disk_interval',               WatchdogProps),
                    leo_misc:get_value('disk_threshold_disk_use',     WatchdogProps),
                    leo_misc:get_value('disk_threshold_disk_util',    WatchdogProps),
@@ -537,15 +539,6 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    leo_misc:get_value('num_of_sync_vnode_msg',  CustomItems, 0),
                    leo_misc:get_value('num_of_rebalance_msg',   CustomItems, 0)
                   ]).
-
-
-%% @private
-exchange_value([], Ret) ->
-    Ret;
-exchange_value([{Ret, NewRet}|_], Ret) ->
-    NewRet;
-exchange_value([{_,_}|Rest], Ret) ->
-    exchange_value(Rest, Ret).
 
 
 %% @doc Status of compaction
