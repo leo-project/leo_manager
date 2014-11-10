@@ -539,7 +539,9 @@ register_fun_1(#registration{node = Node,
 register_fun_1(#registration{node = Node,
                              type = ?PERSISTENT_NODE} = RegistrationInfo) ->
     Ret = leo_manager_mnesia:get_storage_node_by_name(Node),
-    register_fun_2(Ret, RegistrationInfo).
+    register_fun_2(Ret, RegistrationInfo);
+register_fun_1(_) ->
+    ok.
 
 
 -spec(register_fun_2({ok, #node_state{}} | not_found| {error, any()}, #registration{}) ->
