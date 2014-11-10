@@ -441,13 +441,30 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     CustomItems   = leo_misc:get_value('storage',  Statistics, []),
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
+    ObjContainer_1 = lists:flatten(
+                       lists:foldl(
+                         fun(Items, SoFar) ->
+                                 Path = leo_misc:get_value('path', Items, []),
+                                 NumOfContainers = integer_to_list(leo_misc:get_value('num_of_containers', Items, 0)),
+                                 case SoFar of
+                                     [] ->
+                                         lists:append(["- path:[", Path, "]",
+                                                       ", # of containers:", NumOfContainers]);
+                                     _  ->
+                                         lists:append([SoFar, "\r\n",
+                                                       "                                | ",
+                                                       "- path:[", Path, "]",
+                                                       ", # of containers:", NumOfContainers])
+                                 end
+                         end, [], ObjContainer)),
+
     io_lib:format(lists:append(["[config-1: basic]\r\n",
                                 "--------------------------------+------------------\r\n",
                                 "                        version | ~s\r\n",
                                 "               number of vnodes | ~w\r\n",
                                 "                  group level-1 |   \r\n",
                                 "                  group level-2 | ~s\r\n",
-                                "            object container(s) | ~p\r\n",
+                                "            object container(s) | ~s\r\n",
                                 "                        log dir | ~s\r\n",
                                 "--------------------------------+------------------\r\n",
                                 "\r\n[config-2: watchdog]\r\n",
@@ -498,7 +515,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    Version,
                    NumOfVNodes,
                    GrpLevel2,
-                   ObjContainer,
+                   ObjContainer_1,
                    leo_misc:get_value('log', Directories, []),
                    %% Watchdog
                    leo_misc:get_value('rex_interval',                WatchdogProps),
