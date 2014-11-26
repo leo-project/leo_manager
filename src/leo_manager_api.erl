@@ -1519,12 +1519,12 @@ stats(Mode, Node) ->
 %% @private
 stats_1(summary, List) ->
     Ret = lists:foldl(
-            fun({ok, #storage_stats{file_path  = _ObjPath,
-                                    compaction_hist = Histories,
-                                    total_sizes  = TotalSize,
-                                    active_sizes = ActiveSize,
-                                    total_num  = Total,
-                                    active_num = Active}},
+            fun(#storage_stats{file_path  = _ObjPath,
+                               compaction_hist = Histories,
+                               total_sizes  = TotalSize,
+                               active_sizes = ActiveSize,
+                               total_num  = Total,
+                               active_num = Active},
                 {SumTotal, SumActive, SumTotalSize, SumActiveSize,
                  LatestStart, LatestEnd}) ->
                     {LatestStart_1, LatestEnd_1} =
