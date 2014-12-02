@@ -458,6 +458,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     ObjContainer  = leo_misc:get_value('avs',           State, []),
     CustomItems   = leo_misc:get_value('storage',  Statistics, []),
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
+    AutoCompactionEnabled = leo_misc:get_value('auto_compaction_enabled', State),
 
     ObjContainer_1 = lists:flatten(
                        lists:foldl(
@@ -508,6 +509,10 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 " disk - watch interval(sec)     | ~w\r\n",
                                 " disk - threshold disk use(%)   | ~w\r\n",
                                 " disk - threshold disk util(%)  | ~w\r\n",
+                                "--------------------------------+------------------\r\n",
+                                " Config-3: autonomic operation\r\n",
+                                "--------------------------------+------------------\r\n",
+                                "       auto-compaction enabled  | ~w\r\n",
                                 "--------------------------------+------------------\r\n",
                                 " Status-1: RING hash\r\n",
                                 "--------------------------------+------------------\r\n",
@@ -560,6 +565,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    leo_misc:get_value('disk_interval',               WatchdogProps),
                    leo_misc:get_value('disk_threshold_disk_use',     WatchdogProps),
                    leo_misc:get_value('disk_threshold_disk_util',    WatchdogProps),
+                   leo_manager_formatter_commons:exchange_value(
+                     ?BOOL_TO_ENABLE, AutoCompactionEnabled),
                    %% RING
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
