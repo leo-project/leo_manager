@@ -459,6 +459,9 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     CustomItems   = leo_misc:get_value('storage',  Statistics, []),
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
     AutoCompactionEnabled = leo_misc:get_value('auto_compaction_enabled', State),
+    AutoCompactionConf_1  = leo_misc:get_value('auto_compaction_warn_active_size_ratio', State),
+    AutoCompactionConf_2  = leo_misc:get_value('auto_compaction_threshold_active_size_ratio', State),
+
 
     ObjContainer_1 = lists:flatten(
                        lists:foldl(
@@ -511,8 +514,11 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 " disk - threshold disk util(%)  | ~w\r\n",
                                 "--------------------------------+------------------\r\n",
                                 " Config-3: autonomic operation\r\n",
-                                "--------------------------------+------------------\r\n",
-                                "       auto-compaction enabled  | ~w\r\n",
+                                "---------------------------------------------------\r\n",
+                                " auto-compaction:\r\n",
+                                "        auto-compaction enabled | ~w\r\n",
+                                "   warning active size ratio(%) | ~w\r\n",
+                                " threshold active size ratio(%) | ~w\r\n",
                                 "--------------------------------+------------------\r\n",
                                 " Status-1: RING hash\r\n",
                                 "--------------------------------+------------------\r\n",
@@ -567,6 +573,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    leo_misc:get_value('disk_threshold_disk_util',    WatchdogProps),
                    leo_manager_formatter_commons:exchange_value(
                      ?BOOL_TO_ENABLE, AutoCompactionEnabled),
+                   AutoCompactionConf_1,
+                   AutoCompactionConf_2,
                    %% RING
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
