@@ -1103,6 +1103,7 @@ login(CmdBody, Option) ->
             [UserId, Password] = Token,
             UserIdBin = list_to_binary(UserId),
             PasswordBin = list_to_binary(Password),
+
             case leo_s3_user:auth(UserIdBin, PasswordBin) of
                 {ok, #?S3_USER{} = User} ->
                     case leo_s3_user_credential:get_credential_by_user_id(UserIdBin) of
