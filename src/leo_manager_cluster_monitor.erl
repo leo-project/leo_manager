@@ -546,23 +546,26 @@ register_fun_1(_) ->
 
 -spec(register_fun_2({ok, #node_state{}} | not_found| {error, any()}, #registration{}) ->
              ok | {error, any()}).
-register_fun_2({ok, #node_state{state = ?STATE_RUNNING}}, #registration{node = Node,
-                                                                        type = ?PERSISTENT_NODE}) ->
+register_fun_2({ok, #node_state{state = State}},
+               #registration{node = Node,
+                             type = ?PERSISTENT_NODE}) when State == ?STATE_RUNNING;
+                                                            State == ?STATE_STOP ->
     %% synchronize member and ring
     case sync_ring_fun(Node) of
         ok ->
             ok;
-        _ ->
+        _Error ->
             timer:apply_after(
               ?APPLY_AFTER_TIME, ?MODULE, sync_ring, [Node])
     end,
-    ok;
+    update_node_state(start, State, Node);
 
-register_fun_2({ok, #node_state{state = ?STATE_DETACHED}}, #registration{node = Node,
-                                                                         type = ?PERSISTENT_NODE,
-                                                                         level_1 = L1,
-                                                                         level_2 = L2,
-                                                                         num_of_vnodes = NumOfVNodes}) ->
+register_fun_2({ok, #node_state{state = ?STATE_DETACHED}},
+               #registration{node = Node,
+                             type = ?PERSISTENT_NODE,
+                             level_1 = L1,
+                             level_2 = L2,
+                             num_of_vnodes = NumOfVNodes}) ->
     case leo_manager_api:attach(Node, L1, L2, NumOfVNodes) of
         ok ->
             update_node_state_1(?STATE_RESTARTED, Node);
@@ -571,8 +574,9 @@ register_fun_2({ok, #node_state{state = ?STATE_DETACHED}}, #registration{node = 
             {error, Cause}
     end;
 
-register_fun_2({ok, #node_state{state = State}}, #registration{node = Node,
-                                                               type = ?PERSISTENT_NODE}) ->
+register_fun_2({ok, #node_state{state = State}},
+               #registration{node = Node,
+                             type = ?PERSISTENT_NODE}) ->
     update_node_state(start, State, Node);
 
 register_fun_2(not_found = State, #registration{node = Node,
