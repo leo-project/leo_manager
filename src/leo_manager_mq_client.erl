@@ -50,7 +50,7 @@
             {ok, EnvMQBackendDB} ->
                 EnvMQBackendDB;
                         _ ->
-                'leveldb'
+                ?DEF_BACKEND_DB
         end).
 
 
