@@ -73,9 +73,6 @@ start(RefSup, Intervals, RootPath) ->
                end,
 
     %% launch queue-processes
-    NumOfBatchProcs = leo_misc:get_value(cns_num_of_batch_process_fail_rebalance,
-                                         Intervals, 1),
-
     MaxInterval  = leo_misc:get_value(cns_interval_fail_rebalance_max,
                                       Intervals, ?DEF_CONSUME_MAX_INTERVAL),
     MinInterval  = leo_misc:get_value(cns_interval_fail_rebalance_min,
