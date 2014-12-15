@@ -45,6 +45,13 @@
             {ok, NumOfMQProcs} -> NumOfMQProcs;
             _ -> 3
         end).
+-define(env_mq_backend_db(),
+        case application:get_env(leo_storage, mq_backend_db) of
+            {ok, EnvMQBackendDB} ->
+                EnvMQBackendDB;
+                        _ ->
+                'leveldb'
+        end).
 
 
 %%--------------------------------------------------------------------
@@ -89,6 +96,7 @@ start(RefSup, Intervals, RootPath) ->
                    [{?MQ_PROP_MOD, ?MODULE},
                     {?MQ_PROP_FUN, ?MQ_SUBSCRIBE_FUN},
                     {?MQ_PROP_ROOT_PATH, RootPath_1 ++ ?MQ_MSG_PATH_REBALANCE},
+                    {?MQ_PROP_DB_NAME,   ?env_mq_backend_db()},
                     {?MQ_PROP_DB_PROCS,  ?env_num_of_mq_procs()},
                     {?MQ_PROP_INTERVAL_MAX,    MaxInterval},
                     {?MQ_PROP_INTERVAL_MIN,    MinInterval},
