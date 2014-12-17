@@ -203,32 +203,31 @@ system_info_and_nodes_stat(Props) ->
     FormattedSystemConf =
         io_lib:format(lists:append([
                                     " [System Confiuration]\r\n",
-                                    "-------------------------------+----------\r\n",
-                                    " Item                          | Value    \r\n",
-                                    "-------------------------------+----------\r\n",
+                                    "---------------------------------+----------\r\n",
+                                    " Item                            | Value    \r\n",
+                                    "---------------------------------+----------\r\n",
                                     " Basic/Consistency level\r\n",
-                                    "-------------------------------+----------\r\n",
-                                    "                System version | ~s\r\n",
-                                    "                    Cluster Id | ~s\r\n",
-                                    "                         DC Id | ~s\r\n",
-                                    "                Total replicas | ~w\r\n",
-                                    "           # of successes of R | ~w\r\n",
-                                    "           # of successes of W | ~w\r\n",
-                                    "           # of successes of D | ~w\r\n",
-                                    " # of DC-awareness replicas    | ~w\r\n",
-                                    "                     ring size | 2^~w\r\n",
-                                    "-------------------------------+----------\r\n",
+                                    "---------------------------------+----------\r\n",
+                                    "                  system version | ~s\r\n",
+                                    "                      cluster Id | ~s\r\n",
+                                    "                           DC Id | ~s\r\n",
+                                    "                  Total replicas | ~w\r\n",
+                                    "        number of successes of R | ~w\r\n",
+                                    "        number of successes of W | ~w\r\n",
+                                    "        number of successes of D | ~w\r\n",
+                                    " number of DC-awareness replicas | ~w\r\n",
+                                    "                       ring size | 2^~w\r\n",
+                                    "---------------------------------+----------\r\n",
                                     " Multi DC replication settings\r\n",
-                                    "-------------------------------+----------\r\n",
-                                    "         max # of joinable DCs | ~w\r\n",
-                                    "            # of replicas a DC | ~w\r\n",
-                                    "-------------------------------+----------\r\n",
+                                    "---------------------------------+----------\r\n",
+                                    "      max number of joinable DCs | ~w\r\n",
+                                    "         number of replicas a DC | ~w\r\n",
+                                    "---------------------------------+----------\r\n",
                                     " Manager RING hash\r\n",
-                                    "-------------------------------+----------\r\n",
-                                    "             Current ring hash | ~s\r\n",
-                                    "            Previous ring hash | ~s\r\n",
-                                    "-------------------------------+----------\r\n\r\n",
-                                    " [State of Node(s)]\r\n"
+                                    "---------------------------------+----------\r\n",
+                                    "               current ring-hash | ~s\r\n",
+                                    "              previous ring-hash | ~s\r\n",
+                                    "---------------------------------+----------\r\n\r\n"
                                    ]),
                       [Version,
                        SystemConf#?SYSTEM_CONF.cluster_id,
@@ -241,8 +240,14 @@ system_info_and_nodes_stat(Props) ->
                        SystemConf#?SYSTEM_CONF.bit_of_ring,
                        SystemConf#?SYSTEM_CONF.max_mdc_targets,
                        SystemConf#?SYSTEM_CONF.num_of_dc_replicas,
-                       leo_hex:integer_to_hex(RH0, 8),
-                       leo_hex:integer_to_hex(RH1, 8)
+                       case (RH0 < 1) of
+                           true -> "";
+                           false -> leo_hex:integer_to_hex(RH0, 8)
+                       end,
+                       case (RH1 < 1) of
+                           true -> "";
+                           false -> leo_hex:integer_to_hex(RH1, 8)
+                       end
                       ]),
     system_conf_with_node_stat(FormattedSystemConf, Nodes).
 
@@ -251,6 +256,8 @@ system_info_and_nodes_stat(Props) ->
 %%
 -spec(system_conf_with_node_stat(string(), list()) ->
              string()).
+system_conf_with_node_stat(FormattedSystemConf, []) ->
+    FormattedSystemConf;    
 system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
     Col1Len = lists:foldl(fun({_,N,_,_,_,_}, Acc) ->
                                   Len = length(N),
@@ -303,6 +310,7 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
                    List ++ [Ret]
            end,
     lists:foldl(Fun3, [FormattedSystemConf,
+                       " [State of Node(s)]\r\n",
                        Header1,Header2, Header1], Nodes) ++ Header1 ++ ?CRLF.
 
 
@@ -338,12 +346,12 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                                 "-------------------------------+------------------\r\n",
                                 "                listening port | ~w\r\n",
                                 "            listening ssl port | ~w\r\n",
-                                "                # of_acceptors | ~w\r\n",
+                                "           number of_acceptors | ~w\r\n",
                                 "-------------------------------+------------------\r\n",
                                 " [cache-related]\r\n",
                                 "-------------------------------+------------------\r\n",
                                 "       http cache [true|false] | ~w\r\n",
-                                "            # of cache_workers | ~w\r\n",
+                                "       number of cache_workers | ~w\r\n",
                                 "                  cache expire | ~w\r\n",
                                 "         cache max content len | ~w\r\n",
                                 "            ram cache capacity | ~w\r\n",
@@ -354,7 +362,7 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                                 "-------------------------------+------------------\r\n",
                                 " [large object related]\r\n",
                                 "-------------------------------+------------------\r\n",
-                                "           max # of chunk objs | ~w\r\n",
+                                "      max number of chunk objs | ~w\r\n",
                                 "           chunk object length | ~w\r\n",
                                 "             max object length | ~w\r\n",
                                 "     reading  chunk obj length | ~w\r\n",
@@ -578,11 +586,11 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 "                          kernel_poll | ~w\r\n",
                                 "                     thread_pool_size | ~w\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
-                                " Status-3: # of msgs\r\n",
+                                " Status-3: Number of messages in MQ\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
-                                "                     replication msgs | ~w\r\n",
-                                "                      vnode-sync msgs | ~w\r\n",
-                                "                       rebalance msgs | ~w\r\n",
+                                "                 replication messages | ~w\r\n",
+                                "                  vnode-sync messages | ~w\r\n",
+                                "                   rebalance messages | ~w\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 "\r\n"]),
                   [
@@ -769,17 +777,22 @@ du(_, _) ->
 mq_stats([]) ->
     [];
 mq_stats(Stats) ->
-    Header = "              id                |    state    | num of msgs |            description            \r\n"
-        ++   "--------------------------------+-------------+-------------|-----------------------------------\r\n",
+    Header = "              id                |    state    | number of msgs | batch of msgs  |    interval    |            description            \r\n"
+        ++   "--------------------------------+-------------+----------------|----------------|----------------|-----------------------------------\r\n",
     Output = lists:foldl(
                fun(#mq_state{id = Id,
-                             state = State,
-                             num_of_messages = NumOfMsgs,
+                             state = ConsumerStats,
                              desc = Desc}, Acc) ->
+                       State       = leo_misc:get_value(?MQ_CNS_PROP_STATUS,        ConsumerStats),
+                       NumOfMsgs   = leo_misc:get_value(?MQ_CNS_PROP_NUM_OF_MSGS,   ConsumerStats, 0),
+                       BatchOfMsgs = leo_misc:get_value(?MQ_CNS_PROP_BATCH_OF_MSGS, ConsumerStats, 0),
+                       Interval    = leo_misc:get_value(?MQ_CNS_PROP_INTERVAL,      ConsumerStats, 0),
                        lists:append([Acc,
-                                     string:left(" " ++ atom_to_list(Id),    31), ?SEPARATOR,
-                                     string:centre(atom_to_list(State),      11), ?SEPARATOR,
-                                     string:left(integer_to_list(NumOfMsgs), 11), ?SEPARATOR,
+                                     string:left(" " ++ atom_to_list(Id),      31), ?SEPARATOR,
+                                     string:centre(atom_to_list(State),        11), ?SEPARATOR,
+                                     string:left(integer_to_list(NumOfMsgs),   14), ?SEPARATOR,
+                                     string:left(integer_to_list(BatchOfMsgs), 14), ?SEPARATOR,
+                                     string:left(integer_to_list(Interval),    14), ?SEPARATOR,
                                      string:left(Desc, 34), ?CRLF])
                end, Header, Stats),
     Output.
