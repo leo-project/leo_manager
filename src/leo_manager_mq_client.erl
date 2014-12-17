@@ -45,6 +45,13 @@
             {ok, NumOfMQProcs} -> NumOfMQProcs;
             _ -> 3
         end).
+-define(env_mq_backend_db(),
+        case application:get_env(leo_storage, mq_backend_db) of
+            {ok, EnvMQBackendDB} ->
+                EnvMQBackendDB;
+                        _ ->
+                ?DEF_BACKEND_DB
+        end).
 
 
 %%--------------------------------------------------------------------
@@ -73,12 +80,14 @@ start(RefSup, Intervals, RootPath) ->
                end,
 
     %% launch queue-processes
-    NumOfBatchProcs = leo_misc:get_value(cns_num_of_batch_process_fail_rebalance,
-                                         Intervals, 1),
-    MaxInterval = leo_misc:get_value(cns_interval_max_fail_rebalance,
-                                     Intervals, ?DEF_MQ_PROP_MAX_INTERVAL),
-    MinInterval = leo_misc:get_value(cns_interval_min_fail_rebalance,
-                                     Intervals, ?DEF_MQ_PROP_MIN_INTERVAL),
+    MaxInterval  = leo_misc:get_value(cns_interval_fail_rebalance_max,
+                                      Intervals, ?DEF_CONSUME_MAX_INTERVAL),
+    MinInterval  = leo_misc:get_value(cns_interval_fail_rebalance_min,
+                                      Intervals, ?DEF_CONSUME_MIN_INTERVAL),
+    RegInterval  = leo_misc:get_value(cns_interval_fail_rebalance_regular,
+                                      Intervals, ?DEF_CONSUME_REG_INTERVAL),
+    StepInterval = leo_misc:get_value(cns_interval_fail_rebalance_step,
+                                      Intervals, ?DEF_CONSUME_STEP_INTERVAL),
     RootPath_1 = case (string:len(RootPath) == string:rstr(RootPath, ?SLASH)) of
                      true  -> RootPath;
                      false -> RootPath ++ ?SLASH
@@ -87,10 +96,16 @@ start(RefSup, Intervals, RootPath) ->
                    [{?MQ_PROP_MOD, ?MODULE},
                     {?MQ_PROP_FUN, ?MQ_SUBSCRIBE_FUN},
                     {?MQ_PROP_ROOT_PATH, RootPath_1 ++ ?MQ_MSG_PATH_REBALANCE},
+                    {?MQ_PROP_DB_NAME,   ?env_mq_backend_db()},
                     {?MQ_PROP_DB_PROCS,  ?env_num_of_mq_procs()},
-                    {?MQ_PROP_NUM_OF_BATCH_PROC, NumOfBatchProcs},
-                    {?MQ_PROP_MAX_INTERVAL, MaxInterval},
-                    {?MQ_PROP_MIN_INTERVAL, MinInterval}
+                    {?MQ_PROP_INTERVAL_MAX,    MaxInterval},
+                    {?MQ_PROP_INTERVAL_MIN,    MinInterval},
+                    {?MQ_PROP_INTERVAL_REG,    RegInterval},
+                    {?MQ_PROP_INTERVAL_STEP,   StepInterval},
+                    {?MQ_PROP_BATCH_MSGS_MAX,  ?DEF_CONSUME_MAX_BATCH_MSGS},
+                    {?MQ_PROP_BATCH_MSGS_MIN,  ?DEF_CONSUME_MIN_BATCH_MSGS},
+                    {?MQ_PROP_BATCH_MSGS_REG,  ?DEF_CONSUME_REG_BATCH_MSGS},
+                    {?MQ_PROP_BATCH_MSGS_STEP, ?DEF_CONSUME_STEP_BATCH_MSGS}
                    ]),
     ok.
 

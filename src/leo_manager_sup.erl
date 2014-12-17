@@ -96,10 +96,6 @@ start_link() ->
             ok = leo_logger_client_message:new(
                    LogDir, LogLevel, log_file_appender()),
 
-            %% Launch Statistics
-            ok = leo_statistics_api:start_link(leo_manager),
-            ok = leo_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_10S),
-
             %% Launch MQ
             ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),
 
@@ -196,9 +192,6 @@ create_mnesia_tables(Mode, ReplicaNodes) ->
                                       create_mnesia_tables, [Mode, ReplicaNodes])
             end
     end.
-
-
-
 
 
 %% @spec () -> ok |
@@ -322,6 +315,10 @@ create_mnesia_tables_2(Mode, Nodes) ->
                 _ ->
                     void
             end,
+
+            %% Launch Statistics
+            ok = leo_statistics_api:start_link(leo_manager),
+            ok = leo_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_10S),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};
@@ -383,8 +380,6 @@ create_s3api_related_tables(true, Nodes) ->
     leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_1),
     leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2),
     ok.
-
-
 
 
 %% @doc Get log-file appender from env
