@@ -375,12 +375,12 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
               ]});
 
 du(detail, StatsList) when is_list(StatsList) ->
-    JSON = lists:map(fun({ok, #storage_stats{file_path = FilePath,
-                                             compaction_hist = Histories,
-                                             total_sizes  = TotalSize,
-                                             active_sizes = ActiveSize,
-                                             total_num    = Total,
-                                             active_num   = Active}}) ->
+    JSON = lists:map(fun(#storage_stats{file_path = FilePath,
+                                        compaction_hist = Histories,
+                                        total_sizes  = TotalSize,
+                                        active_sizes = ActiveSize,
+                                        total_num    = Total,
+                                        active_num   = Active}) ->
                              {LatestStart_1, LatestEnd_1, Duration_1, CompactionRet_1} =
                                  case length(Histories) of
                                      0 ->
