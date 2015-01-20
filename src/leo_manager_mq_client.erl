@@ -113,7 +113,7 @@ start(RefSup, Intervals, RootPath) ->
 %% @doc Input a message into the queue.
 %%
 -spec(publish(atom(), atom(), list()) ->
-             ok).
+             ok | {error, any()}).
 publish(?QUEUE_ID_FAIL_REBALANCE = Id, Node, RebalanceInfo) ->
     KeyBin     = term_to_binary(Node),
     MessageBin = term_to_binary(

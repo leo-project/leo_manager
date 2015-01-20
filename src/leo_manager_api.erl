@@ -956,18 +956,25 @@ rebalance_4_loop(Socket, NumOfNodes, TotalMembers) ->
                     OtherMsg ->
                         %% Enqueue a message (fail distribution of rebalance-info)
                         {Ret, Node, RebalanceList} = OtherMsg,
-                        ok = leo_manager_mq_client:publish(
-                               ?QUEUE_ID_FAIL_REBALANCE, Node, RebalanceList),
-
-                        %% Judge the result of rebalance
-                        case Ret of
-                            pending ->
-                                {Node, <<"PENDING">>};
-                            {error, Cause} ->
-                                ?error("rebalance_4_loop/3", "node:~w, cause:~p", [Node, Cause]),
+                        QId = ?QUEUE_ID_FAIL_REBALANCE,
+                        case leo_manager_mq_client:publish(QId, Node, RebalanceList) of
+                            %% Judge the result of rebalance
+                            ok ->
+                                case Ret of
+                                    pending ->
+                                        {Node, <<"PENDING">>};
+                                    {error, Cause} ->
+                                        ?warn("rebalance_4_loop/3",
+                                              "node:~w, cause:~p", [Node, Cause]),
+                                        {Node, <<"ERROR">>}
+                                end;
+                            {error, Reason} ->
+                                ?warn("rebalance_4_loop/3",
+                                      "qid:~w, node:~w, cause:~p", [QId, Node, Reason]),
                                 {Node, <<"ERROR">>}
                         end
                 end,
+
             %% output a message
             NewNumOfNodes = NumOfNodes + 1,
             Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),

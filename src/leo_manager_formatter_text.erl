@@ -257,7 +257,7 @@ system_info_and_nodes_stat(Props) ->
 -spec(system_conf_with_node_stat(string(), list()) ->
              string()).
 system_conf_with_node_stat(FormattedSystemConf, []) ->
-    FormattedSystemConf;    
+    FormattedSystemConf;
 system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
     Col1Len = lists:foldl(fun({_,N,_,_,_,_}, Acc) ->
                                   Len = length(N),
@@ -471,26 +471,28 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
     MQConf_1 = leo_misc:get_value('mq_num_of_procs', State, []),
-    MQConf_2 = leo_misc:get_value('mq_num_of_batch_process_step', State, []),
-    MQConf_3 = leo_misc:get_value('mq_num_of_batch_process_reg',  State, []),
-    MQConf_4 = leo_misc:get_value('mq_num_of_batch_process_max',  State, []),
-    MQConf_5 = leo_misc:get_value('mq_num_of_batch_process_min',  State, []),
-    MQConf_6 = leo_misc:get_value('mq_interval_between_batch_procs_step', State, []),
-    MQConf_7 = leo_misc:get_value('mq_interval_between_batch_procs_reg',  State, []),
-    MQConf_8 = leo_misc:get_value('mq_interval_between_batch_procs_max',  State, []),
-    MQConf_9 = leo_misc:get_value('mq_interval_between_batch_procs_min',  State, []),
+    MQConf_2 = leo_misc:get_value('mq_num_of_batch_process_max',  State, []),
+    MQConf_3 = leo_misc:get_value('mq_num_of_batch_process_min',  State, []),
+    MQConf_4 = leo_misc:get_value('mq_num_of_batch_process_reg',  State, []),
+    MQConf_5 = leo_misc:get_value('mq_num_of_batch_process_step', State, []),
+    MQConf_6 = leo_misc:get_value('mq_interval_between_batch_procs_max',  State, []),
+    MQConf_7 = leo_misc:get_value('mq_interval_between_batch_procs_min',  State, []),
+    MQConf_8 = leo_misc:get_value('mq_interval_between_batch_procs_reg',  State, []),
+    MQConf_9 = leo_misc:get_value('mq_interval_between_batch_procs_step', State, []),
 
     AutoCompactionEnabled = leo_misc:get_value('auto_compaction_enabled', State),
     AutoCompactionConf_1  = leo_misc:get_value('auto_compaction_warn_active_size_ratio', State),
     AutoCompactionConf_2  = leo_misc:get_value('auto_compaction_threshold_active_size_ratio', State),
     AutoCompactionConf_3  = leo_misc:get_value('auto_compaction_parallel_procs', State),
+    AutoCompactionConf_4  = leo_misc:get_value('auto_compaction_interval', State),
+
     CompactionConf_1 = leo_misc:get_value('limit_num_of_compaction_procs',      State),
-    CompactionConf_2 = leo_misc:get_value('compaction_num_of_batch_procs_min',  State),
-    CompactionConf_3 = leo_misc:get_value('compaction_num_of_batch_procs_max',  State),
+    CompactionConf_2 = leo_misc:get_value('compaction_num_of_batch_procs_max',  State),
+    CompactionConf_3 = leo_misc:get_value('compaction_num_of_batch_procs_min',  State),
     CompactionConf_4 = leo_misc:get_value('compaction_num_of_batch_procs_reg',  State),
     CompactionConf_5 = leo_misc:get_value('compaction_num_of_batch_procs_step', State),
-    CompactionConf_6 = leo_misc:get_value('compaction_interval_between_batch_procs_min',  State),
-    CompactionConf_7 = leo_misc:get_value('compaction_interval_between_batch_procs_max',  State),
+    CompactionConf_6 = leo_misc:get_value('compaction_interval_between_batch_procs_max',  State),
+    CompactionConf_7 = leo_misc:get_value('compaction_interval_between_batch_procs_min',  State),
     CompactionConf_8 = leo_misc:get_value('compaction_interval_between_batch_procs_reg',  State),
     CompactionConf_9 = leo_misc:get_value('compaction_interval_between_batch_procs_step', State),
 
@@ -563,6 +565,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 "        warning active size ratio (%) | ~w\r\n",
                                 "      threshold active size ratio (%) | ~w\r\n",
                                 "             number of parallel procs | ~w\r\n",
+                                "                interval of execution | ~w\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 " Config-5: data-compaction\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
@@ -639,6 +642,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    AutoCompactionConf_1,
                    AutoCompactionConf_2,
                    AutoCompactionConf_3,
+                   AutoCompactionConf_4,
                    %% Compaction
                    CompactionConf_1,
                    CompactionConf_2,
@@ -716,12 +720,12 @@ du(summary, {TotalNum, ActiveNum, TotalSize, ActiveSize, LastStart, LastEnd}) ->
                    Fun(LastStart), Fun(LastEnd)]);
 
 du(detail, StatsList) when is_list(StatsList) ->
-    Fun = fun({ok, #storage_stats{file_path = FilePath,
-                                  compaction_hist = Histories,
-                                  total_sizes  = TotalSize,
-                                  active_sizes = ActiveSize,
-                                  total_num    = Total,
-                                  active_num   = Active}}, Acc) ->
+    Fun = fun(#storage_stats{file_path = FilePath,
+                             compaction_hist = Histories,
+                             total_sizes  = TotalSize,
+                             active_sizes = ActiveSize,
+                             total_num    = Total,
+                             active_num   = Active}, Acc) ->
                   {Start_1, End_1, Duration_1, CompactionRet_1} =
                       case length(Histories) of
                           0 ->
