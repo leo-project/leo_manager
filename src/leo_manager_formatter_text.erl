@@ -484,6 +484,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     AutoCompactionConf_1  = leo_misc:get_value('auto_compaction_warn_active_size_ratio', State),
     AutoCompactionConf_2  = leo_misc:get_value('auto_compaction_threshold_active_size_ratio', State),
     AutoCompactionConf_3  = leo_misc:get_value('auto_compaction_parallel_procs', State),
+    AutoCompactionConf_4  = leo_misc:get_value('auto_compaction_interval', State),
 
     CompactionConf_1 = leo_misc:get_value('limit_num_of_compaction_procs',      State),
     CompactionConf_2 = leo_misc:get_value('compaction_num_of_batch_procs_max',  State),
@@ -564,6 +565,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 "        warning active size ratio (%) | ~w\r\n",
                                 "      threshold active size ratio (%) | ~w\r\n",
                                 "             number of parallel procs | ~w\r\n",
+                                "                interval of execution | ~w\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 " Config-5: data-compaction\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
@@ -640,6 +642,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    AutoCompactionConf_1,
                    AutoCompactionConf_2,
                    AutoCompactionConf_3,
+                   AutoCompactionConf_4,
                    %% Compaction
                    CompactionConf_1,
                    CompactionConf_2,

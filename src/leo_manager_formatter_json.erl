@@ -319,7 +319,36 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                                  leo_misc:get_value('disk_enabled', WatchdogProps))))},
                   {<<"wd_disk_interval">>,            leo_misc:get_value('disk_interval',            WatchdogProps)},
                   {<<"wd_disk_threshold_disk_use">>,  leo_misc:get_value('disk_threshold_disk_use',  WatchdogProps)},
-                  {<<"wd_disk_threshold_disk_util">>, leo_misc:get_value('disk_threshold_disk_util', WatchdogProps)}
+                  {<<"wd_disk_threshold_disk_util">>, leo_misc:get_value('disk_threshold_disk_util', WatchdogProps)},
+                  %% mq
+                  {<<"mq_num_of_procs">>,              leo_misc:get_value('mq_num_of_procs', State)},
+                  {<<"mq_num_of_batch_process_max">>,  leo_misc:get_value('mq_num_of_batch_process_max',  State)},
+                  {<<"mq_num_of_batch_process_min">>,  leo_misc:get_value('mq_num_of_batch_process_min',  State)},
+                  {<<"mq_num_of_batch_process_reg">>,  leo_misc:get_value('mq_num_of_batch_process_reg',  State)},
+                  {<<"mq_num_of_batch_process_step">>, leo_misc:get_value('mq_num_of_batch_process_step', State)},
+                  {<<"mq_interval_between_batch_procs_max">>,  leo_misc:get_value('mq_interval_between_batch_procs_max',  State)},
+                  {<<"mq_interval_between_batch_procs_min">>,  leo_misc:get_value('mq_interval_between_batch_procs_min',  State)},
+                  {<<"mq_interval_between_batch_procs_reg">>,  leo_misc:get_value('mq_interval_between_batch_procs_reg',  State)},
+                  {<<"mq_interval_between_batch_procs_step">>, leo_misc:get_value('mq_interval_between_batch_procs_step', State)},
+                  %% compaction
+                  {<<"auto_compaction_enabled">>, list_to_binary(
+                                                    atom_to_list(
+                                                      leo_manager_formatter_commons:exchange_value(
+                                                        ?BOOL_TO_ENABLE,
+                                                        leo_misc:get_value('auto_compaction_enabled', State))))},
+                  {<<"auto_compaction_warn_active_size_ratio">>,       leo_misc:get_value('auto_compaction_warn_active_size_ratio', State)},
+                  {<<"auto_compaction_threshold_active_size_ratio">>,  leo_misc:get_value('auto_compaction_threshold_active_size_ratio', State)},
+                  {<<"auto_compaction_parallel_procs">>,               leo_misc:get_value('auto_compaction_parallel_procs', State)},
+                  {<<"auto_compaction_interval">>,                     leo_misc:get_value('auto_compaction_interval',       State)},
+                  {<<"limit_num_of_compaction_procs">>,                leo_misc:get_value('limit_num_of_compaction_procs',  State)},
+                  {<<"compaction_num_of_batch_procs_max">>,            leo_misc:get_value('compaction_num_of_batch_procs_max',  State)},
+                  {<<"compaction_num_of_batch_procs_min">>,            leo_misc:get_value('compaction_num_of_batch_procs_min',  State)},
+                  {<<"compaction_num_of_batch_procs_reg">>,            leo_misc:get_value('compaction_num_of_batch_procs_reg',  State)},
+                  {<<"compaction_num_of_batch_procs_step">>,           leo_misc:get_value('compaction_num_of_batch_procs_step', State)},
+                  {<<"compaction_interval_between_batch_procs_max">>,  leo_misc:get_value('compaction_interval_between_batch_procs_max',  State)},
+                  {<<"compaction_interval_between_batch_procs_min">>,  leo_misc:get_value('compaction_interval_between_batch_procs_min',  State)},
+                  {<<"compaction_interval_between_batch_procs_reg">>,  leo_misc:get_value('compaction_interval_between_batch_procs_reg',  State)},
+                  {<<"compaction_interval_between_batch_procs_step">>, leo_misc:get_value('compaction_interval_between_batch_procs_step', State)}
                  ]}}
               ]}).
 
