@@ -1601,7 +1601,8 @@ mq_resume(Node, MQId) ->
 %%
 synchronize(Type) when Type == ?CHECKSUM_RING;
                        Type == ?CHECKSUM_MEMBER;
-                       Type == ?CHECKSUM_WORKER ->
+                       Type == ?CHECKSUM_WORKER;
+                       Type == ?CHECKSUM_SYS_CONF ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, MembersCur} ->
             case leo_redundant_manager_api:get_members(?VER_PREV) of
@@ -1654,7 +1655,8 @@ synchronize(_) ->
 %% @doc Synchronize cluster-members for local-cluster
 synchronize(Type, Node, MembersList) when Type == ?CHECKSUM_RING;
                                           Type == ?CHECKSUM_MEMBER;
-                                          Type == ?CHECKSUM_WORKER ->
+                                          Type == ?CHECKSUM_WORKER;
+                                          Type == ?CHECKSUM_SYS_CONF ->
     {ok, OrgChksum} = leo_redundant_manager_api:checksum(Type),
 
     case rpc:call(Node, leo_redundant_manager_api,
