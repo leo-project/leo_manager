@@ -37,6 +37,8 @@
 -include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
+-compile(nowarn_deprecated_type).
+
 -define(API_STORAGE, leo_storage_api).
 -define(API_GATEWAY, leo_gateway_api).
 
@@ -816,8 +818,7 @@ rebalance_1(true, Nodes) ->
                 {true, _} ->
                     case leo_redundant_manager_api:rebalance() of
                         {ok, List} ->
-                            TblPid = leo_hashtable:new(),
-                            rebalance_2(TblPid, List);
+                            rebalance_2(dict:new(), List);
                         {error, Cause} ->
                             ?error("rebalance_1/2", "cause:~p", [Cause]),
                             {error, ?ERROR_FAIL_REBALANCE}
@@ -831,28 +832,29 @@ rebalance_1(true, Nodes) ->
     end.
 
 %% @private
--spec(rebalance_2(pid(), [{integer(), atom()}]) ->
+-spec(rebalance_2(dict(), [{integer(), atom()}]) ->
              {ok, [{integer(), atom()}]} | {erorr, any()}).
-rebalance_2(TblPid, []) ->
-    Ret = case leo_hashtable:all(TblPid) of
-              []   -> {error, no_entry};
-              List -> {ok, List}
+rebalance_2(TblDict, []) ->
+    Ret = case dict:to_list(TblDict) of
+              [] ->
+                  {error, no_entry};
+              List ->
+                  {ok, List}
           end,
-    catch leo_hashtable:destroy(TblPid),
     Ret;
-rebalance_2(TblPid, [Item|T]) ->
+rebalance_2(TblDict, [Item|T]) ->
     %% Item: [{vnode_id, VNodeId0}, {src, SrcNode}, {dest, DestNode}]
     VNodeId  = leo_misc:get_value('vnode_id', Item),
     SrcNode  = leo_misc:get_value('src',      Item),
     DestNode = leo_misc:get_value('dest',     Item),
-
-    case SrcNode of
-        {error, no_entry} ->
-            void;
-        _ ->
-            leo_hashtable:append(TblPid, SrcNode, {VNodeId, DestNode})
-    end,
-    rebalance_2(TblPid, T).
+    TblDict_1 =
+        case SrcNode of
+            {error, no_entry} ->
+                TblDict;
+            _ ->
+                dict:append(SrcNode, {VNodeId, DestNode}, TblDict)
+        end,
+    rebalance_2(TblDict_1, T).
 
 %% @private
 rebalance_3([], _RebalanceProcInfo) ->
