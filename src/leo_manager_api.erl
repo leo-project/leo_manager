@@ -1800,7 +1800,6 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
               false ->
                   not_match
           end,
-
     case Ret of
         not_match ->
             {ok, LocalChecksum} =
