@@ -37,8 +37,9 @@
          terminate/2, code_change/3]).
 
 -record(sync_state, {timeout = ?DEF_RING_SYNC_INTERVAL :: non_neg_integer()}).
--define(SVR_STORAGE, 'storage').
--define(SVR_GATEWAY, 'gateway').
+-define(SVR_STORAGE,   'storage').
+-define(SVR_GATEWAY,   'gateway').
+-define(SVR_MGR_SLAVE, 'manager_slave').
 
 
 %%--------------------------------------------------------------------
@@ -78,6 +79,17 @@ handle_cast(_Msg, #sync_state{timeout = Timeout} = State) ->
 handle_info(timeout, State=#sync_state{timeout = Timeout}) ->
     ok = sync_ring(leo_manager_mnesia:get_storage_nodes_all(), ?SVR_STORAGE),
     ok = sync_ring(leo_manager_mnesia:get_gateway_nodes_all(), ?SVR_GATEWAY),
+    case ?env_mode_of_manager() of
+        'master' ->
+            case ?env_partner_of_manager_node() of
+                [] ->
+                    ok;
+                [SlaveNode|_] ->
+                    sync_ring(SlaveNode)
+            end;
+        _ ->
+            ok
+    end,
     {noreply, State, Timeout}.
 
 terminate(_Reason, _State) ->
@@ -90,12 +102,28 @@ code_change(_OldVsn, State, _Extra) ->
 %%-----------------------------------------------------------------------
 %% Internal Functions
 %%-----------------------------------------------------------------------
+%% @doc Synchronize the ring with the manager-slave node
+%% @private
+sync_ring(SlaveNode) ->
+    RingChecksums = get_local_checksum(),
+    sync_ring_1([{SlaveNode,-1,-1}], RingChecksums, ?SVR_MGR_SLAVE).
+
+%% @doc Synchronize the ring with gateway/storage nodes
 %% @private
 sync_ring({ok, Nodes}, ServerType) ->
     Nodes_1 = [{N, C1, C2} || #node_state{node  = N,
                                           state = ?STATE_RUNNING,
                                           ring_hash_new = C1,
                                           ring_hash_old = C2} <- Nodes],
+    RingChecksums = get_local_checksum(),
+    sync_ring_1(Nodes_1, RingChecksums, ServerType);
+sync_ring(_,_) ->
+    ok.
+
+
+%% @doc Retrieve the local ring's checksum
+%% @private
+get_local_checksum() ->
     {ok, {OrgC1, OrgC2}} = leo_redundant_manager_api:checksum(?CHECKSUM_RING),
     OrgC1_1 = case (OrgC1 > 0) of
                   true  -> leo_hex:integer_to_hex(OrgC1, 8);
@@ -105,9 +133,8 @@ sync_ring({ok, Nodes}, ServerType) ->
                   true  -> leo_hex:integer_to_hex(OrgC2, 8);
                   false -> OrgC2
               end,
-    sync_ring_1(Nodes_1, {OrgC1_1, OrgC2_1}, ServerType);
-sync_ring(_,_) ->
-    ok.
+    {OrgC1_1, OrgC2_1}.
+
 
 %% @private
 sync_ring_1([],_,_) ->
@@ -142,6 +169,8 @@ sync_ring_1([{Node,_C1,_C2}|Rest], {OrgC1, OrgC2} = Chksum, ServerType) ->
                         _ ->
                             void
                     end;
+                true ->
+                    ok;
                 false ->
                     catch leo_manager_api:recover(?RECOVER_RING, Node, true)
             end;

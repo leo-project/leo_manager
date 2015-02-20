@@ -37,6 +37,8 @@
 -include_lib("leo_s3_libs/include/leo_s3_bucket.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
+-compile(nowarn_deprecated_type).
+
 -define(API_STORAGE, leo_storage_api).
 -define(API_GATEWAY, leo_gateway_api).
 
@@ -641,25 +643,39 @@ update_manager_nodes(_Managers,_Error) ->
 start(Socket) ->
     %% Create current and previous RING(routing-table)
     ok = output_message_to_console(Socket, <<"Generating RING...">>),
+    case update_running_storage_status() of
+        {ok, UpdatedNodes} ->
+            case leo_redundant_manager_api:create() of
+                {ok, Members, _Chksums} ->
+                    ok = output_message_to_console(Socket, <<"Generated RING">>),
 
-    case leo_redundant_manager_api:create() of
-        {ok, Members, _Chksums} ->
-            ok = output_message_to_console(Socket, <<"Generated RING">>),
+                    %% Retrieve system-configuration
+                    %% Then launch storage-cluster
+                    Nodes = [N || #member{node = N} <- Members],
 
-            %% Retrieve system-configuration
-            %% Then launch storage-cluster
-            Nodes = [N || #member{node = N} <- Members],
-
-            case leo_cluster_tbl_conf:get() of
-                {ok, SystemConf} ->
-                    ok = start_1(self(), Nodes, Members, SystemConf),
-                    start_2(Socket, 0, length(Members));
+                    case leo_cluster_tbl_conf:get() of
+                        {ok, SystemConf} ->
+                            ok = start_1(self(), Nodes, Members, SystemConf),
+                            case start_2(Socket, 0, length(Members), []) of
+                                ok ->
+                                    ok;
+                                Errors ->
+                                    rollback_running_storage_status(UpdatedNodes),
+                                    ?error("start/1", "cause:~p", [Errors]),
+                                    {error, ?ERROR_COULD_NOT_GET_CONF}
+                            end;
+                        {error, Cause} ->
+                            rollback_running_storage_status(UpdatedNodes),
+                            ?error("start/1", "cause:~p", [Cause]),
+                            {error, ?ERROR_COULD_NOT_GET_CONF}
+                    end;
                 {error, Cause} ->
+                    rollback_running_storage_status(UpdatedNodes),
                     ?error("start/1", "cause:~p", [Cause]),
-                    {error, ?ERROR_COULD_NOT_GET_CONF}
+                    {error, ?ERROR_COULD_NOT_CREATE_RING}
             end;
-        {error, Cause} ->
-            ?error("start/1", "cause:~p", [Cause]),
+        {error, PartialUpdatedNodes} ->
+            rollback_running_storage_status(PartialUpdatedNodes),
             {error, ?ERROR_COULD_NOT_CREATE_RING}
     end.
 
@@ -690,12 +706,14 @@ start_1(Pid, [Node|Rest], Members, SystemConf) ->
 
 %% @doc Check results and update an object of node-status
 %% @private
-start_2(_Socket, TotalMembers, TotalMembers) ->
+start_2(_Socket, TotalMembers, TotalMembers, []) ->
     ok;
-start_2(Socket, NumOfNodes, TotalMembers) ->
+start_2(_Socket, TotalMembers, TotalMembers, Errors) ->
+    {error, Errors};
+start_2(Socket, NumOfNodes, TotalMembers, Errors) ->
     receive
         Msg ->
-            {Node_1, State} =
+            {Node_1, State, Errors2} =
                 case Msg of
                     {ok, {Node, {RingHashCur, RingHashPrev}}} ->
                         leo_manager_mnesia:update_storage_node_status(
@@ -705,7 +723,7 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
                                       ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
                                       ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
                                       when_is       = leo_date:now()}),
-                        {Node, <<"OK">>};
+                        {Node, <<"OK">>, Errors};
                     {error, {Node, Cause}} ->
                         ?error("start_2/3", "node:~w, cause:~p", [Node, Cause]),
                         leo_manager_mnesia:update_storage_node_status(
@@ -713,19 +731,62 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
                           #node_state{node    = Node,
                                       state   = ?STATE_STOP,
                                       when_is = leo_date:now()}),
-                        {Node, <<"ERROR">>}
+                        {Node, <<"ERROR">>, [{Node, Cause}|Errors]}
                 end,
 
             NewNumOfNodes = NumOfNodes + 1,
             Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),
             SendMsg = lists:append([string:right(Ratio, 5), " - ", atom_to_list(Node_1)]),
             ok = output_message_to_console(Socket, State, list_to_binary(SendMsg)),
-            start_2(Socket, NewNumOfNodes, TotalMembers)
+            start_2(Socket, NewNumOfNodes, TotalMembers, Errors2)
     after
         infinity ->
             ok
     end.
 
+%% @doc Update the leo_storage status from ?STATE_ATTACHED to ?STATE_RUNNING
+%%
+-spec(update_running_storage_status() ->
+            {ok, list()}|{error, list()}).
+update_running_storage_status() ->
+    case leo_redundant_manager_api:get_members() of
+        {ok, Members} ->
+            StorageNodes = [N || #member{node  = N,
+                                         state = ?STATE_ATTACHED} <- Members],
+            update_running_storage_status(StorageNodes, []);
+        {error, Cause} ->
+            ?error("update_running_storage_status/0", "cause:~p", [Cause]),
+            {error, []}
+    end.
+update_running_storage_status([], UpdatedNodes) ->
+    {ok, UpdatedNodes};
+update_running_storage_status([Node|T], UpdatedNodes) ->
+    case leo_redundant_manager_api:update_member_by_node(Node, ?STATE_RUNNING) of
+        ok ->
+            update_running_storage_status(T, [Node|UpdatedNodes]);
+        Error  ->
+            ?error("update_running_storage_status/2", "cause:~p", [Error]),
+            {error, UpdatedNodes}
+    end.
+
+%% @doc Rollback the leo_storage status from ?STATE_RUNNING to ?STATE_ATTACHED
+%%
+-spec(rollback_running_storage_status(list()) ->
+            ok | {error, any()}).
+rollback_running_storage_status(UpdatedNodes) ->
+    rollback_running_storage_status(UpdatedNodes, []).
+rollback_running_storage_status([], []) ->
+    ok;
+rollback_running_storage_status([], Errors) ->
+    ?error("rollback_running_storage_status/2", "errors:~p", [Errors]),
+    {error, Errors};
+rollback_running_storage_status([Node|T], Errors) ->
+    case leo_redundant_manager_api:update_member_by_node(Node, ?STATE_ATTACHED) of
+        ok ->
+            rollback_running_storage_status(T, Errors);
+        Error ->
+            rollback_running_storage_status(T, [{Node, Error}|Errors])
+    end.
 
 %% Output a message to the console
 %% @private
@@ -816,8 +877,7 @@ rebalance_1(true, Nodes) ->
                 {true, _} ->
                     case leo_redundant_manager_api:rebalance() of
                         {ok, List} ->
-                            TblPid = leo_hashtable:new(),
-                            rebalance_2(TblPid, List);
+                            rebalance_2(dict:new(), List);
                         {error, Cause} ->
                             ?error("rebalance_1/2", "cause:~p", [Cause]),
                             {error, ?ERROR_FAIL_REBALANCE}
@@ -831,28 +891,29 @@ rebalance_1(true, Nodes) ->
     end.
 
 %% @private
--spec(rebalance_2(pid(), [{integer(), atom()}]) ->
+-spec(rebalance_2(dict(), [{integer(), atom()}]) ->
              {ok, [{integer(), atom()}]} | {erorr, any()}).
-rebalance_2(TblPid, []) ->
-    Ret = case leo_hashtable:all(TblPid) of
-              []   -> {error, no_entry};
-              List -> {ok, List}
+rebalance_2(TblDict, []) ->
+    Ret = case dict:to_list(TblDict) of
+              [] ->
+                  {error, no_entry};
+              List ->
+                  {ok, List}
           end,
-    catch leo_hashtable:destroy(TblPid),
     Ret;
-rebalance_2(TblPid, [Item|T]) ->
+rebalance_2(TblDict, [Item|T]) ->
     %% Item: [{vnode_id, VNodeId0}, {src, SrcNode}, {dest, DestNode}]
     VNodeId  = leo_misc:get_value('vnode_id', Item),
     SrcNode  = leo_misc:get_value('src',      Item),
     DestNode = leo_misc:get_value('dest',     Item),
-
-    case SrcNode of
-        {error, no_entry} ->
-            void;
-        _ ->
-            leo_hashtable:append(TblPid, SrcNode, {VNodeId, DestNode})
-    end,
-    rebalance_2(TblPid, T).
+    TblDict_1 =
+        case SrcNode of
+            {error, no_entry} ->
+                TblDict;
+            _ ->
+                dict:append(SrcNode, {VNodeId, DestNode}, TblDict)
+        end,
+    rebalance_2(TblDict_1, T).
 
 %% @private
 rebalance_3([], _RebalanceProcInfo) ->
@@ -1798,7 +1859,6 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
               false ->
                   not_match
           end,
-
     case Ret of
         not_match ->
             {ok, LocalChecksum} =

@@ -8,19 +8,19 @@ IMPORTS
         DisplayString, TruthValue FROM SNMPv2-TC;
 
         leofs    MODULE-IDENTITY
-                 LAST-UPDATED "201205220000Z"
+                 LAST-UPDATED "201502170000Z"
                  ORGANIZATION "github.com/leo-project"
                  CONTACT-INFO
                              "e-mail:dev@leo-project.org"
                  DESCRIPTION
                              "LEO MANAGER SNMP MIB"
-                 REVISION    "201206150000Z"
+                 REVISION    "201502170000Z"
                  DESCRIPTION
                              "v1.0"
                  ::= { enterprises 35450}
 
 leofsGroups OBJECT IDENTIFIER ::= { leofs 1 }
-staticOid OBJECT IDENTIFIER   ::= { leofs 11}
+staticOid OBJECT IDENTIFIER   ::= { leofs 15}
 
 -- =====================================
 -- Items
@@ -116,13 +116,51 @@ vm-ets-mem-5m
         ::= { staticOid 11 }
 
 
+---
+--- Optional VM-related items
+---
+vm-used-per-allocated-mem-1m
+    OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION "Used per allocated memory ratio (1min mean)"
+        ::= { staticOid 12 }
+
+vm-allocated-mem-1m
+    OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION "Allocated memory (1min mean)"
+        ::= { staticOid 13 }
+
+vm-used-per-allocated-mem-5m
+    OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION "Used per allocated memory ratio (5min mean)"
+        ::= { staticOid 14 }
+
+vm-allocated-mem-5m
+    OBJECT-TYPE
+        SYNTAX Gauge32
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION "Allocated memory (5min mean)"
+        ::= { staticOid 15 }
+
+
 --
 -- Global Group
 --
 leofsGroup OBJECT-GROUP
         OBJECTS {node-name,
                  vm-proc-count-1m, vm-total-mem-1m, vm-system-mem-1m, vm-procs-mem-1m, vm-ets-mem-1m,
-                 vm-proc-count-5m, vm-total-mem-5m, vm-system-mem-5m, vm-procs-mem-5m, vm-ets-mem-5m
+                 vm-proc-count-5m, vm-total-mem-5m, vm-system-mem-5m, vm-procs-mem-5m, vm-ets-mem-5m,
+                 vm-used-per-allocated-mem-1m, vm-allocated-mem-1m,
+                 vm-used-per-allocated-mem-5m, vm-allocated-mem-5m
         }
         STATUS current
         DESCRIPTION "LeoFS group"
