@@ -643,25 +643,39 @@ update_manager_nodes(_Managers,_Error) ->
 start(Socket) ->
     %% Create current and previous RING(routing-table)
     ok = output_message_to_console(Socket, <<"Generating RING...">>),
+    case update_running_storage_status() of
+        {[], UpdatedNodes} ->
+            case leo_redundant_manager_api:create() of
+                {ok, Members, _Chksums} ->
+                    ok = output_message_to_console(Socket, <<"Generated RING">>),
 
-    case leo_redundant_manager_api:create() of
-        {ok, Members, _Chksums} ->
-            ok = output_message_to_console(Socket, <<"Generated RING">>),
+                    %% Retrieve system-configuration
+                    %% Then launch storage-cluster
+                    Nodes = [N || #member{node = N} <- Members],
 
-            %% Retrieve system-configuration
-            %% Then launch storage-cluster
-            Nodes = [N || #member{node = N} <- Members],
-
-            case leo_cluster_tbl_conf:get() of
-                {ok, SystemConf} ->
-                    ok = start_1(self(), Nodes, Members, SystemConf),
-                    start_2(Socket, 0, length(Members));
+                    case leo_cluster_tbl_conf:get() of
+                        {ok, SystemConf} ->
+                            ok = start_1(self(), Nodes, Members, SystemConf),
+                            case start_2(Socket, 0, length(Members), []) of
+                                ok ->
+                                    ok;
+                                Errors ->
+                                    roleback_running_storage_status(UpdatedNodes),
+                                    ?error("start/1", "cause:~p", [Errors]),
+                                    {error, ?ERROR_COULD_NOT_GET_CONF}
+                            end;
+                        {error, Cause} ->
+                            roleback_running_storage_status(UpdatedNodes),
+                            ?error("start/1", "cause:~p", [Cause]),
+                            {error, ?ERROR_COULD_NOT_GET_CONF}
+                    end;
                 {error, Cause} ->
+                    roleback_running_storage_status(UpdatedNodes),
                     ?error("start/1", "cause:~p", [Cause]),
-                    {error, ?ERROR_COULD_NOT_GET_CONF}
+                    {error, ?ERROR_COULD_NOT_CREATE_RING}
             end;
-        {error, Cause} ->
-            ?error("start/1", "cause:~p", [Cause]),
+        {_, PartialUpdatedNodes} ->
+            roleback_running_storage_status(PartialUpdatedNodes),
             {error, ?ERROR_COULD_NOT_CREATE_RING}
     end.
 
@@ -692,12 +706,14 @@ start_1(Pid, [Node|Rest], Members, SystemConf) ->
 
 %% @doc Check results and update an object of node-status
 %% @private
-start_2(_Socket, TotalMembers, TotalMembers) ->
+start_2(_Socket, TotalMembers, TotalMembers, []) ->
     ok;
-start_2(Socket, NumOfNodes, TotalMembers) ->
+start_2(_Socket, TotalMembers, TotalMembers, Errors) ->
+    {error, Errors};
+start_2(Socket, NumOfNodes, TotalMembers, Errors) ->
     receive
         Msg ->
-            {Node_1, State} =
+            {Node_1, State, Errors2} =
                 case Msg of
                     {ok, {Node, {RingHashCur, RingHashPrev}}} ->
                         leo_manager_mnesia:update_storage_node_status(
@@ -707,7 +723,7 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
                                       ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
                                       ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
                                       when_is       = leo_date:now()}),
-                        {Node, <<"OK">>};
+                        {Node, <<"OK">>, Errors};
                     {error, {Node, Cause}} ->
                         ?error("start_2/3", "node:~w, cause:~p", [Node, Cause]),
                         leo_manager_mnesia:update_storage_node_status(
@@ -715,19 +731,64 @@ start_2(Socket, NumOfNodes, TotalMembers) ->
                           #node_state{node    = Node,
                                       state   = ?STATE_STOP,
                                       when_is = leo_date:now()}),
-                        {Node, <<"ERROR">>}
+                        {Node, <<"ERROR">>, [{Node, Cause}|Errors]}
                 end,
 
             NewNumOfNodes = NumOfNodes + 1,
             Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),
             SendMsg = lists:append([string:right(Ratio, 5), " - ", atom_to_list(Node_1)]),
             ok = output_message_to_console(Socket, State, list_to_binary(SendMsg)),
-            start_2(Socket, NewNumOfNodes, TotalMembers)
+            start_2(Socket, NewNumOfNodes, TotalMembers, Errors2)
     after
         infinity ->
             ok
     end.
 
+%% @doc Update the leo_storage status from ?STATE_ATTACHED to ?STATE_RUNNING
+%%
+-spec(update_running_storage_status() ->
+            {list(), list()}).
+update_running_storage_status() ->
+    case leo_redundant_manager_api:get_members() of
+        {ok, Members} ->
+            io:format(user, "[debug]members:~p~n", [Members]),
+            StorageNodes = [N || #member{node  = N,
+                                         state = ?STATE_ATTACHED} <- Members],
+            io:format(user, "[debug]storage nodes:~p~n", [StorageNodes]),
+            update_running_storage_status(StorageNodes, []);
+        {error, Cause} ->
+            ?error("update_running_storage_status/0", "cause:~p", [Cause]),
+            {[], []}
+    end.
+update_running_storage_status([], UpdatedNodes) ->
+    {[], UpdatedNodes};
+update_running_storage_status([Node|T] = Rest, UpdatedNodes) ->
+    case leo_redundant_manager_api:update_member_by_node(Node, ?STATE_RUNNING) of
+        ok ->
+            update_running_storage_status(T, [Node|UpdatedNodes]);
+        Error  ->
+            ?error("update_running_storage_status/2", "cause:~p", [Error]),
+            {Rest, UpdatedNodes}
+    end.
+
+%% @doc Rollback the leo_storage status from ?STATE_RUNNING to ?STATE_ATTACHED
+%%
+-spec(roleback_running_storage_status(list()) ->
+            ok | {error, any()}).
+roleback_running_storage_status(UpdatedNodes) ->
+    roleback_running_storage_status(UpdatedNodes, []).
+roleback_running_storage_status([], []) ->
+    ok;
+roleback_running_storage_status([], Errors) ->
+    ?error("roleback_running_storage_status/2", "errors:~p", [Errors]),
+    {error, Errors};
+roleback_running_storage_status([Node|T], Errors) ->
+    case leo_redundant_manager_api:update_member_by_node(Node, ?STATE_ATTACHED) of
+        ok ->
+            roleback_running_storage_status(T, Errors);
+        Error ->
+            roleback_running_storage_status(T, [{Node, Error}|Errors])
+    end.
 
 %% Output a message to the console
 %% @private
