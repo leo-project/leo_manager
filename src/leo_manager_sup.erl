@@ -41,8 +41,7 @@
 
 %% External API
 -export([start_link/0, stop/0]).
--export([create_mnesia_tables/2, migrate_mnesia_tables/1,
-         subscribe_table/0]).
+-export([create_mnesia_tables/2, migrate_mnesia_tables/1]).
 
 
 %% Callbacks
@@ -313,7 +312,6 @@ create_mnesia_tables_2(Mode, Nodes) ->
     case catch mnesia:system_info(tables) of
         Tbls when length(Tbls) > 1 ->
             ok = mnesia:wait_for_tables(Tbls, 60000),
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, subscribe_table, []),
 
             %% Execute to migrate data
             case Mode of
@@ -328,11 +326,9 @@ create_mnesia_tables_2(Mode, Nodes) ->
             ok = leo_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_10S),
             ok;
         Tbls when length(Tbls) =< 1 ->
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, subscribe_table, []),
             {error, no_exists};
         Error ->
             ?error("create_mnesia_tables_2/0", "cause:~p", [Error]),
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, subscribe_table, []),
             Error
     end.
 
@@ -390,27 +386,6 @@ create_s3api_related_tables(true, Nodes) ->
     leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_1),
     leo_s3_endpoint:set_endpoint(?DEF_ENDPOINT_2),
     ok.
-
-
-%% @doc Subscribe the member-table's trigger
-subscribe_table() ->
-    case catch mnesia:system_info(tables) of
-        Tbls when length(Tbls) > 1 ->
-            case (lists:foldl(fun(?MEMBER_TBL_CUR, Acc) ->
-                                      Acc + 1;
-                                 (?MEMBER_TBL_PREV, Acc) ->
-                                      Acc + 1;
-                                 (_,   Acc) ->
-                                      Acc
-                              end, 0, Tbls) == 2) of
-                true ->
-                    ok = leo_redundant_manager_worker:subscribe();
-                false ->
-                    timer:apply_after(?CHECK_INTERVAL, ?MODULE, subscribe_table, [])
-            end;
-        _ ->
-            timer:apply_after(?CHECK_INTERVAL, ?MODULE, subscribe_table, [])
-    end.
 
 
 %% @doc Get log-file appender from env
