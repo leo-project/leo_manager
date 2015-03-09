@@ -633,7 +633,7 @@
  end}.
 
 
-%% @doc configuration path of the leofs gateway's snmp-agent
+%% @doc configuration path of the LeoFS manager's snmp-agent
 %% See: http://www.leofs.org/docs/configuration.html#snmpa-setup
 {mapping,
  "snmp_conf",

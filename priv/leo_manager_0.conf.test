@@ -169,7 +169,7 @@ rpc.server.listen_timeout = 5000
 #======================================================================
 # For vm.args
 #======================================================================
-## Name of the leofs-gateway node
+## Name of the LeoFS's manager node
 nodename = manager_0@10.3.2.1
 
 ## Cookie for distributed node communication.  All nodes in the same cluster
