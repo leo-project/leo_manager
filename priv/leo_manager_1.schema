@@ -521,5 +521,5 @@
  "snmp_conf",
  "vm_args.-config",
  [
-  {default, "./snmp/snmpa_manager_0/leo_manager_snmp"}
+  {default, "./snmp/snmpa_manager_1/leo_manager_snmp"}
  ]}.
