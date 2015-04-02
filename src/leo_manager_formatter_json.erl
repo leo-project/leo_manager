@@ -29,6 +29,7 @@
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
+-include_lib("leo_mq/include/leo_mq.hrl").
 -include_lib("leo_object_storage/include/leo_object_storage.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("leo_s3_libs/include/leo_s3_user.hrl").
@@ -37,7 +38,9 @@
 
 -export([ok/0, error/1, error/2, help/0, version/1, login/2,
          bad_nodes/1, system_info_and_nodes_stat/1, node_stat/2,
-         compact_status/1, du/2, credential/2, users/1, endpoints/1,
+         compact_status/1, du/2,
+         mq_stats/1,
+         credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
          acls/1, cluster_status/1,
          whereis/1, histories/1,
@@ -444,6 +447,31 @@ du(detail, StatsList) when is_list(StatsList) ->
     gen_json(JSON);
 du(_, _) ->
     gen_json([]).
+
+
+%% @doc Format result of mq-stats
+-spec(mq_stats(Stats) ->
+             binary() when Stats::[tuple()]).
+mq_stats([]) ->
+    gen_json([]);
+mq_stats(Stats) ->
+    JSON = lists:map(
+               fun(#mq_state{id = Id,
+                             state = ConsumerStats,
+                             desc = Desc}) ->
+                       State       = leo_misc:get_value(?MQ_CNS_PROP_STATUS,        ConsumerStats),
+                       NumOfMsgs   = leo_misc:get_value(?MQ_CNS_PROP_NUM_OF_MSGS,   ConsumerStats, 0),
+                       BatchOfMsgs = leo_misc:get_value(?MQ_CNS_PROP_BATCH_OF_MSGS, ConsumerStats, 0),
+                       Interval    = leo_misc:get_value(?MQ_CNS_PROP_INTERVAL,      ConsumerStats, 0),
+                       {[{<<"id">>,             leo_misc:any_to_binary(atom_to_list(Id))},
+                         {<<"state">>,          leo_misc:any_to_binary(atom_to_list(State))},
+                         {<<"number_of_msgs">>, NumOfMsgs},
+                         {<<"batch_of_msgs">>,  BatchOfMsgs},
+                         {<<"interval">>,       Interval},
+                         {<<"description">>,    leo_misc:any_to_binary(Desc)}
+                        ]}
+               end, Stats),
+    gen_json({[{<<"mq_stats">>, JSON}]}).
 
 
 %% @doc Format s3-gen-key result
