@@ -2,7 +2,7 @@
 %%
 %% Leo Manager
 %%
-%% Copyright (c) 2012-2014 Rakuten, Inc.
+%% Copyright (c) 2012-2015 Rakuten, Inc.
 %%
 %% This file is provided to you under the Apache License,
 %% Version 2.0 (the "License"); you may not use this file
@@ -18,8 +18,6 @@
 %% specific language governing permissions and limitations
 %% under the License.    
 %%
-%% ---------------------------------------------------------------------
-%% TCS Server.
 %%======================================================================
 -record(tcp_server_params, {
           prefix_of_name = "tcp_server_"  :: string(),
@@ -34,4 +32,3 @@
           recv_length             = 0     :: integer(),
           recv_timeout            = infinity
          }).
-
