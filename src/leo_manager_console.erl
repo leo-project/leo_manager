@@ -855,20 +855,20 @@ rebalance_1(Socket) ->
 
 %% @doc Update a watchdog property
 %% <p>
-%% $ leofs-adm update-property leo_watchdog.cpu_enabled <boolean>
-%% $ leofs-adm update-property leo_watchdog.cpu_raised_error_times <integer>
-%% $ leofs-adm update-property leo_watchdog.cpu_interval <integer>
-%% $ leofs-adm update-property leo_watchdog.cpu_threshold_load_avg <float>
-%% $ leofs-adm update-property leo_watchdog.cpu_threshold_util <integer>
-%% $ leofs-adm update-property leo_watchdog.disk_enabled <boolean>
-%% $ leofs-adm update-property leo_watchdog.disk_raised_error_times <integer>
-%% $ leofs-adm update-property leo_watchdog.disk_interval <integer>
-%% $ leofs-adm update-property leo_watchdog.disk_threshold_use <integer>
-%% $ leofs-adm update-property leo_watchdog.disk_threshold_util <integer>
-%% $ leofs-adm update-property leo_watchdog.disk_threshold_rkb <integer>
-%% $ leofs-adm update-property leo_watchdog.disk_threshold_wkb <integer>
-%% $ leofs-adm update-property leo_watchdog.cluster_enabled <boolean>
-%% $ leofs-adm update-property leo_watchdog.cluster_interval <integer>
+%% $ leofs-adm update-property watchdog.cpu_enabled <boolean>
+%% $ leofs-adm update-property watchdog.cpu_raised_error_times <integer>
+%% $ leofs-adm update-property watchdog.cpu_interval <integer>
+%% $ leofs-adm update-property watchdog.cpu_threshold_load_avg <float>
+%% $ leofs-adm update-property watchdog.cpu_threshold_util <integer>
+%% $ leofs-adm update-property watchdog.disk_enabled <boolean>
+%% $ leofs-adm update-property watchdog.disk_raised_error_times <integer>
+%% $ leofs-adm update-property watchdog.disk_interval <integer>
+%% $ leofs-adm update-property watchdog.disk_threshold_use <integer>
+%% $ leofs-adm update-property watchdog.disk_threshold_util <integer>
+%% $ leofs-adm update-property watchdog.disk_threshold_rkb <integer>
+%% $ leofs-adm update-property watchdog.disk_threshold_wkb <integer>
+%% $ leofs-adm update-property watchdog.cluster_enabled <boolean>
+%% $ leofs-adm update-property watchdog.cluster_interval <integer>
 %% </p>
 %% @private
 update_property(CmdBody, Option) ->
@@ -881,89 +881,89 @@ update_property(CmdBody, Option) ->
     end.
 
 %% @private
-update_property_1(Node, "leo_watchdog.cpu_enabled","true") ->
+update_property_1(Node, "watchdog.cpu_enabled","true") ->
     update_property_2(Node, start, [cpu]);
-update_property_1(Node, "leo_watchdog.cpu_enabled","false") ->
+update_property_1(Node, "watchdog.cpu_enabled","false") ->
     update_property_2(Node, stop, [cpu]);
-update_property_1(Node, "leo_watchdog.cpu_raised_error_times", Val) ->
+update_property_1(Node, "watchdog.cpu_raised_error_times", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_raised_error_times, [cpu, Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.cpu_interval", Val) ->
+update_property_1(Node, "watchdog.cpu_interval", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_check_interval, [cpu, Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.cpu_threshold_load_avg", Val) ->
+update_property_1(Node, "watchdog.cpu_threshold_load_avg", Val) ->
     case exchange_datatype(float, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_cpu_threshold_load_avg, [Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.cpu_threshold_util", Val) ->
+update_property_1(Node, "watchdog.cpu_threshold_util", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_cpu_threshold_util, [Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.disk_enabled","true") ->
+update_property_1(Node, "watchdog.disk_enabled","true") ->
     update_property_2(Node, start, [disk]);
-update_property_1(Node, "leo_watchdog.disk_enabled","false") ->
+update_property_1(Node, "watchdog.disk_enabled","false") ->
     update_property_2(Node, stop, [disk]);
-update_property_1(Node, "leo_watchdog.disk_raised_error_times", Val) ->
+update_property_1(Node, "watchdog.disk_raised_error_times", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_raised_error_times, [disk, Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.disk_interval", Val) ->
+update_property_1(Node, "watchdog.disk_interval", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_check_interval, [disk, Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.disk_threshold_use", Val) ->
+update_property_1(Node, "watchdog.disk_threshold_use", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_disk_threshold_use, [Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.disk_threshold_util", Val) ->
+update_property_1(Node, "watchdog.disk_threshold_util", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_disk_threshold_util, [Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.disk_threshold_rkb", Val) ->
+update_property_1(Node, "watchdog.disk_threshold_rkb", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_disk_threshold_rkb, [Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.disk_threshold_wkb", Val) ->
+update_property_1(Node, "watchdog.disk_threshold_wkb", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_disk_threshold_wkb, [Val_1]);
         Error ->
             Error
     end;
-update_property_1(Node, "leo_watchdog.cluster_enabled","true") ->
+update_property_1(Node, "watchdog.cluster_enabled","true") ->
     update_property_2(Node, start, [cluster]);
-update_property_1(Node, "leo_watchdog.cluster_enabled","false") ->
+update_property_1(Node, "watchdog.cluster_enabled","false") ->
     update_property_2(Node, stop, [cluster]);
-update_property_1(Node, "leo_watchdog.cluster_interval", Val) ->
+update_property_1(Node, "watchdog.cluster_interval", Val) ->
     case exchange_datatype(integer, Val) of
         {ok, Val_1} ->
             update_property_2(Node, set_check_interval, [cluster, Val_1]);
