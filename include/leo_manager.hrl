@@ -129,10 +129,10 @@
 -define(CMD_UPDATE_MANAGERS, "update-managers").
 
 %% For Maintenance
--define(CMD_RECOVER,   "recover").
--define(CMD_HISTORY,   "history").
--define(CMD_DUMP_RING, "dump-ring").
-
+-define(CMD_RECOVER,     "recover").
+-define(CMD_HISTORY,     "history").
+-define(CMD_DUMP_RING,   "dump-ring").
+-define(CMD_UPDATE_PROP, "update-property").
 
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER,   "join-cluster").
@@ -180,6 +180,8 @@
                    %% for Gateway
                    {?CMD_PURGE,  "purge <path>"},
                    {?CMD_REMOVE, "remove <gateway-node>"},
+                   %% for Watchdog
+                   {?CMD_UPDATE_ACL, "update-acl <property-name> <property-value>"},
                    %% for S3-API
                    %% - user-related
                    {?CMD_CREATE_USER,      "create-user <user-id> [<password>]"},

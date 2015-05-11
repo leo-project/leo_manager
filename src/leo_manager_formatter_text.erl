@@ -90,6 +90,8 @@ help(PluginMod) ->
                            help("[Gateway Maintenance]\r\n",
                                 [?CMD_PURGE,
                                  ?CMD_REMOVE], []),
+                           help("[Watchdog Operation]\r\n",
+                                [?CMD_UPDATE_PROP], []),
                            help("[Manager Maintenance]\r\n",
                                 [?CMD_UPDATE_MANAGERS,
                                  ?CMD_BACKUP_MNESIA,

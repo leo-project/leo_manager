@@ -226,6 +226,21 @@ handle_call(Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
     {reply, Reply, State};
 
 
+%% Command: "update-property" for watchdog
+%%
+handle_call(_Socket, <<?CMD_UPDATE_PROP, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case update_property(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_DU, Formatter, Fun),
+    {reply, Reply, State};
+
 %%----------------------------------------------------------------------
 %% Operation-2
 %%----------------------------------------------------------------------
@@ -825,7 +840,6 @@ rebalance(Socket, Command, Formatter) ->
           end,
     invoke(?CMD_REBALANCE, Formatter, Fun).
 
-
 %% @doc Rebalance the storage cluster
 %% @private
 -spec(rebalance_1(port()|null) ->
@@ -837,6 +851,154 @@ rebalance_1(Socket) ->
         {error, Cause} ->
             {error, Cause}
     end.
+
+
+%% @doc Update a watchdog property
+%% <p>
+%% $ leofs-adm update-property leo_watchdog.cpu_enabled <boolean>
+%% $ leofs-adm update-property leo_watchdog.cpu_raised_error_times <integer>
+%% $ leofs-adm update-property leo_watchdog.cpu_interval <integer>
+%% $ leofs-adm update-property leo_watchdog.cpu_threshold_load_avg <float>
+%% $ leofs-adm update-property leo_watchdog.cpu_threshold_util <integer>
+%% $ leofs-adm update-property leo_watchdog.disk_enabled <boolean>
+%% $ leofs-adm update-property leo_watchdog.disk_raised_error_times <integer>
+%% $ leofs-adm update-property leo_watchdog.disk_interval <integer>
+%% $ leofs-adm update-property leo_watchdog.disk_threshold_use <integer>
+%% $ leofs-adm update-property leo_watchdog.disk_threshold_util <integer>
+%% $ leofs-adm update-property leo_watchdog.disk_threshold_rkb <integer>
+%% $ leofs-adm update-property leo_watchdog.disk_threshold_wkb <integer>
+%% $ leofs-adm update-property leo_watchdog.cluster_enabled <boolean>
+%% $ leofs-adm update-property leo_watchdog.cluster_interval <integer>
+%% </p>
+%% @private
+update_property(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node, PropertyName, PropertyValue|_] ->
+            update_property_1(Node, PropertyName, PropertyValue);
+        _ ->
+            {error, ?ERROR_NOT_SPECIFIED_COMMAND}
+    end.
+
+%% @private
+update_property_1(Node, "leo_watchdog.cpu_enabled","true") ->
+    update_property_2(Node, start, [cpu]);
+update_property_1(Node, "leo_watchdog.cpu_enabled","false") ->
+    update_property_2(Node, stop, [cpu]);
+update_property_1(Node, "leo_watchdog.cpu_raised_error_times", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_raised_error_times, [cpu, Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.cpu_interval", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_check_interval, [cpu, Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.cpu_threshold_load_avg", Val) ->
+    case exchange_datatype(float, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_cpu_threshold_load_avg, [Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.cpu_threshold_util", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_cpu_threshold_util, [Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.disk_enabled","true") ->
+    update_property_2(Node, start, [disk]);
+update_property_1(Node, "leo_watchdog.disk_enabled","false") ->
+    update_property_2(Node, stop, [disk]);
+update_property_1(Node, "leo_watchdog.disk_raised_error_times", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_raised_error_times, [disk, Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.disk_interval", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_check_interval, [disk, Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.disk_threshold_use", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_disk_threshold_use, [Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.disk_threshold_util", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_disk_threshold_util, [Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.disk_threshold_rkb", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_disk_threshold_rkb, [Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.disk_threshold_wkb", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_disk_threshold_wkb, [Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(Node, "leo_watchdog.cluster_enabled","true") ->
+    update_property_2(Node, start, [cluster]);
+update_property_1(Node, "leo_watchdog.cluster_enabled","false") ->
+    update_property_2(Node, stop, [cluster]);
+update_property_1(Node, "leo_watchdog.cluster_interval", Val) ->
+    case exchange_datatype(integer, Val) of
+        {ok, Val_1} ->
+            update_property_2(Node, set_check_interval, [cluster, Val_1]);
+        Error ->
+            Error
+    end;
+update_property_1(_,_,_) ->
+    {error, ?ERROR_NOT_SPECIFIED_COMMAND}.
+
+%% @private
+exchange_datatype(integer, Val) ->
+    case catch list_to_integer(Val) of
+        {'EXIT',_} ->
+            {error, invalid_value};
+        Val_1 ->
+            {ok, Val_1}
+    end;
+exchange_datatype(float, Val) ->
+    case catch list_to_float(Val) of
+        {'EXIT',_} ->
+            case exchange_datatype(integer, Val) of
+                {ok, Val_1} ->
+                    Val_1 * 1.0;
+                Error ->
+                    Error
+            end;
+        Val_1 ->
+            {ok, Val_1}
+    end.
+
+%% @private
+update_property_2(Node, Method, Args) when is_atom(Node) ->
+    rpc:call(Node, leo_watchdog_api, Method, Args);
+update_property_2(Node, Method, Args) ->
+    update_property_2(list_to_atom(Node), Method, Args).
 
 
 %% @doc Backup files of manager's mnesia
