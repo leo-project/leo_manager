@@ -319,7 +319,7 @@ create_mnesia_tables_2(Mode, Nodes) ->
 
             %% Launch Statistics
             ok = leo_statistics_api:start_link(leo_manager),
-            ok = leo_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_10S),
+            ok = leo_metrics_vm:start_link(?SNMP_SYNC_INTERVAL_10S, (Mode == slave)),
             ok;
         Tbls when length(Tbls) =< 1 ->
             {error, no_exists};
@@ -339,8 +339,8 @@ migrate_mnesia_tables(Nodes) ->
         leo_manager_transformer:transform(),
         leo_manager_api:update_mdc_items_in_system_conf()
     catch _:_Cause ->
-        timer:apply_after(?CHECK_INTERVAL_FOR_MNESIA, ?MODULE,
-                          migrate_mnesia_tables, [Nodes])
+            timer:apply_after(?CHECK_INTERVAL_FOR_MNESIA, ?MODULE,
+                              migrate_mnesia_tables, [Nodes])
     end.
 
 
