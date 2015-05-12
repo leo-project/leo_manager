@@ -996,7 +996,17 @@ exchange_datatype(float, Val) ->
 
 %% @private
 update_property_2(Node, Method, Args) when is_atom(Node) ->
-    rpc:call(Node, leo_watchdog_api, Method, Args);
+    case leo_misc:node_existence(Node) of
+        true ->
+            case rpc:call(Node, leo_watchdog_api, Method, Args) of
+                {badrpc,_} ->
+                    {error, ?ERROR_COULD_NOT_CONNECT};
+                Res ->
+                    Res
+            end;
+        false ->
+            {error, ?ERROR_NODE_NOT_EXISTS}
+    end;
 update_property_2(Node, Method, Args) ->
     update_property_2(list_to_atom(Node), Method, Args).
 
