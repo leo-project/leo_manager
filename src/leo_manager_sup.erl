@@ -363,7 +363,8 @@ migrate_mnesia_tables(RetryTimes) ->
         ok
     catch
         _:Cause ->
-            ?error("migrate_mnesia_tables/0", "cause:~p", [Cause]),
+            ?error("migrate_mnesia_tables/0", "cause:~p",
+                   [{"Waiting for launching the slave", Cause}]),
             timer:sleep(timer:seconds(1)),
             migrate_mnesia_tables(RetryTimes + 1)
     end.
