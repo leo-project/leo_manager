@@ -322,11 +322,9 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   %% mq
                   {<<"mq_num_of_procs">>,              leo_misc:get_value('mq_num_of_procs', State)},
                   {<<"mq_num_of_batch_process_max">>,  leo_misc:get_value('mq_num_of_batch_process_max',  State)},
-                  {<<"mq_num_of_batch_process_min">>,  leo_misc:get_value('mq_num_of_batch_process_min',  State)},
                   {<<"mq_num_of_batch_process_reg">>,  leo_misc:get_value('mq_num_of_batch_process_reg',  State)},
                   {<<"mq_num_of_batch_process_step">>, leo_misc:get_value('mq_num_of_batch_process_step', State)},
                   {<<"mq_interval_between_batch_procs_max">>,  leo_misc:get_value('mq_interval_between_batch_procs_max',  State)},
-                  {<<"mq_interval_between_batch_procs_min">>,  leo_misc:get_value('mq_interval_between_batch_procs_min',  State)},
                   {<<"mq_interval_between_batch_procs_reg">>,  leo_misc:get_value('mq_interval_between_batch_procs_reg',  State)},
                   {<<"mq_interval_between_batch_procs_step">>, leo_misc:get_value('mq_interval_between_batch_procs_step', State)},
                   %% compaction
@@ -341,11 +339,9 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   {<<"auto_compaction_interval">>,                     leo_misc:get_value('auto_compaction_interval',       State)},
                   {<<"limit_num_of_compaction_procs">>,                leo_misc:get_value('limit_num_of_compaction_procs',  State)},
                   {<<"compaction_num_of_batch_procs_max">>,            leo_misc:get_value('compaction_num_of_batch_procs_max',  State)},
-                  {<<"compaction_num_of_batch_procs_min">>,            leo_misc:get_value('compaction_num_of_batch_procs_min',  State)},
                   {<<"compaction_num_of_batch_procs_reg">>,            leo_misc:get_value('compaction_num_of_batch_procs_reg',  State)},
                   {<<"compaction_num_of_batch_procs_step">>,           leo_misc:get_value('compaction_num_of_batch_procs_step', State)},
                   {<<"compaction_interval_between_batch_procs_max">>,  leo_misc:get_value('compaction_interval_between_batch_procs_max',  State)},
-                  {<<"compaction_interval_between_batch_procs_min">>,  leo_misc:get_value('compaction_interval_between_batch_procs_min',  State)},
                   {<<"compaction_interval_between_batch_procs_reg">>,  leo_misc:get_value('compaction_interval_between_batch_procs_reg',  State)},
                   {<<"compaction_interval_between_batch_procs_step">>, leo_misc:get_value('compaction_interval_between_batch_procs_step', State)}
                  ]}}

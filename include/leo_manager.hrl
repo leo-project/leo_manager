@@ -24,8 +24,9 @@
 
 %% constants
 -define(SHUTDOWN_WAITING_TIME, 2000).
--define(MAX_RESTART,              5).
--define(MAX_TIME,                60).
+-define(MAX_RESTART, 5).
+-define(MAX_TIME, 60).
+-define(RETRY_TIMES, 5).
 
 -ifdef(TEST).
 -define(DEF_TIMEOUT,             1000). %% 1sec
@@ -129,10 +130,10 @@
 -define(CMD_UPDATE_MANAGERS, "update-managers").
 
 %% For Maintenance
--define(CMD_RECOVER,   "recover").
--define(CMD_HISTORY,   "history").
--define(CMD_DUMP_RING, "dump-ring").
-
+-define(CMD_RECOVER,     "recover").
+-define(CMD_HISTORY,     "history").
+-define(CMD_DUMP_RING,   "dump-ring").
+-define(CMD_UPDATE_PROP, "update-property").
 
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER,   "join-cluster").
@@ -180,6 +181,8 @@
                    %% for Gateway
                    {?CMD_PURGE,  "purge <path>"},
                    {?CMD_REMOVE, "remove <gateway-node>"},
+                   %% for Watchdog
+                   {?CMD_UPDATE_ACL, "update-acl <property-name> <property-value>"},
                    %% for S3-API
                    %% - user-related
                    {?CMD_CREATE_USER,      "create-user <user-id> [<password>]"},
@@ -237,6 +240,7 @@
 %% error
 -define(ERROR_COULD_NOT_CONNECT,         "Could not connect").
 -define(ERROR_NODE_NOT_EXISTS,           "Node not exist").
+-define(ERROR_TABLE_NOT_EXISTS,          "Tables not exist").
 -define(ERROR_FAILED_COMPACTION,         "Failed compaction").
 -define(ERROR_FAILED_GET_STORAGE_STATS,  "Failed to get storage stats").
 -define(ERROR_USER_NOT_FOUND,            "User not found").
@@ -256,6 +260,7 @@
 -define(ERROR_COULD_NOT_UPDATE_NODE,     "Could not update state of a node").
 -define(ERROR_COULD_NOT_UPDATE_MANAGER,  "Could not update manager(s)").
 -define(ERROR_COULD_NOT_CREATE_RING,     "Could not create RING").
+-define(ERROR_MNESIA_PROC_FAILURE,       "Mnesia processing failure").
 -define(ERROR_NOT_SPECIFIED_COMMAND,     "Command not exist").
 -define(ERROR_NOT_SPECIFIED_NODE,        "Not specified node").
 -define(ERROR_NO_CMODE_SPECIFIED,        "Not specified compaction mode").
