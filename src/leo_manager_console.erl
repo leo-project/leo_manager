@@ -585,10 +585,14 @@ handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command,
 
 %% Command: "recover file|node ${PATH}|${NODE}"
 %%
-handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command,
+handle_call(Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER -> Socket;
+                   _ -> null
+               end,
     Fun = fun() ->
-                  case recover(Command, Option) of
+                  case recover(Socket_1, Command, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -1806,17 +1810,19 @@ escape_large_obj_sep(SrcKey) ->
 
 %% @doc Recover object(s) by a key/node
 %% @private
--spec(recover(binary(), binary()) ->
+-spec(recover(pid(),binary(), binary()) ->
              ok | {error, any()}).
-recover(CmdBody, Option) ->
+recover(Socket, CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [] ->
             {error, ?ERROR_INVALID_PATH};
+        [?RECOVER_DIR] ->
+            leo_manager_api:rebuild_dir_metadata(Socket, []);
+        [?RECOVER_DIR|Prms] ->
+            leo_manager_api:rebuild_dir_metadata(Socket, Prms);
         [Op, Key |Rest] when Rest == [] ->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
-
             case catch leo_manager_api:recover(Op, Key, HasRoutingTable) of
                 ok ->
                     ok;

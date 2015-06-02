@@ -155,6 +155,7 @@
                    {?CMD_WHEREIS,   "whereis <path>"},
                    {?CMD_RECOVER,   lists:append(
                                       ["recover file <path>", ?CRLF,
+                                       "recover dir [<path>]", ?CRLF,
                                        "recover node <storage-node>", ?CRLF,
                                        "recover ring <storage-node>", ?CRLF,
                                        "recover cluster <cluster-id>"
@@ -233,6 +234,7 @@
 -define(RECOVER_NODE, "node").
 -define(RECOVER_RING, "ring").
 -define(RECOVER_REMOTE_CLUSTER, "cluster").
+-define(RECOVER_DIR, "dir").
 
 %% membership
 -define(DEF_NUM_OF_ERROR_COUNT, 2).
@@ -282,7 +284,7 @@
 -define(ERROR_FAILED_UPDATE_MANAGERS,    "Failed to update the manager nodes").
 -define(ERROR_COULD_NOT_GET_CONF,        "Could not get the system-config").
 -define(ERROR_MEMBER_NOT_FOUND,          "Member not found").
--define(ERROR_COULD_NOT_GET_MEMBER,      "Could not get member").
+-define(ERROR_COULD_NOT_GET_MEMBER,      "Could not get members (storage-nodes)").
 -define(ERROR_COULD_NOT_GET_GATEWAY,     "Could not get gateway(s)").
 -define(ERROR_NOT_NEED_REBALANCE,        "Not need rebalance").
 -define(ERROR_FAIL_REBALANCE,            "Fail rebalance").

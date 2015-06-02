@@ -66,7 +66,7 @@
 
 -export([register/4, register/7, register/8,
          notify/3, notify/4, purge/1, remove/1,
-         whereis/2, recover/3,
+         whereis/2, recover/3, rebuild_dir_metadata/2,
          compact/2, compact/4, diagnose_data/1,
          stats/2,
          mq_stats/1, mq_suspend/2, mq_resume/2,
@@ -743,7 +743,7 @@ start_2(Socket, NumOfNodes, TotalMembers, Errors) ->
 %% @doc Update the leo_storage status from ?STATE_ATTACHED to ?STATE_RUNNING
 %%
 -spec(update_running_storage_status() ->
-            {ok, list()}|{error, list()}).
+             {ok, list()}|{error, list()}).
 update_running_storage_status() ->
     case leo_redundant_manager_api:get_members() of
         {ok, Members} ->
@@ -768,7 +768,7 @@ update_running_storage_status([Node|T], UpdatedNodes) ->
 %% @doc Rollback the leo_storage status from ?STATE_RUNNING to ?STATE_ATTACHED
 %%
 -spec(rollback_running_storage_status(list()) ->
-            ok | {error, any()}).
+             ok | {error, any()}).
 rollback_running_storage_status(UpdatedNodes) ->
     rollback_running_storage_status(UpdatedNodes, []).
 rollback_running_storage_status([], []) ->
@@ -1417,7 +1417,7 @@ recover(?RECOVER_REMOTE_CLUSTER, ClusterId, true) when is_list(ClusterId) ->
 recover(?RECOVER_REMOTE_CLUSTER, ClusterId, true) ->
     case is_allow_to_distribute_command() of
         {true, Members} ->
-            case rpc:multicall(Members, leo_storage_handle_sync, force_sync,
+            case rpc:multicall(Members, leo_storage_handler_sync, force_sync,
                                [ClusterId], ?DEF_TIMEOUT) of
                 {_RetL, []} ->
                     ok;
@@ -1457,6 +1457,48 @@ recover_node_2(true, Members, Node) ->
     end;
 recover_node_2(false,_,_) ->
     {error, ?ERROR_NOT_SATISFY_CONDITION}.
+
+
+%% @doc Rebuild every directory's metadata
+%%
+-spec(rebuild_dir_metadata(pid(), [string()]) ->
+             ok | {error, any()}).
+rebuild_dir_metadata(Socket, []) ->
+    ok = output_message_to_console(
+           Socket, << "Start rebuidling every dir's metadata..." >>),
+    case leo_manager_mnesia:get_storage_nodes_all() of
+        {ok, Nodes} ->
+            Nodes_1 = [{N, S} || #node_state{node  = N,
+                                             state = S} <- Nodes],
+            rebuild_dir_metadata_1(Socket, Nodes_1, []);
+        _Error ->
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
+    end;
+%% @TODO: Support specific parameters
+rebuild_dir_metadata(_Socket,_Prms) ->
+    ok.
+
+%% @private
+rebuild_dir_metadata_1(_Socket, [], []) ->
+    ok;
+rebuild_dir_metadata_1(_Socket, [], Error) ->
+    {error, Error};
+rebuild_dir_metadata_1(Socket, [{Node, running}|Rest], Error) ->
+    {SendMsg, Error_1} =
+        case rpc:call(Node, ?API_STORAGE, diagnose_data, [], ?DEF_TIMEOUT) of
+            ok ->
+                {lists:append(["OK: ", atom_to_list(Node)]),
+                 Error};
+            {error, Cause} ->
+                {lists:append(["ERROR: ", atom_to_list(Node), ", Reason:badrpc"]),
+                 [{Node, Cause}|Error]}
+        end,
+    ok = output_message_to_console(Socket, list_to_binary(SendMsg)),
+    rebuild_dir_metadata_1(Socket,Rest, Error_1);
+rebuild_dir_metadata_1(Socket, [{Node, State}|Rest], Error) ->
+    SendMsg = lists:append(["Skip: ", atom_to_list(Node), " because of ", atom_to_list(State)]),
+    ok = output_message_to_console(Socket, list_to_binary(SendMsg)),
+    rebuild_dir_metadata_1(Socket, Rest, Error).
 
 
 %% @doc Do compact.
