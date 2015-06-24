@@ -1090,10 +1090,14 @@ register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes) ->
              IdL1, IdL2, NumOfVNodes, ?DEF_LISTEN_PORT).
 
 register(RequestedTimes, Pid, Node, Type, IdL1, IdL2, NumOfVNodes, RPCPort) ->
-    ok = leo_manager_cluster_monitor:register(
+    case leo_manager_cluster_monitor:register(
            RequestedTimes, Pid, Node, Type,
-           IdL1, IdL2, NumOfVNodes, RPCPort),
-    register_1().
+           IdL1, IdL2, NumOfVNodes, RPCPort) of
+        ok ->
+            register_1();
+        Error ->
+            Error
+    end.
 
 %% @private
 register_1() ->

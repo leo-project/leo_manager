@@ -527,8 +527,8 @@ register_fun_1(#registration{node = Node,
                                   ring_hash_new = leo_hex:integer_to_hex(Chksum0, 8),
                                   ring_hash_old = leo_hex:integer_to_hex(Chksum1, 8),
                                   when_is = ?CURRENT_TIME});
-                _Error ->
-                    void
+                Error ->
+                    Error
             end
     end;
 

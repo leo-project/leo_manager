@@ -471,10 +471,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     MQConf_1 = leo_misc:get_value('mq_num_of_procs', State, []),
     MQConf_2 = leo_misc:get_value('mq_num_of_batch_process_max',  State, []),
     MQConf_3 = leo_misc:get_value('mq_num_of_batch_process_reg',  State, []),
-    MQConf_4 = leo_misc:get_value('mq_num_of_batch_process_step', State, []),
-    MQConf_5 = leo_misc:get_value('mq_interval_between_batch_procs_max',  State, []),
-    MQConf_6 = leo_misc:get_value('mq_interval_between_batch_procs_reg',  State, []),
-    MQConf_7 = leo_misc:get_value('mq_interval_between_batch_procs_step', State, []),
+    MQConf_4 = leo_misc:get_value('mq_interval_between_batch_procs_max',  State, []),
+    MQConf_5 = leo_misc:get_value('mq_interval_between_batch_procs_reg',  State, []),
 
     AutoCompactionEnabled = leo_misc:get_value('auto_compaction_enabled', State),
     AutoCompactionConf_1  = leo_misc:get_value('auto_compaction_warn_active_size_ratio', State),
@@ -485,10 +483,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
     CompactionConf_1 = leo_misc:get_value('limit_num_of_compaction_procs',      State),
     CompactionConf_2 = leo_misc:get_value('compaction_num_of_batch_procs_max',  State),
     CompactionConf_3 = leo_misc:get_value('compaction_num_of_batch_procs_reg',  State),
-    CompactionConf_4 = leo_misc:get_value('compaction_num_of_batch_procs_step', State),
-    CompactionConf_5 = leo_misc:get_value('compaction_interval_between_batch_procs_max',  State),
-    CompactionConf_6 = leo_misc:get_value('compaction_interval_between_batch_procs_reg',  State),
-    CompactionConf_7 = leo_misc:get_value('compaction_interval_between_batch_procs_step', State),
+    CompactionConf_4 = leo_misc:get_value('compaction_interval_between_batch_procs_max',  State),
+    CompactionConf_5 = leo_misc:get_value('compaction_interval_between_batch_procs_reg',  State),
 
     ObjContainer_1 = lists:flatten(
                        lists:foldl(
@@ -547,8 +543,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 " Config-3: message-queue\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 "                   number of procs/mq | ~w\r\n",
-                                "        number of batch-procs of msgs | max:~w, regular:~w, step:~w\r\n",
-                                "   interval between batch-procs (ms)  | max:~w, regular:~w, step:~w\r\n",
+                                "        number of batch-procs of msgs | max:~w, regular:~w\r\n",
+                                "   interval between batch-procs (ms)  | max:~w, regular:~w\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 " Config-4: autonomic operation\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
@@ -562,8 +558,8 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 " Config-5: data-compaction\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 "  limit of number of compaction procs | ~w\r\n",
-                                "        number of batch-procs of objs | max:~w, regular:~w, step:~w\r\n",
-                                "   interval between batch-procs (ms)  | max:~w, regular:~w, step:~w\r\n",
+                                "        number of batch-procs of objs | max:~w, regular:~w\r\n",
+                                "   interval between batch-procs (ms)  | max:~w, regular:~w\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 " Status-1: RING hash\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
@@ -623,8 +619,6 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    MQConf_3,
                    MQConf_4,
                    MQConf_5,
-                   MQConf_6,
-                   MQConf_7,
                    %% Auto-compaction
                    leo_manager_formatter_commons:exchange_value(
                      ?BOOL_TO_ENABLE, AutoCompactionEnabled),
@@ -638,8 +632,6 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    CompactionConf_3,
                    CompactionConf_4,
                    CompactionConf_5,
-                   CompactionConf_6,
-                   CompactionConf_7,
                    %% RING
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
