@@ -238,7 +238,7 @@ handle_call(_Socket, <<?CMD_UPDATE_PROP, ?SPACE, Option/binary>> = Command,
                           Formatter:error(Cause)
                   end
           end,
-    Reply = invoke(?CMD_DU, Formatter, Fun),
+    Reply = invoke(?CMD_UPDATE_PROP, Formatter, Fun),
     {reply, Reply, State};
 
 %%----------------------------------------------------------------------
