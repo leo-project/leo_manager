@@ -182,7 +182,7 @@
                    {?CMD_PURGE,  "purge <path>"},
                    {?CMD_REMOVE, "remove <gateway-node>"},
                    %% for Watchdog
-                   {?CMD_UPDATE_ACL, "update-acl <property-name> <property-value>"},
+                   {?CMD_UPDATE_PROP, "update-property <node> <property-name> <property-value>"},
                    %% for S3-API
                    %% - user-related
                    {?CMD_CREATE_USER,      "create-user <user-id> [<password>]"},
