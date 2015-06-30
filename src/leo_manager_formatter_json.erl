@@ -303,14 +303,6 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                   {<<"wd_cpu_interval">>,                leo_misc:get_value('cpu_interval',                WatchdogProps)},
                   {<<"wd_cpu_threshold_cpu_load_avg">>,  leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps)},
                   {<<"wd_cpu_threshold_cpu_util">>,      leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps)},
-                  {<<"wd_io_enabled">>,                  list_to_binary(
-                                                           atom_to_list(
-                                                             leo_manager_formatter_commons:exchange_value(
-                                                               ?BOOL_TO_ENABLE,
-                                                               leo_misc:get_value('io_enabled', WatchdogProps))))},
-                  {<<"wd_io_interval">>,                 leo_misc:get_value('io_interval',                 WatchdogProps)},
-                  {<<"wd_io_threshold_input_per_sec">>,  leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps)},
-                  {<<"wd_io_threshold_output_per_sec">>, leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps)},
                   {<<"wd_disk_enabled">>,  list_to_binary(
                                              atom_to_list(
                                                leo_manager_formatter_commons:exchange_value(
