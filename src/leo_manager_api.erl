@@ -2114,7 +2114,7 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
                                      [AccessKeyBin, BucketBin, CannedACL, undefined]),
             ok;
         {error, badarg} ->
-            {error, ?ERROR_INVALID_BUCKET_FORMAT};
+            {error, invalid_bucket_format};
         {error, _Cause} ->
             {error, ?ERROR_COULD_NOT_STORE}
     end.
