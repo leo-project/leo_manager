@@ -285,6 +285,7 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                             {ok, #node_state{state = State} = NodeInfo} ->
                                 case update_node_state(down, State, Node) of
                                     delete ->
+                                        ok = leo_cluster_tbl_member:delete(Node),
                                         leo_manager_mnesia:delete_storage_node(NodeInfo);
                                     _Other ->
                                         void

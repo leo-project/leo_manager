@@ -264,9 +264,12 @@ get_members() ->
 get_members_of_all_versions() ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, MembersCur} ->
+            MembersCur_1 = exclude_attached_members(MembersCur, []),
+
             case leo_redundant_manager_api:get_members(?VER_PREV) of
                 {ok, MembersPrev} ->
-                    {ok, {MembersCur, MembersPrev}};
+                    MembersPrev_1 = exclude_attached_members(MembersPrev, []),
+                    {ok, {MembersCur_1, MembersPrev_1}};
                 {error, not_found = Cause} ->
                     {error, Cause};
                 {error, Cause} ->
@@ -277,6 +280,14 @@ get_members_of_all_versions() ->
             ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
             {error, Cause}
     end.
+
+%% @private
+exclude_attached_members([], Acc) ->
+    lists:reverse(Acc);
+exclude_attached_members([#member{state = ?STATE_ATTACHED}|Rest], Acc) ->
+    exclude_attached_members(Rest, Acc);
+exclude_attached_members([#member{} = Member|Rest], Acc) ->
+    exclude_attached_members(Rest, [Member|Acc]).
 
 
 %% @doc Retrieve cluster-node-status from each server.
