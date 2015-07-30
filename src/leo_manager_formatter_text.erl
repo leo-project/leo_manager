@@ -748,8 +748,8 @@ du(_, _) ->
 mq_stats([]) ->
     [];
 mq_stats(Stats) ->
-    Header = "              id                |    state    | number of msgs | batch of msgs  |    interval    |            description            \r\n"
-        ++   "--------------------------------+-------------+----------------|----------------|----------------|-----------------------------------\r\n",
+    Header = "              id                |    state    | number of msgs | batch of msgs  |    interval    |                 description                 \r\n"
+        ++   "--------------------------------+-------------+----------------|----------------|----------------|---------------------------------------------\r\n",
     Output = lists:foldl(
                fun(#mq_state{id = Id,
                              state = ConsumerStats,
@@ -764,7 +764,7 @@ mq_stats(Stats) ->
                                      string:left(integer_to_list(NumOfMsgs),   14), ?SEPARATOR,
                                      string:left(integer_to_list(BatchOfMsgs), 14), ?SEPARATOR,
                                      string:left(integer_to_list(Interval),    14), ?SEPARATOR,
-                                     string:left(Desc, 34), ?CRLF])
+                                     string:left(Desc, 44), ?CRLF])
                end, Header, Stats),
     Output.
 
