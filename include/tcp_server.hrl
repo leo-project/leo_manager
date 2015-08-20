@@ -16,19 +16,19 @@
 %% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 %% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
-%% under the License.    
+%% under the License.
 %%
 %%======================================================================
 -record(tcp_server_params, {
-          prefix_of_name = "tcp_server_"  :: string(),
+          prefix_of_name = "tcp_server_" :: string(),
           listen = [binary, {packet, line}, {active, false}, {reuseaddr, true}],
-          port                    = 10010 :: integer(),
-          num_of_listeners        = 3     :: integer(),
-          restart_times           = 3     :: integer(),
-          time                    = 60    :: integer(),
-          shutdown                = 2000  :: integer(),
-          accept_timeout          = infinity,
-          accept_error_sleep_time = 3000  :: integer(),
-          recv_length             = 0     :: integer(),
-          recv_timeout            = infinity
+          port = 10010 :: integer(),
+          num_of_listeners = 3 :: integer(),
+          restart_times = 3 :: integer(),
+          time = 60 :: integer(),
+          shutdown = 2000 :: integer(),
+          accept_timeout = infinity,
+          accept_error_sleep_time = 3000 :: integer(),
+          recv_length = 0 :: integer(),
+          recv_timeout = infinity
          }).

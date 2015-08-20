@@ -40,7 +40,7 @@
 -define(DEF_RING_SYNC_INTERVAL, 10000). %%  10sec
 -endif.
 
--define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
+-define(SYSTEM_CONF_FILE, "conf/leofs.conf").
 
 
 -ifdef(TEST).
@@ -58,6 +58,7 @@
 -define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
 -define(TBL_HISTORIES,      'leo_histories').
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
+-define(TBL_EC_PROFILES,    'leo_erasure_code_profiles').
 
 %% server-type
 -define(SERVER_TYPE_STORAGE, "S").
@@ -65,7 +66,7 @@
 
 
 %% command-related
--define(COMMAND_ERROR,     "Command Error").
+-define(COMMAND_ERROR, "Command Error").
 -define(COMMAND_DELIMITER, " \r\n").
 
 -define(OK,           "OK\r\n").
@@ -82,11 +83,10 @@
 -define(BYE,          "BYE\r\n").
 
 %% Common Commands
--define(CMD_HELP,    "help").
--define(CMD_QUIT,    "quit").
+-define(CMD_HELP, "help").
+-define(CMD_QUIT, "quit").
 -define(CMD_VERSION, "version").
--define(CMD_STATUS,  "status").
-
+-define(CMD_STATUS, "status").
 %% For S3-API
 -define(CMD_CREATE_USER,      "create-user").
 -define(CMD_UPDATE_USER_ROLE, "update-user-role").
@@ -100,118 +100,123 @@
 -define(CMD_ADD_BUCKET,       "add-bucket").
 -define(CMD_GET_BUCKETS,      "get-buckets").
 -define(CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket").
--define(CMD_DELETE_BUCKET,            "delete-bucket").
--define(CMD_CHANGE_BUCKET_OWNER,      "chown-bucket").
--define(CMD_UPDATE_ACL,               "update-acl").
-
+-define(CMD_DELETE_BUCKET, "delete-bucket").
+-define(CMD_CHANGE_BUCKET_OWNER, "chown-bucket").
+-define(CMD_UPDATE_ACL, "update-acl").
 %% For Storage
--define(CMD_ATTACH,        "attach").
--define(CMD_DETACH,        "detach").
--define(CMD_SUSPEND,       "suspend").
--define(CMD_RESUME,        "resume").
--define(CMD_ROLLBACK,      "rollback").
--define(CMD_START,         "start").
--define(CMD_REBALANCE,     "rebalance").
--define(CMD_COMPACT,       "compact").
+-define(CMD_ATTACH, "attach").
+-define(CMD_DETACH, "detach").
+-define(CMD_SUSPEND, "suspend").
+-define(CMD_RESUME, "resume").
+-define(CMD_ROLLBACK, "rollback").
+-define(CMD_START, "start").
+-define(CMD_REBALANCE, "rebalance").
+-define(CMD_COMPACT, "compact").
 -define(CMD_DIAGNOSE_DATA, "diagnose-data").
--define(CMD_DU,            "du").
--define(CMD_WHEREIS,       "whereis").
-
-%% For Storage-MQ
--define(CMD_MQ_STATS,   "mq-stats").
+-define(CMD_DU, "du").
+-define(CMD_WHEREIS, "whereis").
+%% For Storage MQ
+-define(CMD_MQ_STATS, "mq-stats").
 -define(CMD_MQ_SUSPEND, "mq-suspend").
--define(CMD_MQ_RESUME,  "mq-resume").
-
+-define(CMD_MQ_RESUME, "mq-resume").
+%% For Storage Erasure Code
+-define(CMD_EC_GET_PROFILES, "get-erasure-code-profiles").
+-define(CMD_EC_ADD_PROFILE, "add-erasure-code-profile").
+-define(CMD_EC_UPDATE_PROFILE, "update-erasure-code-profile").
+-define(CMD_EC_DEL_PROFILE, "delete-erasure-code-profile").
 %% For Gateway
--define(CMD_PURGE,           "purge").
--define(CMD_REMOVE,          "remove").
--define(CMD_BACKUP_MNESIA,   "backup-mnesia").
--define(CMD_RESTORE_MNESIA,  "restore-mnesia").
+-define(CMD_PURGE, "purge").
+-define(CMD_REMOVE, "remove").
+-define(CMD_BACKUP_MNESIA, "backup-mnesia").
+-define(CMD_RESTORE_MNESIA, "restore-mnesia").
 -define(CMD_UPDATE_MANAGERS, "update-managers").
-
 %% For Maintenance
--define(CMD_RECOVER,     "recover").
--define(CMD_HISTORY,     "history").
--define(CMD_DUMP_RING,   "dump-ring").
+-define(CMD_RECOVER, "recover").
+-define(CMD_HISTORY, "history").
+-define(CMD_DUMP_RING, "dump-ring").
 -define(CMD_UPDATE_PROP, "update-property").
-
 %% For MDC-Replication
--define(CMD_JOIN_CLUSTER,   "join-cluster").
+-define(CMD_JOIN_CLUSTER, "join-cluster").
 -define(CMD_REMOVE_CLUSTER, "remove-cluster").
--define(CMD_CLUSTER_STAT,   "cluster-status").
+-define(CMD_CLUSTER_STAT, "cluster-status").
 
--define(LOGIN,      "login").
+-define(LOGIN, "login").
 -define(AUTHORIZED, <<"_authorized_\r\n">>).
 -define(USER_ID,    <<"_user_id_\r\n">>).
 -define(PASSWORD,   <<"_password_\r\n">>).
 
--define(COMMANDS, [{?CMD_HELP,      "help"},
-                   {?CMD_QUIT,      "quit"},
-                   {?CMD_VERSION,   "version"},
-                   {?CMD_STATUS,    "status [<storage-node>|<gateway-node>]"},
-                   {?CMD_HISTORY,   "history"},
+-define(COMMANDS, [{?CMD_HELP, "help"},
+                   {?CMD_QUIT, "quit"},
+                   {?CMD_VERSION, "version"},
+                   {?CMD_STATUS,  "status [<storage-node>|<gateway-node>]"},
+                   {?CMD_HISTORY, "history"},
                    {?CMD_DUMP_RING, "dump-ring <manager-node>|<storage-node>|<gateway-node>"},
                    %% for Cluster
-                   {?CMD_WHEREIS,   "whereis <path>"},
-                   {?CMD_RECOVER,   lists:append(
-                                      ["recover file <path>", ?CRLF,
-                                       "recover dir [<path>]", ?CRLF,
-                                       "recover node <storage-node>", ?CRLF,
-                                       "recover ring <storage-node>", ?CRLF,
-                                       "recover cluster <cluster-id>"
-                                      ])},
-                   {?CMD_DETACH,    "detach <storage-node>"},
-                   {?CMD_SUSPEND,   "suspend <storage-node>"},
-                   {?CMD_RESUME,    "resume <storage-node>"},
-                   {?CMD_ROLLBACK,  "rollback <storage-node>"},
-                   {?CMD_START,     "start"},
+                   {?CMD_WHEREIS, "whereis <path>"},
+                   {?CMD_RECOVER, lists:append(
+                                    ["recover file <path>", ?CRLF,
+                                     "recover dir [<path>]", ?CRLF,
+                                     "recover node <storage-node>", ?CRLF,
+                                     "recover ring <storage-node>", ?CRLF,
+                                     "recover cluster <cluster-id>"
+                                    ])},
+                   {?CMD_DETACH, "detach <storage-node>"},
+                   {?CMD_SUSPEND, "suspend <storage-node>"},
+                   {?CMD_RESUME, "resume <storage-node>"},
+                   {?CMD_ROLLBACK, "rollback <storage-node>"},
+                   {?CMD_START, "start"},
                    {?CMD_REBALANCE, "rebalance"},
                    %% for Storage
-                   {?CMD_COMPACT,   lists:append(
-                                      ["compact start <storage-node> all|<num_of_targets> [<num_of_compact_procs>]", ?CRLF,
-                                       "compact suspend <storage-node>", ?CRLF,
-                                       "compact resume  <storage-node>", ?CRLF,
-                                       "compact status  <storage-node>"
-                                      ])},
+                   {?CMD_COMPACT, lists:append(
+                                    ["compact start <storage-node> all|<num_of_targets> [<num_of_compact_procs>]", ?CRLF,
+                                     "compact suspend <storage-node>", ?CRLF,
+                                     "compact resume  <storage-node>", ?CRLF,
+                                     "compact status  <storage-node>"
+                                    ])},
                    {?CMD_DIAGNOSE_DATA, "diagnose-data <storage-node>"},
                    {?CMD_DU, "du <storage-node>"},
-                   %% for Storage-mq
-                   {?CMD_MQ_STATS,   "mq-stats <storage-node>"},
+                   %% for Storage MQ
+                   {?CMD_MQ_STATS, "mq-stats <storage-node>"},
                    {?CMD_MQ_SUSPEND, "mq-suspend <storage-node> <mq-id>"},
-                   {?CMD_MQ_RESUME,  "mq-resume <storage-node> <mq-id>"},
+                   {?CMD_MQ_RESUME, "mq-resume <storage-node> <mq-id>"},
+                   %% for Storage Erasure-code
+                   {?CMD_EC_GET_PROFILES, "get-erasure-code-profiles"},
+                   {?CMD_EC_ADD_PROFILE, "add-erasure-code-profile <name> <k> <m> <method>"},
+                   {?CMD_EC_UPDATE_PROFILE, "update-erasure-code-profile <name> <k> <m> <method>"},
+                   {?CMD_EC_DEL_PROFILE, "delete-erasure-code-profile <name>"},
                    %% for Gateway
-                   {?CMD_PURGE,  "purge <path>"},
+                   {?CMD_PURGE, "purge <path>"},
                    {?CMD_REMOVE, "remove <gateway-node>"},
                    %% for Watchdog
                    {?CMD_UPDATE_PROP, "update-property <node> <property-name> <property-value>"},
                    %% for S3-API
                    %% - user-related
-                   {?CMD_CREATE_USER,      "create-user <user-id> [<password>]"},
-                   {?CMD_DELETE_USER,      "delete-user <user-id>"},
+                   {?CMD_CREATE_USER, "create-user <user-id> [<password>]"},
+                   {?CMD_DELETE_USER, "delete-user <user-id>"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role <user-id> <role-id>"},
-                   {?CMD_UPDATE_USER_PW,   "update-user-password <user-id> <password>"},
-                   {?CMD_GET_USERS,        "get-users"},
+                   {?CMD_UPDATE_USER_PW, "update-user-password <user-id> <password>"},
+                   {?CMD_GET_USERS, "get-users"},
                    %% - endpoint-related
-                   {?CMD_ADD_ENDPOINT,  "add-endpoint <endpoint>"},
-                   {?CMD_SET_ENDPOINT,  "set-endpoint <endpoint>"},
-                   {?CMD_DEL_ENDPOINT,  "delete-endpoint <endpoint>"},
+                   {?CMD_ADD_ENDPOINT, "add-endpoint <endpoint>"},
+                   {?CMD_SET_ENDPOINT, "set-endpoint <endpoint>"},
+                   {?CMD_DEL_ENDPOINT, "delete-endpoint <endpoint>"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
                    %% - bucket-related
-                   {?CMD_ADD_BUCKET,    "add-bucket <bucket> <access-key-id>"},
+                   {?CMD_ADD_BUCKET, "add-bucket <bucket> <access-key-id>"},
                    {?CMD_DELETE_BUCKET, "delete-bucket <bucket> <access-key-id>"},
-                   {?CMD_GET_BUCKETS,   "get-buckets"},
+                   {?CMD_GET_BUCKETS, "get-buckets"},
                    {?CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket <access-key-id>"},
-                   {?CMD_CHANGE_BUCKET_OWNER,      "chown-bucket <bucket> <new-access-key-id>"},
+                   {?CMD_CHANGE_BUCKET_OWNER, "chown-bucket <bucket> <new-access-key-id>"},
                    %% - acl-related
                    {?CMD_UPDATE_ACL, "update-acl <bucket> <access-key-id> private|public-read|public-read-write"},
                    %% - multi-dc replication
-                   {?CMD_JOIN_CLUSTER,   "join-cluster <remote-manager-master> <remote-manager-slave>"},
+                   {?CMD_JOIN_CLUSTER, "join-cluster <remote-manager-master> <remote-manager-slave>"},
                    {?CMD_REMOVE_CLUSTER, "remove-cluster <remote-manager-master> <remote-manager-slave>"},
-                   {?CMD_CLUSTER_STAT,   "cluster-status"},
+                   {?CMD_CLUSTER_STAT, "cluster-status"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS, "update-managers <manager-master> <manager-slave>"},
-                   {?CMD_BACKUP_MNESIA,   "backup-mnesia <backupfilepath>"},
-                   {?CMD_RESTORE_MNESIA,  "restore-mnesia <backupfilepath>"}
+                   {?CMD_BACKUP_MNESIA, "backup-mnesia <backupfilepath>"},
+                   {?CMD_RESTORE_MNESIA, "restore-mnesia <backupfilepath>"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),
@@ -222,12 +227,11 @@
 -define(NULL_DATETIME, "____-__-__ __:__:__").
 
 %% compaction-related
--define(COMPACT_START,      "start").
--define(COMPACT_SUSPEND,    "suspend").
--define(COMPACT_RESUME,     "resume").
--define(COMPACT_STATUS,     "status").
+-define(COMPACT_START, "start").
+-define(COMPACT_SUSPEND, "suspend").
+-define(COMPACT_RESUME, "resume").
+-define(COMPACT_STATUS, "status").
 -define(COMPACT_TARGET_ALL, "all").
-
 
 %% recover type
 -define(RECOVER_FILE, "file").
@@ -304,7 +308,6 @@
 -define(MOD_TEXT_FORMATTER, 'leo_manager_formatter_text').
 -define(MOD_JSON_FORMATTER, 'leo_manager_formatter_json').
 
-
 %% test values and default values
 -define(TEST_USER_ID,    <<"_test_leofs">>).
 -define(TEST_ACCESS_KEY, <<"05236">>).
@@ -314,14 +317,28 @@
 -define(DEF_ENDPOINT_2, <<"s3.amazonaws.com">>).
 
 -define(PROP_MNESIA_NODES, 'leo_manager_mnesia_nodes').
-
+-define(DEF_MNESIA_DIR, "./work/mnesia/127.0.0.1").
+-define(DEF_QUEUE_DIR, "./work/queue/").
+-define(DEF_LOG_DIR, "./log/").
 
 %% MQ related:
 -define(QUEUE_ID_FAIL_REBALANCE, 'mq_fail_rebalance').
 
+%% Erasure Code related:
+-define(DEF_ERASURE_CODE_PROFILES, [#erasure_code_profile{id = 1, name = "RAID5", k = 3,  m = 1, method = 'vandrs'}, %% 1.33
+                                    #erasure_code_profile{id = 2, name = "RAID6", k = 4,  m = 2, method = 'vandrs'}, %% 1.50
+                                    #erasure_code_profile{id = 3, name = "K5M2",  k = 5,  m = 2, method = 'vandrs'}, %% 1.40
+                                    #erasure_code_profile{id = 4, name = "K6M2",  k = 6,  m = 2, method = 'vandrs'}, %% 1.33
+                                    #erasure_code_profile{id = 5, name = "K7M3",  k = 7,  m = 3, method = 'vandrs'}, %% 1.43
+                                    #erasure_code_profile{id = 6, name = "K8M3",  k = 8,  m = 3, method = 'vandrs'}, %% 1.38
+                                    #erasure_code_profile{id = 7, name = "K9M4",  k = 9,  m = 4, method = 'vandrs'}, %% 1.56
+                                    #erasure_code_profile{id = 8, name = "K10M4", k = 10, m = 4, method = 'vandrs'}  %% 1.40
+                                   ]).
 
-%% records
-%%
+
+%% ---------------------------------------------------------
+%% RECORDS
+%% ---------------------------------------------------------
 -define(AUTH_NOT_YET, 0).
 -define(AUTH_USERID_1, 1).
 -define(AUTH_USERID_2, 2).
@@ -334,45 +351,54 @@
                 ?AUTH_DONE).
 
 -ifdef(TEST).
--record(state, {formatter         :: atom(),
+-record(state, {formatter :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = <<>>    :: binary(),
-                password = <<>>   :: binary(),
-                plugin_mod        :: atom()
+                user_id = <<>> :: binary(),
+                password = <<>> :: binary(),
+                plugin_mod :: atom()
                }).
 -else.
--record(state, {formatter         :: atom(),
+-record(state, {formatter :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = <<>>    :: binary(),
-                password = <<>>   :: binary(),
-                plugin_mod        :: atom()
+                user_id = <<>> :: binary(),
+                password = <<>> :: binary(),
+                plugin_mod :: atom()
                }).
 -endif.
 
 -record(rebalance_info, {
-          vnode_id         = -1  :: integer(),
-          node                   :: atom(),
-          total_of_objects = 0   :: integer(),
-          num_of_remains   = 0   :: integer(),
-          when_is          = 0   :: integer() %% Posted at
+          vnode_id = -1  :: integer(),
+          node :: atom(),
+          total_of_objects = 0 :: integer(),
+          num_of_remains = 0 :: integer(),
+          when_is = 0 :: integer() %% Posted at
          }).
 
 -record(history, {
-          id           :: pos_integer(),
+          id = 1 :: pos_integer(),
           command = [] :: string(), %% Command
           created = -1 :: integer() %% Created At
          }).
 
 -record(recovery_rebalance_info, {
-          id   :: pos_integer(),
+          id = 1 :: pos_integer(),
           node :: atom(),
           rebalance_info = [] :: list(tuple()),
-          timestamp = 0       :: pos_integer()
+          timestamp = 0 :: pos_integer()
+         }).
+
+-record(erasure_code_profile, {
+          id = 1 :: pos_integer(),
+          name = [] :: string(),
+          k = 1 :: pos_integer(),
+          m = 1 :: pos_integer(),
+          method :: atom()
          }).
 
 
-%% macros
-%%
+%% ---------------------------------------------------------
+%% MACROS
+%% ---------------------------------------------------------
 -define(env_mode_of_manager(),
         case application:get_env(leo_manager, manager_mode) of
             {ok, EnvModeOfManager} -> EnvModeOfManager;
@@ -453,7 +479,6 @@
             _ -> true
         end).
 
--define(DEF_LOG_DIR, "./log/").
 -define(env_log_dir(),
         case application:get_env(leo_manager, log_appender) of
             {ok, [{file, Options}|_]} ->
@@ -462,7 +487,6 @@
                 ?DEF_LOG_DIR
         end).
 
--define(DEF_QUEUE_DIR, "./work/queue/").
 -define(env_queue_dir(),
         case application:get_env(leo_manager, queue_dir) of
             {ok, _EnvQueueDir} ->
@@ -470,8 +494,6 @@
             _ ->
                 ?DEF_QUEUE_DIR
         end).
-
--define(DEF_MNESIA_DIR, "./work/mnesia/127.0.0.1").
 
 
 %% @doc Plugin-related macros

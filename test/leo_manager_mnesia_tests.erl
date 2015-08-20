@@ -57,6 +57,7 @@ all_(_) ->
     ok = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
     ok = leo_manager_mnesia:create_histories(ram_copies, [node()]),
     ok = leo_manager_mnesia:create_available_commands(ram_copies, [node()]),
+    ok = leo_manager_mnesia:create_erasure_code_profiles(ram_copies, [node()]),
     ok = leo_s3_auth:create_table(ram_copies, [node()]),
     ok = leo_s3_bucket:create_table(ram_copies, [node()]),
     ok = leo_s3_endpoint:create_table(ram_copies, [node()]),
@@ -71,13 +72,15 @@ all_(_) ->
     not_found = leo_manager_mnesia:get_storage_nodes_by_status('running'),
     not_found = leo_manager_mnesia:get_gateway_nodes_all(),
     not_found = leo_manager_mnesia:get_gateway_node_by_name(node()),
-    %% not_found = leo_manager_mnesia:get_system_config(),
     not_found = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_rebalance_info_by_node(node()),
+    not_found = leo_manager_mnesia:get_erasure_code_profiles(),
+    not_found = leo_manager_mnesia:get_erasure_code_profile("RAID5"),
 
-    %% put
     %%
-    %% (1) storage-node
+    %% put/get
+    %%
+    %% storage-node
     Node0  = 'test0@127.0.0.1',
     State0 = 'running',
     NodeState0 = #node_state{node  = Node0,
@@ -114,11 +117,9 @@ all_(_) ->
     ?assertEqual(true, length(Res5) == 1),
 
     [NewNodeState0|_] = Res5,
-
-
     {error,  badarg} = leo_manager_mnesia:update_storage_node_status(badarg, NodeState0),
 
-    %% (2) gateway-node
+    %% gateway-node
     Node1  = 'test1@127.0.0.1',
     State1 = 'running',
     NodeState1 = #node_state{node = Node1,
@@ -132,13 +133,7 @@ all_(_) ->
                               when_is       = 0,
                               error         = 0}], Res6),
 
-    %% (3) system-config
-    %% SystemConf = #system_conf{n = 3, w = 2, r = 1, d = 2},
-    %% ok = leo_manager_mnesia:update_system_config(SystemConf),
-    %% {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
-    %% ?assertEqual(SystemConf, ReceivedSystemConf),
-
-    %% (4) rebalance-info
+    %% rebalance-info
     RebalanceInfo = #rebalance_info{vnode_id         = 255,
                                     node             = Node1,
                                     total_of_objects = 128,
@@ -150,11 +145,22 @@ all_(_) ->
 
     {ok, [Res8|_]} = leo_manager_mnesia:get_rebalance_info_by_node(Node1),
     ?assertEqual(RebalanceInfo, Res8),
-
     not_found = leo_manager_mnesia:get_rebalance_info_by_node(Node0),
 
+    %% erasure-code profiles
+    [ok = leo_manager_mnesia:update_erasure_code_profile(ECProf)
+     || ECProf <- ?DEF_ERASURE_CODE_PROFILES],
+
+    {ok, ECProfL_1} = leo_manager_mnesia:get_erasure_code_profiles(),
+    ?assertEqual(8, length(ECProfL_1)),
+    {ok, ECProf} = leo_manager_mnesia:get_erasure_code_profile("RAID5"),
+    ?assertEqual(#erasure_code_profile{id = 1, name = "RAID5", k = 3,  m = 1, method = 'vandrs'},
+                 ECProf),
+
+    %%
     %% delete
-    %% (1) storage-node
+    %%
+    %% storage-node
     ok = leo_manager_mnesia:delete_storage_node(NewNodeState0),
     not_found = leo_manager_mnesia:get_storage_nodes_all(),
 
@@ -164,10 +170,14 @@ all_(_) ->
     ok = leo_manager_mnesia:delete_all(),
     ok = leo_manager_mnesia:restore(BakFile),
     {ok, Res6} = leo_manager_mnesia:get_gateway_nodes_all(),
-    %% {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
     {ok, [Res7|_]} = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_storage_nodes_all(),
 
+    %% erasure-code profile
+    ok = leo_manager_mnesia:delete_erasure_code_profile("RAID5"),
+    {ok, ECProfL_2} = leo_manager_mnesia:get_erasure_code_profiles(),
+    ?assertEqual(7, length(ECProfL_2)),
+    not_found =leo_manager_mnesia:get_erasure_code_profile("RAID5"),
     ok.
 
 -endif.

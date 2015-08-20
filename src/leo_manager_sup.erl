@@ -263,6 +263,7 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
+                leo_manager_mnesia:create_erasure_code_profiles(disc_copies, Nodes_1),
 
                 leo_cluster_tbl_conf:create_table(disc_copies, Nodes_1),
                 leo_mdcr_tbl_cluster_info:create_table(disc_copies, Nodes_1),
@@ -277,8 +278,12 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 %% Load from system-config and store it into the mnesia
                 {ok, _SystemConf} = leo_manager_api:load_system_config_with_store_data(),
 
-                %% Update available commands
+                %% Insert available commands
                 ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
+
+                %% Insert erasure-code profiles
+                [ok = leo_manager_mnesia:update_erasure_code_profile(ECProf)
+                 || ECProf <- ?DEF_ERASURE_CODE_PROFILES],
 
                 %% Create S3-API related tables
                 ok = create_s3api_related_tables(Nodes_1),
