@@ -443,10 +443,10 @@ get_available_command_by_name(Name) ->
 -spec(update_storage_node_status(#node_state{}) ->
              ok | {error, any()}).
 update_storage_node_status(NodeState) ->
-    update_storage_node_status(update_state, NodeState).
+    update_storage_node_status(update, NodeState).
 
 -spec(update_storage_node_status(
-        update|update_state|keep_state|update_chksum|increment_error|init_error, #node_state{}) ->
+        update|keep_state|update_chksum|increment_error|init_error, #node_state{}) ->
              ok | {error, any()}).
 update_storage_node_status(update, NodeState) ->
     Tbl = ?TBL_STORAGE_NODES,
@@ -455,36 +455,30 @@ update_storage_node_status(update, NodeState) ->
         {'EXIT', _Cause} ->
             {error, ?ERROR_MNESIA_NOT_START};
         _ ->
-            F = fun()-> mnesia:write(Tbl, NodeState, write) end,
+            NodeState_1 = NodeState#node_state{state = undefined},
+            F = fun()-> mnesia:write(Tbl, NodeState_1, write) end,
             leo_mnesia:write(F)
     end;
 
-update_storage_node_status(update_state, NodeState) ->
-    #node_state{node = Node, state = State} = NodeState,
-    case get_storage_node_by_name(Node) of
-        {ok, Cur} ->
-            update_storage_node_status(update, Cur#node_state{state = State});
-        _ ->
-            ok
-    end;
 update_storage_node_status(keep_state, NodeState) ->
     #node_state{node  = Node} = NodeState,
     case get_storage_node_by_name(Node) of
         {ok, Cur} ->
-            update_storage_node_status(update, Cur);
+            update_storage_node_status(update, Cur#node_state{state = undefined});
         _ ->
             ok
     end;
 
 update_storage_node_status(update_chksum, NodeState) ->
-    #node_state{node  = Node,
+    #node_state{node = Node,
                 ring_hash_new = RingHash0,
                 ring_hash_old = RingHash1} = NodeState,
 
     case get_storage_node_by_name(Node) of
         {ok, Cur} ->
             update_storage_node_status(
-              update, Cur#node_state{ring_hash_new = RingHash0,
+              update, Cur#node_state{state = undefined,
+                                     ring_hash_new = RingHash0,
                                      ring_hash_old = RingHash1});
         _ ->
             ok
@@ -495,7 +489,8 @@ update_storage_node_status(increment_error, NodeState) ->
     case get_storage_node_by_name(Node) of
         {ok, Cur} ->
             update_storage_node_status(
-              update, Cur#node_state{error = Cur#node_state.error + 1});
+              update, Cur#node_state{state = undefined,
+                                     error = Cur#node_state.error + 1});
         _ ->
             ok
     end;
@@ -505,7 +500,8 @@ update_storage_node_status(init_error, NodeState) ->
     case get_storage_node_by_name(Node) of
         {ok, Cur} ->
             update_storage_node_status(
-              update, Cur#node_state{error = 0});
+              update, Cur#node_state{state = undefined,
+                                     error = 0});
         _ ->
             ok
     end;

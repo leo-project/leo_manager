@@ -111,8 +111,7 @@ sync_ring(SlaveNode) ->
 %% @doc Synchronize the ring with gateway/storage nodes
 %% @private
 sync_ring({ok, Nodes}, ServerType) ->
-    Nodes_1 = [{N, C1, C2} || #node_state{node  = N,
-                                          state = ?STATE_RUNNING,
+    Nodes_1 = [{N, C1, C2} || #node_state{node = N,
                                           ring_hash_new = C1,
                                           ring_hash_old = C2} <- Nodes],
     RingChecksums = get_local_checksum(),
@@ -141,14 +140,14 @@ sync_ring_1([],_,_) ->
     ok;
 sync_ring_1([{_, C1, C2}|Rest], {C1, C2} = Chksum, ServerType) ->
     sync_ring_1(Rest, Chksum, ServerType);
-
 sync_ring_1([{Node,_C1,_C2}|Rest], {OrgC1, OrgC2} = Chksum, ServerType) ->
     case rpc:call(Node, leo_redundant_manager_api, checksum, [ring]) of
         {ok, {C1_1, C2_1}} ->
             C1_2 = leo_hex:integer_to_hex(C1_1, 8),
             C2_2 = leo_hex:integer_to_hex(C2_1, 8),
 
-            case (C1_2 == OrgC1 andalso C2_2 == OrgC2) of
+            case (C1_2 == OrgC1 andalso
+                  C2_2 == OrgC2) of
                 true when ServerType == ?SVR_STORAGE ->
                     case leo_manager_mnesia:get_storage_node_by_name(Node) of
                         {ok, NodeState} ->

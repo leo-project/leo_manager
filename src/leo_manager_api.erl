@@ -242,8 +242,8 @@ get_system_config() ->
 -spec(get_system_status() ->
              system_status() | {error, any()}).
 get_system_status() ->
-    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
-        not_found ->
+    case leo_redundant_manager_api:get_members_by_status(?STATE_RUNNING) of
+        {error, not_found} ->
             ?STATE_STOP;
         {ok, [_H|_]} ->
             ?STATE_RUNNING;
@@ -301,7 +301,7 @@ get_node_status(Node_1) ->
             {ok, _} ->
                 {?SERVER_TYPE_GATEWAY, ?API_GATEWAY};
             _ ->
-                case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
+                case leo_redundant_manager_api:get_member_by_node(Node_2) of
                     {ok, _} ->
                         {?SERVER_TYPE_STORAGE, ?API_STORAGE};
                     _ ->
@@ -349,9 +349,9 @@ get_nodes() ->
                   _ ->
                       []
               end,
-    Nodes_1 = case leo_manager_mnesia:get_storage_nodes_all() of
+    Nodes_1 = case leo_redundant_manager_api:get_members() of
                   {ok, R2} ->
-                      [_N2 || #node_state{node  = _N2} <- R2];
+                      [_N2 || #member{node = _N2} <- R2];
                   _Error ->
                       []
               end,
@@ -386,8 +386,7 @@ attach_1(?STATE_RUNNING, Node,_L1, L2, Clock, NumOfVNodes, RPCPort) ->
            Node, State, L2, Clock, NumOfVNodes, RPCPort) of
         ok ->
             leo_manager_mnesia:update_storage_node_status(
-              #node_state{node    = Node,
-                          state   = State,
+              #node_state{node = Node,
                           when_is = leo_date:now()});
         Error ->
             Error
@@ -398,8 +397,7 @@ attach_1(_, Node,_L1, L2, Clock, NumOfVNodes, RPCPort) ->
            Node, L2, Clock, NumOfVNodes, RPCPort) of
         ok ->
             leo_manager_mnesia:update_storage_node_status(
-              #node_state{node    = Node,
-                          state   = ?STATE_ATTACHED,
+              #node_state{node = Node,
                           when_is = leo_date:now()});
         {error,_Cause} ->
             {error, ?ERROR_COULD_NOT_ATTACH_NODE}
@@ -415,17 +413,8 @@ suspend(Node) ->
         true ->
             case leo_misc:node_existence(Node) of
                 true ->
-                    case leo_manager_mnesia:update_storage_node_status(
-                           update_state, #node_state{node  = Node,
-                                                     state = ?STATE_SUSPEND,
-                                                     when_is = leo_date:now()
-                                                    }) of
-                        ok ->
-                            Res = leo_redundant_manager_api:suspend(Node),
-                            distribute_members(Res, erlang:node());
-                        {error,_Cause} ->
-                            {error, ?ERROR_COULD_NOT_UPDATE_NODE}
-                    end;
+                    Res = leo_redundant_manager_api:suspend(Node),
+                    distribute_members(Res, erlang:node());
                 false ->
                     {error, ?ERROR_COULD_NOT_CONNECT}
             end;
@@ -446,8 +435,7 @@ detach(Node) ->
                    Node, State, leo_date:clock()) of
                 ok ->
                     case leo_manager_mnesia:update_storage_node_status(
-                           #node_state{node    = Node,
-                                       state   = State,
+                           #node_state{node = Node,
                                        when_is = leo_date:now()}) of
                         ok ->
                             ok;
@@ -481,31 +469,26 @@ resume(Node) ->
 resume(is_alive, false, _Node) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
 resume(is_alive, true,  Node) ->
-    Res = leo_manager_mnesia:get_storage_node_by_name(Node),
+    Res = leo_redundant_manager_api:get_member_by_node(Node),
     resume(is_state, Res, Node);
 
-
-resume(is_state, {ok, #node_state{state = State}}, Node) when State == ?STATE_SUSPEND;
-                                                              State == ?STATE_RESTARTED;
-                                                              State == ?STATE_DETACHED ->
+%% @private
+resume(is_state, {ok, #member{state = State}}, Node) when State == ?STATE_SUSPEND;
+                                                          State == ?STATE_RESTARTED;
+                                                          State == ?STATE_DETACHED ->
     Res = leo_redundant_manager_api:update_member_by_node(Node, ?STATE_RUNNING),
     resume(sync, Res, Node);
-resume(is_state, {ok, #node_state{state = State}},_Node) ->
+resume(is_state, {ok, #member{state = State}},_Node) ->
     {error, atom_to_list(State)};
 resume(is_state,_Error, _Node) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE};
 
-
+%% @private
 resume(sync, ok, Node) ->
-    Res = case leo_redundant_manager_api:get_members(?VER_CUR) of
-              {ok, MembersCur} ->
-                  case leo_redundant_manager_api:get_members(?VER_PREV) of
-                      {ok, MembersPrev} ->
-                          synchronize(?CHECKSUM_RING, Node, [{?VER_CUR,  MembersCur },
-                                                             {?VER_PREV, MembersPrev}]);
-                      {error,_Cause} ->
-                          {error, ?ERROR_COULD_NOT_GET_MEMBER}
-                  end;
+    Res = case get_members_of_all_versions() of
+              {ok, {MembersCur, MembersPrev}} ->
+                  brutal_synchronize_ring(Node, [{?VER_CUR,  MembersCur },
+                                                 {?VER_PREV, MembersPrev}]);
               {error,_Cause} ->
                   {error, ?ERROR_COULD_NOT_GET_MEMBER}
           end,
@@ -518,11 +501,9 @@ resume(sync, ok, Node) ->
 resume(sync,_Error, _Node) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE};
 
-resume(last, ok, Node) ->
-    leo_manager_mnesia:update_storage_node_status(
-      #node_state{node = Node,
-                  state = ?STATE_RUNNING,
-                  when_is = leo_date:now()});
+%% @private
+resume(last,ok,_) ->
+    ok;
 resume(last,_Error, _) ->
     {error, ?ERROR_COULD_NOT_RESUME_NODE}.
 
@@ -575,9 +556,10 @@ distribute_members([_|_]= Nodes) ->
                                 StorageNodes
                         end,
 
-            case rpc:multicall(DestNodes, leo_redundant_manager_api, update_members,
-                               [Members], ?DEF_TIMEOUT) of
-                {_, []} -> void;
+            case rpc:multicall(DestNodes, leo_redundant_manager_api,
+                               update_members, [Members], ?DEF_TIMEOUT) of
+                {_, []} ->
+                    void;
                 {_, BadNodes} ->
                     ?error("distribute_members/2", "bad-nodes:~p", [BadNodes])
             end,
@@ -724,20 +706,16 @@ start_2(Socket, NumOfNodes, TotalMembers, Errors) ->
                 case Msg of
                     {ok, {Node, {RingHashCur, RingHashPrev}}} ->
                         leo_manager_mnesia:update_storage_node_status(
-                          update,
-                          #node_state{node          = Node,
-                                      state         = ?STATE_RUNNING,
-                                      ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
-                                      ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
-                                      when_is       = leo_date:now()}),
+                          update, #node_state{node = Node,
+                                              ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
+                                              ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
+                                              when_is = leo_date:now()}),
                         {Node, <<"OK">>, Errors};
                     {error, {Node, Cause}} ->
                         ?error("start_2/3", "node:~w, cause:~p", [Node, Cause]),
                         leo_manager_mnesia:update_storage_node_status(
-                          update,
-                          #node_state{node    = Node,
-                                      state   = ?STATE_STOP,
-                                      when_is = leo_date:now()}),
+                          update, #node_state{node = Node,
+                                              when_is = leo_date:now()}),
                         {Node, <<"ERROR">>, [{Node, Cause}|Errors]}
                 end,
 
@@ -934,11 +912,10 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
                         [MembersCur, MembersPrev, SystemConf], ?DEF_TIMEOUT) of
               {ok, {_Node, {RingHashCur, RingHashPrev}}} ->
                   case leo_manager_mnesia:update_storage_node_status(
-                         update, #node_state{node          = Node,
-                                             state         = ?STATE_RUNNING,
+                         update, #node_state{node = Node,
                                              ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
                                              ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
-                                             when_is       = leo_date:now()}) of
+                                             when_is = leo_date:now()}) of
                       ok ->
                           case leo_redundant_manager_api:update_member_by_node(
                                  Node, ?STATE_RUNNING) of
@@ -1169,9 +1146,8 @@ notify(_,_,_,_) ->
 
 %% @private
 notify_1(TargetNode) ->
-    case leo_manager_mnesia:get_storage_node_by_name(TargetNode) of
-        {ok, #node_state{state = State,
-                         error = NumOfErrors}} ->
+    case leo_redundant_manager_api:get_member_by_node(TargetNode) of
+        {ok, #member{state = State}} ->
             case (State == ?STATE_SUSPEND  orelse
                   State == ?STATE_ATTACHED orelse
                   State == ?STATE_DETACHED orelse
@@ -1186,6 +1162,13 @@ notify_1(TargetNode) ->
                         true when State /= ?STATE_RUNNING ->
                             notify_2(?STATE_RUNNING, TargetNode);
                         false ->
+                            NumOfErrors =
+                                case leo_manager_mnesia:get_gateway_node_by_name(TargetNode) of
+                                    {ok, #node_state{error = NumOfErrors_1}} ->
+                                        NumOfErrors_1;
+                                    _ ->
+                                        1
+                                end,
                             notify_1(?STATE_STOP, TargetNode, NumOfErrors)
                     end
             end;
@@ -1208,17 +1191,16 @@ notify_1(?STATE_STOP, Node,_NumOfErrors) ->
     end.
 
 %% @private
-notify_2(?STATE_RUNNING = State, Node) ->
+notify_2(?STATE_RUNNING, Node) ->
     Ret = case rpc:call(Node, ?API_STORAGE, get_routing_table_chksum, [], ?DEF_TIMEOUT) of
               {ok, {RingHashCur, RingHashPrev}} ->
                   case rpc:call(Node, ?API_STORAGE, register_in_monitor, [again], ?DEF_TIMEOUT) of
                       ok ->
                           leo_manager_mnesia:update_storage_node_status(
-                            update, #node_state{node          = Node,
-                                                state         = State,
+                            update, #node_state{node = Node,
                                                 ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
                                                 ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8),
-                                                when_is       = leo_date:now()});
+                                                when_is = leo_date:now()});
                       {_, Cause} ->
                           {error, Cause}
                   end;
@@ -1226,13 +1208,8 @@ notify_2(?STATE_RUNNING = State, Node) ->
                   {error, Cause}
           end,
     notify_3(Ret, ?STATE_RUNNING, Node);
-
-%% @private
 notify_2(State, Node) ->
-    Ret = leo_manager_mnesia:update_storage_node_status(
-            update_state, #node_state{node  = Node,
-                                      state = State}),
-    notify_3(Ret, State, Node).
+    notify_3(ok, State, Node).
 
 %% @private
 notify_3(ok, State, Node) ->
@@ -1400,26 +1377,26 @@ recover(?RECOVER_NODE, Node, true) ->
     case leo_misc:node_existence(Node) of
         true ->
             Ret = case leo_redundant_manager_api:get_member_by_node(Node) of
-                      {ok, #member{state = ?STATE_RUNNING}} -> true;
-                      _ -> false
+                      {ok, #member{state = ?STATE_RUNNING}} ->
+                          true;
+                      _ ->
+                          false
                   end,
             recover_node_1(Ret, Node);
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
     end;
 
+recover(?RECOVER_RING, Node, true) when is_list(Node)  ->
+    recover(?RECOVER_RING, list_to_atom(Node), true);
 recover(?RECOVER_RING, Node, true) ->
-    Node_1 = case is_atom(Node) of
-                 true  -> Node;
-                 false -> list_to_atom(Node)
-             end,
-    case leo_misc:node_existence(Node_1) of
+    case leo_misc:node_existence(Node) of
         true ->
             %% Sync target-node's member/ring with manager
             case get_members_of_all_versions() of
                 {ok, {MembersCur, MembersPrev}} ->
-                    brutal_synchronize_ring(Node_1, [{?VER_CUR,  MembersCur },
-                                                     {?VER_PREV, MembersPrev}]);
+                    brutal_synchronize_ring(Node, [{?VER_CUR,  MembersCur },
+                                                   {?VER_PREV, MembersPrev}]);
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_GET_MEMBER}
             end;
@@ -1546,8 +1523,8 @@ compact(_,_,_,_) ->
 -spec(diagnose_data(Node) ->
              ok | {error, any()} when Node::atom()).
 diagnose_data(Node) ->
-    case leo_manager_mnesia:get_storage_node_by_name(Node) of
-        {ok, _} ->
+    case leo_redundant_manager_api:get_member_by_node(Node) of
+        {ok,_} ->
             case leo_misc:node_existence(Node) of
                 true ->
                     case rpc:call(Node, leo_storage_api,
@@ -1576,7 +1553,7 @@ stats(Mode, Node) when is_list(Node) ->
     stats(Mode, list_to_atom(Node));
 
 stats(Mode, Node) ->
-    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+    case leo_redundant_manager_api:get_member_by_node(Node) of
         {ok, _} ->
             case leo_misc:node_existence(Node) of
                 true ->
@@ -1766,8 +1743,27 @@ synchronize(_,_,_) ->
     ok.
 
 
+%% @doc Brutally synchronize the ring
 %% @private
+-spec(brutal_synchronize_ring(Node, MembersList) ->
+             ok | {error, any()} when Node::atom(),
+                                      MembersList::[#member{}]).
 brutal_synchronize_ring(Node, MembersList) ->
+    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+        {ok,_} ->
+            case leo_redundant_manager_api:get_member_by_node(Node) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
+                    brutal_synchronize_ring_1(Node, MembersList);
+                _ ->
+                    ok
+            end;
+        _ ->
+            brutal_synchronize_ring_1(Node, MembersList)
+    end.
+
+%% @private
+brutal_synchronize_ring_1(Node, MembersList) ->
+    ?info("brutal_synchronize_ring_1/2", "node:~p", [Node]),
     MembersCur  = leo_misc:get_value(?VER_CUR,  MembersList),
     MembersPrev = leo_misc:get_value(?VER_PREV, MembersList),
 
@@ -1786,7 +1782,7 @@ brutal_synchronize_ring(Node, MembersList) ->
             case leo_manager_mnesia:get_storage_node_by_name(Node) of
                 {ok,_} ->
                     leo_manager_mnesia:update_storage_node_status(
-                      update_chksum, #node_state{node          = Node,
+                      update_chksum, #node_state{node = Node,
                                                  ring_hash_new = RingHashCur_1,
                                                  ring_hash_old = RingHashPrev_1});
                 _ ->
@@ -1803,10 +1799,10 @@ brutal_synchronize_ring(Node, MembersList) ->
         not_found ->
             {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         {_, Cause} ->
-            ?warn("synchronize/3", "cause:~p", [Cause]),
+            ?warn("brutal_synchronize_ring_1/2", "cause:~p", [Cause]),
             {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         timeout = Cause ->
-            ?warn("synchronize/3", "cause:~p", [Cause]),
+            ?warn("brutal_synchronize_ring_1/2", "cause:~p", [Cause]),
             {error, Cause}
     end.
 
@@ -1861,8 +1857,8 @@ synchronize(?CHECKSUM_MEMBER = Type, [{Node_1, Checksum_1},
                                       {Node_2, Checksum_2}] =_NodeWithChksum) ->
     Ret = case (Node_1 == node()) of
               true ->
-                  case leo_manager_mnesia:get_storage_node_by_name(Node_2) of
-                      {ok, #node_state{state = ?STATE_STOP}} ->
+                  case leo_redundant_manager_api:get_member_by_node(Node_2) of
+                      {ok, #member{state = ?STATE_STOP}} ->
                           notify_1(Node_2);
                       _ ->
                           not_match
@@ -1975,7 +1971,7 @@ synchronize_1_1(Type, Node) ->
                 {ok, Hashes} ->
                     synchronize_2(Node, Hashes);
                 {_, Cause} ->
-                    ?error("synchronize_1/2", "cause:~p", [Cause]),
+                    ?error("synchronize_1/2", "node:~p, cause:~p", [Node, Cause]),
                     {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
                 timeout = Cause ->
                     {error, Cause}
@@ -1994,11 +1990,11 @@ synchronize_2(Node, Hashes) ->
               NodeState#node_state{ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
                                    ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)});
         _ ->
-            case leo_manager_mnesia:get_storage_node_by_name(Node) of
+            case leo_redundant_manager_api:get_member_by_node(Node) of
                 {ok,_} ->
                     leo_manager_mnesia:update_storage_node_status(
                       update_chksum,
-                      #node_state{node  = Node,
+                      #node_state{node = Node,
                                   ring_hash_new = leo_hex:integer_to_hex(RingHashCur,  8),
                                   ring_hash_old = leo_hex:integer_to_hex(RingHashPrev, 8)});
                 _ ->
