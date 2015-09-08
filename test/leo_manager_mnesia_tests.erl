@@ -88,12 +88,12 @@ all_(_) ->
 
     ok = leo_manager_mnesia:update_storage_node_status(NodeState0),
     Res0 = leo_manager_mnesia:get_storage_nodes_all(),
-    ?assertEqual(not_found, Res0),
+    ?assertEqual({ok,[{node_state,'test0@127.0.0.1',undefined,"-1","-1",0,0}]}, Res0),
 
     ok = leo_manager_mnesia:update_storage_node_status(update, NodeState0),
     {ok, Res1} = leo_manager_mnesia:get_storage_nodes_all(),
     ?assertEqual([#node_state{node  = Node0,
-                              state = State0,
+                              state = undefined,
                               ring_hash_new = "-1",
                               ring_hash_old = "-1",
                               when_is       = 0,

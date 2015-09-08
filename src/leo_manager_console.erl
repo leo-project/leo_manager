@@ -12,7 +12,7 @@
 %%   http://www.apache.org/licenses/LICENSE-2.0
 %%
 %% Unless required by applicable law or agreed to in writing,
-%% software distributed under the License is distributed on an
+%% software distributed under the License is distribute0d on an
 %% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 %% KIND, either express or implied.  See the License for the
 %% specific language governing permissions and limitations
@@ -1333,9 +1333,16 @@ status(node_list) ->
             S1 = case leo_manager_mnesia:get_storage_nodes_all() of
                      {ok, R1} ->
                          lists:map(fun(N) ->
+                                           Node = N#node_state.node,
+                                           State = case leo_redundant_manager_api:get_member_by_node(Node) of
+                                                       {ok, #member{state = State_1}} ->
+                                                           State_1;
+                                                       _ ->
+                                                           error
+                                                   end,
                                            {?SERVER_TYPE_STORAGE,
-                                            atom_to_list(N#node_state.node),
-                                            atom_to_list(N#node_state.state),
+                                            atom_to_list(Node),
+                                            atom_to_list(State),
                                             N#node_state.ring_hash_new,
                                             N#node_state.ring_hash_old,
                                             N#node_state.when_is}
@@ -1387,7 +1394,7 @@ start(Socket, CmdBody) ->
                 ?STATE_STOP ->
                     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
 
-                    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_ATTACHED) of
+                    case leo_redundant_manager_api:get_members_by_status(?STATE_ATTACHED) of
                         {ok, Nodes} when length(Nodes) >= SystemConf#?SYSTEM_CONF.n ->
                             case leo_manager_api:start(Socket) of
                                 ok ->
@@ -1397,7 +1404,7 @@ start(Socket, CmdBody) ->
                             end;
                         {ok, Nodes} when length(Nodes) < SystemConf#?SYSTEM_CONF.n ->
                             {error, "Attached nodes less than # of replicas"};
-                        not_found ->
+                        {error, not_found} ->
                             %% status of all-nodes is 'suspend' or 'restarted'
                             {error, ?ERROR_ALREADY_STARTED};
                         Error ->
@@ -1423,15 +1430,19 @@ detach(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
+            %% target-node is 'attached', then removed it from 'member-table'
             NodeAtom = list_to_atom(Node),
-
-            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                %% target-node is 'attached', then removed it from 'member-table'
-                {ok, #node_state{state = ?STATE_ATTACHED} = NodeState} ->
-                    ok = leo_manager_mnesia:delete_storage_node(NodeState),
-                    ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
-                    ok = leo_redundant_manager_api:delete_member_by_node(NodeAtom),
-                    ok;
+            case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
+                {ok, #member{state = ?STATE_ATTACHED}} ->
+                    case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
+                        {ok, NodeState} ->
+                            ok = leo_manager_mnesia:delete_storage_node(NodeState),
+                            ok = leo_manager_cluster_monitor:demonitor(NodeAtom),
+                            ok = leo_redundant_manager_api:delete_member_by_node(NodeAtom),
+                            ok;
+                        Error ->
+                            Error
+                    end;
                 _ ->
                     %% allow to detach the node?
                     %% if it's ok then execute to detach it
@@ -1460,12 +1471,12 @@ detach(CmdBody, Option) ->
 -spec(allow_to_detach_node_1(pos_integer()) ->
              ok | {error, any()}).
 allow_to_detach_node_1(N) ->
-    case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_DETACHED) of
+    case leo_redundant_manager_api:get_members_by_status(?STATE_DETACHED) of
         {ok, Nodes} when length(Nodes) < N ->
             ok;
         {ok,_Nodes} ->
             {error, "Detached nodes greater than or equal # of replicas"};
-        not_found ->
+        {error, not_found} ->
             ok;
         Error ->
             Error
@@ -1474,10 +1485,10 @@ allow_to_detach_node_1(N) ->
 -spec(allow_to_detach_node_2(pos_integer(), atom()) ->
              ok | {error, any()}).
 allow_to_detach_node_2(N, NodeAtom) ->
-    IsRunning = case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                    {ok, #node_state{state = ?STATE_RUNNING}} ->
+    IsRunning = case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
+                    {ok, #member{state = ?STATE_RUNNING}} ->
                         true;
-                    {ok, #node_state{state = _}} ->
+                    {ok, #member{state = _}} ->
                         false;
                     _ ->
                         {error, "Could not get node-status"}
@@ -1487,14 +1498,14 @@ allow_to_detach_node_2(N, NodeAtom) ->
         {error, Cause} ->
             {error, Cause};
         _ ->
-            case leo_manager_mnesia:get_storage_nodes_by_status(?STATE_RUNNING) of
+            case leo_redundant_manager_api:get_members_by_status(?STATE_RUNNING) of
                 {ok, Nodes} when IsRunning == false andalso length(Nodes) >= N ->
                     ok;
                 {ok, Nodes} when IsRunning == true  andalso length(Nodes) > N ->
                     ok;
                 {ok,_Nodes} ->
                     {error, "Running nodes less than # of replicas"};
-                not_found ->
+                {error, not_found} ->
                     {error, "Could not get node-status"};
                 _Error ->
                     {error, "Could not get node-status"}
@@ -1514,8 +1525,8 @@ suspend(CmdBody, Option) ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             NodeAtom = list_to_atom(Node),
-            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                {ok, #node_state{state = ?STATE_RUNNING}} ->
+            case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
                     case leo_manager_api:suspend(NodeAtom) of
                         ok ->
                             ok;
@@ -1540,14 +1551,14 @@ resume(CmdBody, Option) ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             NodeAtom = list_to_atom(Node),
-            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                {ok, #node_state{state = ?STATE_RUNNING}} ->
+            case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
-                {ok, #node_state{state = ?STATE_ATTACHED}} ->
+                {ok, #member{state = ?STATE_ATTACHED}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
-                {ok, #node_state{state = ?STATE_DETACHED}} ->
+                {ok, #member{state = ?STATE_DETACHED}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
-                {ok, #node_state{state = ?STATE_STOP}} ->
+                {ok, #member{state = ?STATE_STOP}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
                 _ ->
                     case leo_manager_api:resume(NodeAtom) of
@@ -1572,10 +1583,10 @@ rollback(CmdBody, Option) ->
             {error, ?ERROR_NOT_SPECIFIED_NODE};
         [Node|_] ->
             NodeAtom = list_to_atom(Node),
-            case leo_manager_mnesia:get_storage_node_by_name(NodeAtom) of
-                {ok, #node_state{state = ?STATE_RUNNING}} ->
+            case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
                     {error, "Already running"};
-                {ok, #node_state{state = ?STATE_DETACHED}} ->
+                {ok, #member{state = ?STATE_DETACHED}} ->
                     case leo_manager_api:rollback(NodeAtom) of
                         ok ->
                             ok;

@@ -281,12 +281,17 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
                                             state   = ?STATE_STOP,
                                             when_is = ?CURRENT_TIME});
                     ?PERSISTENT_NODE ->
-                        case catch leo_manager_mnesia:get_storage_node_by_name(Node) of
-                            {ok, #node_state{state = State} = NodeInfo} ->
+                        case catch leo_redundant_manager_api:get_member_by_node(Node) of
+                            {ok, #member{state = State}} ->
                                 case update_node_state(down, State, Node) of
                                     delete ->
                                         ok = leo_cluster_tbl_member:delete(Node),
-                                        leo_manager_mnesia:delete_storage_node(NodeInfo);
+                                        case catch leo_manager_mnesia:get_storage_node_by_name(Node) of
+                                            {ok, NodeInfo} ->
+                                                leo_manager_mnesia:delete_storage_node(NodeInfo);
+                                            _Other ->
+                                                void
+                                        end;
                                     _Other ->
                                         void
                                 end;
@@ -348,8 +353,7 @@ update_node_state_1(State, Node) ->
     update_node_state_1(State, Node, -1).
 update_node_state_1(State, Node, Clock) ->
     case leo_manager_mnesia:update_storage_node_status(
-           update, #node_state{node          = Node,
-                               state         = State,
+           update, #node_state{node = Node,
                                ring_hash_new = [],
                                ring_hash_old = [],
                                when_is       = ?CURRENT_TIME}) of
@@ -377,10 +381,10 @@ get_remote_node_proc_fun() ->
                   _ ->
                       []
               end,
-    Nodes_1 = case leo_manager_mnesia:get_storage_nodes_all() of
+    Nodes_1 = case leo_redundant_manager_api:get_members() of
                   {ok, R2} ->
-                      [{storage,_N2,_S2} || #node_state{node  = _N2,
-                                                        state = _S2} <- R2];
+                      [{storage,_N2,_S2} || #member{node = _N2,
+                                                    state = _S2} <- R2];
                   _Error ->
                       []
               end,
@@ -535,15 +539,15 @@ register_fun_1(#registration{node = Node,
 
 register_fun_1(#registration{node = Node,
                              type = ?PERSISTENT_NODE} = RegistrationInfo) ->
-    Ret = leo_manager_mnesia:get_storage_node_by_name(Node),
+    Ret = leo_redundant_manager_api:get_member_by_node(Node),
     register_fun_2(Ret, RegistrationInfo);
 register_fun_1(_) ->
     ok.
 
 
--spec(register_fun_2({ok, #node_state{}} | not_found| {error, any()}, #registration{}) ->
+-spec(register_fun_2({ok, #member{}} | not_found| {error, any()}, #registration{}) ->
              ok | {error, any()}).
-register_fun_2({ok, #node_state{state = State}},
+register_fun_2({ok, #member{state = State}},
                #registration{node = Node,
                              type = ?PERSISTENT_NODE}) when State == ?STATE_RUNNING;
                                                             State == ?STATE_STOP ->
@@ -557,7 +561,7 @@ register_fun_2({ok, #node_state{state = State}},
     end,
     update_node_state(start, State, Node);
 
-register_fun_2({ok, #node_state{state = ?STATE_DETACHED}},
+register_fun_2({ok, #member{state = ?STATE_DETACHED}},
                #registration{node = Node,
                              type = ?PERSISTENT_NODE,
                              level_1 = L1,
@@ -571,21 +575,20 @@ register_fun_2({ok, #node_state{state = ?STATE_DETACHED}},
             {error, Cause}
     end;
 
-register_fun_2({ok, #node_state{state = State}},
+register_fun_2({ok, #member{state = State}},
                #registration{node = Node,
                              type = ?PERSISTENT_NODE}) ->
     update_node_state(start, State, Node);
 
-register_fun_2(not_found = State, #registration{node = Node,
-                                                type = ?PERSISTENT_NODE,
-                                                level_1 = L1,
-                                                level_2 = L2,
-                                                num_of_vnodes = NumOfVNodes,
-                                                rpc_port = RPCPort
-                                               }) ->
+register_fun_2({error, not_found}, #registration{node = Node,
+                                                 type = ?PERSISTENT_NODE,
+                                                 level_1 = L1,
+                                                 level_2 = L2,
+                                                 num_of_vnodes = NumOfVNodes,
+                                                 rpc_port = RPCPort}) ->
     case leo_manager_api:attach(Node, L1, L2, NumOfVNodes, RPCPort) of
         ok ->
-            case update_node_state(start, State, Node) of
+            case update_node_state(start, not_found, Node) of
                 ok ->
                     ok;
                 {error, Cause} ->
