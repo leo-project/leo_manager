@@ -849,12 +849,7 @@ rebalance(Socket, Command, Formatter) ->
 -spec(rebalance_1(port()|null) ->
              ok | {error, any()}).
 rebalance_1(Socket) ->
-    case leo_manager_api:rebalance(Socket) of
-        ok ->
-            ok;
-        {error, Cause} ->
-            {error, Cause}
-    end.
+    leo_manager_api:rebalance(Socket).
 
 
 %% @doc Update a watchdog property
@@ -1396,12 +1391,7 @@ start(Socket, CmdBody) ->
 
                     case leo_redundant_manager_api:get_members_by_status(?STATE_ATTACHED) of
                         {ok, Nodes} when length(Nodes) >= SystemConf#?SYSTEM_CONF.n ->
-                            case leo_manager_api:start(Socket) of
-                                ok ->
-                                    ok;
-                                {error, Cause} ->
-                                    {error, Cause}
-                            end;
+                            leo_manager_api:start(Socket);
                         {ok, Nodes} when length(Nodes) < SystemConf#?SYSTEM_CONF.n ->
                             {error, "Attached nodes less than # of replicas"};
                         {error, not_found} ->
@@ -1527,12 +1517,7 @@ suspend(CmdBody, Option) ->
             NodeAtom = list_to_atom(Node),
             case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
                 {ok, #member{state = ?STATE_RUNNING}} ->
-                    case leo_manager_api:suspend(NodeAtom) of
-                        ok ->
-                            ok;
-                        {error, Cause} ->
-                            {error, Cause}
-                    end;
+                    leo_manager_api:suspend(NodeAtom);
                 _ ->
                     {error, ?ERROR_COULD_NOT_SUSPEND_NODE}
             end
@@ -1561,12 +1546,7 @@ resume(CmdBody, Option) ->
                 {ok, #member{state = ?STATE_STOP}} ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
                 _ ->
-                    case leo_manager_api:resume(NodeAtom) of
-                        ok ->
-                            ok;
-                        {error, Cause} ->
-                            {error, Cause}
-                    end
+                    leo_manager_api:resume(NodeAtom)
             end
     end.
 
@@ -1587,12 +1567,7 @@ rollback(CmdBody, Option) ->
                 {ok, #member{state = ?STATE_RUNNING}} ->
                     {error, "Already running"};
                 {ok, #member{state = ?STATE_DETACHED}} ->
-                    case leo_manager_api:rollback(NodeAtom) of
-                        ok ->
-                            ok;
-                        {error, Cause} ->
-                            {error, Cause}
-                    end;
+                    leo_manager_api:rollback(NodeAtom);
                 _ ->
                     {error, ?ERROR_COULD_NOT_ROLLBACK}
             end
@@ -1610,12 +1585,7 @@ purge(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_INVALID_PATH};
         [Key|_] ->
-            case leo_manager_api:purge(Key) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
-            end
+            leo_manager_api:purge(Key)
     end.
 
 
@@ -1630,12 +1600,7 @@ remove(CmdBody, Option) ->
         [] ->
             {error, ?ERROR_INVALID_PATH};
         [Node|_] ->
-            case leo_manager_api:remove(Node) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
-            end
+            leo_manager_api:remove(Node)
     end.
 
 
@@ -1922,14 +1887,9 @@ update_user_password(CmdBody, Option) ->
             PasswordBin = list_to_binary(Password),
             case leo_s3_user:find_by_id(UserIdBin) of
                 {ok, #?S3_USER{role_id = RoleId}} ->
-                    case leo_s3_user:update(#?S3_USER{id       = UserIdBin,
-                                                      role_id  = RoleId,
-                                                      password = PasswordBin}) of
-                        ok ->
-                            ok;
-                        {error, Cause} ->
-                            {error, Cause}
-                    end;
+                    leo_s3_user:update(#?S3_USER{id = UserIdBin,
+                                                 role_id = RoleId,
+                                                 password = PasswordBin});
                 not_found ->
                     {error, ?ERROR_USER_NOT_FOUND};
                 {error,_Cause} ->
@@ -2001,12 +1961,7 @@ set_endpoint(CmdBody, Option) ->
             {error, ?ERROR_INVALID_ARGS};
         [EndPoint|_] ->
             EndPointBin = list_to_binary(EndPoint),
-            case leo_manager_api:set_endpoint(EndPointBin) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
-            end
+            leo_manager_api:set_endpoint(EndPointBin)
     end.
 
 
@@ -2050,12 +2005,7 @@ delete_endpoint(CmdBody, Option) ->
             {error, ?ERROR_INVALID_ARGS};
         [EndPoint|_] ->
             EndPointBin = list_to_binary(EndPoint),
-            case leo_manager_api:delete_endpoint(EndPointBin) of
-                ok ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
-            end
+            leo_manager_api:delete_endpoint(EndPointBin)
     end.
 
 
