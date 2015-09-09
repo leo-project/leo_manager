@@ -262,13 +262,34 @@ get_members() ->
 -spec(get_members_of_all_versions() ->
              {ok, {[#member{}], [#member{}]}} | {error, any()}).
 get_members_of_all_versions() ->
+    get_members_of_all_versions(true).
+
+%% @private
+-spec(get_members_of_all_versions(IsExcludeAttachedMembers) ->
+             {ok, {[#member{}], [#member{}]}}
+                 | {error, any()} when IsExcludeAttachedMembers::boolean()).
+get_members_of_all_versions(IsExcludeAttachedMembers) ->
+    %% Retrieve current members
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, MembersCur} ->
-            MembersCur_1 = exclude_attached_members(MembersCur, []),
+            MembersCur_1 =
+                case IsExcludeAttachedMembers of
+                    true ->
+                        exclude_attached_members(MembersCur, []);
+                    false ->
+                        MembersCur
+                end,
 
+            %% Retrieve previous members
             case leo_redundant_manager_api:get_members(?VER_PREV) of
                 {ok, MembersPrev} ->
-                    MembersPrev_1 = exclude_attached_members(MembersPrev, []),
+                    MembersPrev_1 =
+                        case IsExcludeAttachedMembers of
+                            true ->
+                                exclude_attached_members(MembersPrev, []);
+                            false ->
+                                MembersPrev
+                        end,
                     {ok, {MembersCur_1, MembersPrev_1}};
                 {error, not_found = Cause} ->
                     {error, Cause};
@@ -1393,12 +1414,20 @@ recover(?RECOVER_RING, Node, true) ->
     case leo_misc:node_existence(Node) of
         true ->
             %% Sync target-node's member/ring with manager
-            case get_members_of_all_versions() of
-                {ok, {MembersCur, MembersPrev}} ->
-                    brutal_synchronize_ring(Node, [{?VER_CUR,  MembersCur },
-                                                   {?VER_PREV, MembersPrev}]);
-                {error,_Cause} ->
-                    {error, ?ERROR_COULD_NOT_GET_MEMBER}
+            [ManagerPartner|_] = ?env_partner_of_manager_node(),
+            case ManagerPartner of
+                Node ->
+                    _ = rpc:call(Node, leo_redundant_manager_api,
+                                 force_sync_workers, [], ?DEF_TIMEOUT),
+                    ok;
+                _ ->
+                    case get_members_of_all_versions() of
+                        {ok, {MembersCur, MembersPrev}} ->
+                            brutal_synchronize_ring(Node, [{?VER_CUR,  MembersCur },
+                                                           {?VER_PREV, MembersPrev}]);
+                        {error,_Cause} ->
+                            {error, ?ERROR_COULD_NOT_GET_MEMBER}
+                    end
             end;
         false ->
             {error, ?ERROR_COULD_NOT_CONNECT}
@@ -1990,7 +2019,7 @@ synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
                     synchronize_1_1(Type, Node)
             end;
         {_, Cause} ->
-            ?error("synchronize_1/2", "cause:~p", [Cause]),
+            ?error("synchronize_1/2", "node:~p, cause:~p", [Node, Cause]),
             {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         timeout = Cause ->
             {error, Cause}
