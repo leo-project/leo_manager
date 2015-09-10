@@ -829,45 +829,50 @@ changed_nodes([_|Rest], HasRunningNode, Acc) ->
 %%     1. Judge that "is exist attach-node OR detach-node" ?
 %%     2. Distribute every storage node from manager
 %%     3. Confirm callback.
-%%
 -spec(rebalance(port()|null) ->
              ok | {error, any()}).
 rebalance(Socket) ->
     case leo_redundant_manager_api:get_members(?VER_CUR) of
         {ok, Members_1} ->
-            ok = output_message_to_console(
-                   Socket, << "Generating rebalance-list..." >>),
-            {State, Nodes} = changed_nodes(Members_1, false, []),
-
-            %% _Ret = rebalance_1(State, Nodes);
-            case rebalance_1(State, Nodes) of
-                {ok, RetRebalance} ->
+            %% Check the current status
+            %%   to confirm whether it needs to execute rebalance or not
+            case changed_nodes(Members_1, false, []) of
+                {error, _} ->
+                    {error, ?ERROR_NOT_NEED_REBALANCE};
+                {State, Nodes} ->
+                    %% Execute the data-reblanace
                     ok = output_message_to_console(
-                           Socket, << "Generated rebalance-list" >>),
-                    case get_members_of_all_versions() of
-                        {ok, {MembersCur, MembersPrev}} ->
-                            {ok, SystemConf}  = leo_cluster_tbl_conf:get(),
-                            RebalanceProcInfo = #rebalance_proc_info{members_cur    = MembersCur,
-                                                                     members_prev   = MembersPrev,
-                                                                     system_conf    = SystemConf,
-                                                                     rebalance_list = RetRebalance},
-                            case rebalance_3(Nodes, RebalanceProcInfo) of
-                                ok ->
-                                    ok = output_message_to_console(
-                                           Socket, <<"Distributing rebalance-list to the storage nodes">>),
-                                    ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
-                                    rebalance_4_loop(Socket, 0, length(MembersCur));
-                                {error, Cause}->
-                                    {error, Cause}
+                           Socket, << "Generating rebalance-list..." >>),
+                    case rebalance_1(State, Nodes) of
+                        {ok, RetRebalance} ->
+                            ok = output_message_to_console(
+                                   Socket, << "Generated rebalance-list" >>),
+                            case get_members_of_all_versions() of
+                                {ok, {MembersCur, MembersPrev}} ->
+                                    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
+                                    RebalanceProcInfo = #rebalance_proc_info{
+                                                           members_cur = MembersCur,
+                                                           members_prev = MembersPrev,
+                                                           system_conf = SystemConf,
+                                                           rebalance_list = RetRebalance},
+                                    case rebalance_3(Nodes, RebalanceProcInfo) of
+                                        ok ->
+                                            ok = output_message_to_console(
+                                                   Socket, <<"Distributing rebalance-list to the storage nodes">>),
+                                            ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
+                                            rebalance_4_loop(Socket, 0, length(MembersCur));
+                                        {error, Cause}->
+                                            {error, Cause}
+                                    end;
+                                {error,_Cause} ->
+                                    {error, ?ERROR_COULD_NOT_GET_MEMBER}
                             end;
-                        {error,_Cause} ->
-                            {error, ?ERROR_COULD_NOT_GET_MEMBER}
-                    end;
-                {error, Cause} ->
-                    {error, Cause}
+                        {error, Cause} ->
+                            {error, Cause}
+                    end
             end;
         {error, Cause} ->
-            ?error("rebalance/0", "cause:~p", [Cause]),
+            ?error("rebalance/1", "cause:~p", [Cause]),
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end.
 
