@@ -23,7 +23,7 @@
 {application, leo_manager,
  [
   {description, "LeoFS Manager"},
-  {vsn, "1.2.12"},
+  {vsn, "1.2.14"},
   {id,  "leo_manager"},
   {registered,   []},
   {applications, [kernel, stdlib, crypto]},

@@ -77,7 +77,7 @@ all_(_) ->
 
     %% put
     %%
-    %% (1) storage-node
+    %% storage-node
     Node0  = 'test0@127.0.0.1',
     State0 = 'running',
     NodeState0 = #node_state{node  = Node0,
@@ -85,12 +85,12 @@ all_(_) ->
 
     ok = leo_manager_mnesia:update_storage_node_status(NodeState0),
     Res0 = leo_manager_mnesia:get_storage_nodes_all(),
-    ?assertEqual(not_found, Res0),
+    ?assertEqual({ok,[{node_state,'test0@127.0.0.1',undefined,"-1","-1",0,0}]}, Res0),
 
     ok = leo_manager_mnesia:update_storage_node_status(update, NodeState0),
     {ok, Res1} = leo_manager_mnesia:get_storage_nodes_all(),
     ?assertEqual([#node_state{node  = Node0,
-                              state = State0,
+                              state = undefined,
                               ring_hash_new = "-1",
                               ring_hash_old = "-1",
                               when_is       = 0,
@@ -118,7 +118,7 @@ all_(_) ->
 
     {error,  badarg} = leo_manager_mnesia:update_storage_node_status(badarg, NodeState0),
 
-    %% (2) gateway-node
+    %% gateway-node
     Node1  = 'test1@127.0.0.1',
     State1 = 'running',
     NodeState1 = #node_state{node = Node1,
@@ -132,13 +132,7 @@ all_(_) ->
                               when_is       = 0,
                               error         = 0}], Res6),
 
-    %% (3) system-config
-    %% SystemConf = #system_conf{n = 3, w = 2, r = 1, d = 2},
-    %% ok = leo_manager_mnesia:update_system_config(SystemConf),
-    %% {ok, ReceivedSystemConf} = leo_manager_mnesia:get_system_config(),
-    %% ?assertEqual(SystemConf, ReceivedSystemConf),
-
-    %% (4) rebalance-info
+    %% rebalance-info
     RebalanceInfo = #rebalance_info{vnode_id         = 255,
                                     node             = Node1,
                                     total_of_objects = 128,
