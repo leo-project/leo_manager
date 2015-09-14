@@ -835,7 +835,7 @@ rebalance(Socket, Command, Formatter) ->
                end,
 
     Fun = fun() ->
-                  case rebalance_1(Socket_1) of
+                  case leo_manager_api:rebalance(Socket_1) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -843,13 +843,6 @@ rebalance(Socket, Command, Formatter) ->
                   end
           end,
     invoke(?CMD_REBALANCE, Formatter, Fun).
-
-%% @doc Rebalance the storage cluster
-%% @private
--spec(rebalance_1(port()|null) ->
-             ok | {error, any()}).
-rebalance_1(Socket) ->
-    leo_manager_api:rebalance(Socket).
 
 
 %% @doc Update a watchdog property
