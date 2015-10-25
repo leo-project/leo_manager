@@ -277,7 +277,7 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 %% Load from system-config and store it into the mnesia
                 {ok, _SystemConf} = leo_manager_api:load_system_config_with_store_data(),
 
-                %% Update available commands
+                %% Insert available commands
                 ok = leo_manager_mnesia:update_available_commands(?env_available_commands()),
 
                 %% Create S3-API related tables
@@ -285,14 +285,16 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
 
                 create_mnesia_tables_2(Mode, Nodes)
             catch _:Reason ->
-                    ?error("create_mnesia_tables_1/2", "cause:~p", [Reason])
+                    ?error("create_mnesia_tables_1/2",
+                           "~p", [{cause, Reason}])
             end,
             ok;
         {error,{_,{already_exists, _}}} ->
             create_mnesia_tables_2(Mode, Nodes);
         {_, Cause} ->
             timer:apply_after(?CHECK_INTERVAL, ?MODULE, create_mnesia_tables, [Mode, Nodes]),
-            ?error("create_mnesia_tables_1/2", "cause:~p", [Cause]),
+            ?error("create_mnesia_tables_1/2",
+                   "~p", [{cause, Cause}]),
             {error, Cause}
     end;
 create_mnesia_tables_1(slave,_Nodes) ->
@@ -322,15 +324,18 @@ create_mnesia_tables_2(Mode,_Nodes) ->
                       ok
                   catch
                       _:Cause ->
-                          ?error("create_mnesia_tables_2/0", "cause:~p", [Cause]),
+                          ?error("create_mnesia_tables_2/0",
+                                 "~p", [{cause, Cause}]),
                           {error, ?ERROR_MNESIA_PROC_FAILURE}
                   end;
               Tbls when length(Tbls) =< 1 ->
                   Cause = ?ERROR_TABLE_NOT_EXISTS,
-                  ?error("create_mnesia_tables_2/0", "cause:~p", [Cause]),
+                  ?error("create_mnesia_tables_2/0",
+                         "~p", [{cause, Cause}]),
                   {error, Cause};
               Error ->
-                  ?error("create_mnesia_tables_2/0", "cause:~p", [Error]),
+                  ?error("create_mnesia_tables_2/0",
+                         "~p", [{cause, Error}]),
                   Error
           end,
 
@@ -363,8 +368,8 @@ migrate_mnesia_tables(RetryTimes) ->
         ok
     catch
         _:Cause ->
-            ?error("migrate_mnesia_tables/0", "cause:~p",
-                   [{"Waiting for launching the slave", Cause}]),
+            ?error("migrate_mnesia_tables/0",
+                   "~p", [{cause, Cause}]),
             timer:sleep(timer:seconds(1)),
             migrate_mnesia_tables(RetryTimes + 1)
     end.

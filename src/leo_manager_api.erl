@@ -294,11 +294,13 @@ get_members_of_all_versions(IsExcludeAttachedMembers) ->
                 {error, not_found = Cause} ->
                     {error, Cause};
                 {error, Cause} ->
-                    ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
+                    ?error("get_members_of_all_versions/0",
+                           "~p", [{cause, Cause}]),
                     {error, Cause}
             end;
         {error, Cause} ->
-            ?error("get_members_of_all_versions/0", "cause:~p", [Cause]),
+            ?error("get_members_of_all_versions/0",
+                   "~p", [{cause, Cause}]),
             {error, Cause}
     end.
 
@@ -582,7 +584,8 @@ distribute_members([_|_]= Nodes) ->
                 {_, []} ->
                     void;
                 {_, BadNodes} ->
-                    ?error("distribute_members/2", "bad-nodes:~p", [BadNodes])
+                    ?error("distribute_members/2",
+                           "~p", [{bad_nodes, BadNodes}])
             end,
             ok;
         {error,_Cause} ->
@@ -614,7 +617,8 @@ update_manager_nodes(Managers) ->
                       {_, []} ->
                           ok;
                       {_, BadNodes} ->
-                          ?error("update_manager_nodes/1", "bad-nodes:~p", [BadNodes]),
+                          ?error("update_manager_nodes/1",
+                                 "~p", [{bad_nodes, BadNodes}]),
                           {error, BadNodes}
                   end;
               Error ->
@@ -634,7 +638,8 @@ update_manager_nodes(Managers, ok) ->
                                [Managers], ?DEF_TIMEOUT) of
                 {_, []} -> ok;
                 {_, BadNodes} ->
-                    ?error("update_manager_nodes/2", "bad-nodes:~p", [BadNodes]),
+                    ?error("update_manager_nodes/2",
+                           "~p", [{bad_nodes, BadNodes}]),
                     {error, BadNodes}
             end;
         not_found = Cause ->
@@ -671,17 +676,17 @@ start(Socket) ->
                                     ok;
                                 Errors ->
                                     rollback_running_storage_status(UpdatedNodes),
-                                    ?error("start/1", "cause:~p", [Errors]),
+                                    ?error("start/1", "~p", [{cause, Errors}]),
                                     {error, ?ERROR_COULD_NOT_GET_CONF}
                             end;
                         {error, Cause} ->
                             rollback_running_storage_status(UpdatedNodes),
-                            ?error("start/1", "cause:~p", [Cause]),
+                            ?error("start/1", "~p", [{cause, Cause}]),
                             {error, ?ERROR_COULD_NOT_GET_CONF}
                     end;
                 {error, Cause} ->
                     rollback_running_storage_status(UpdatedNodes),
-                    ?error("start/1", "cause:~p", [Cause]),
+                    ?error("start/1", "~p", [{cause, Cause}]),
                     {error, ?ERROR_COULD_NOT_CREATE_RING}
             end;
         {error, PartialUpdatedNodes} ->
@@ -733,7 +738,8 @@ start_2(Socket, NumOfNodes, TotalMembers, Errors) ->
                                               when_is = leo_date:now()}),
                         {Node, <<"OK">>, Errors};
                     {error, {Node, Cause}} ->
-                        ?error("start_2/3", "node:~w, cause:~p", [Node, Cause]),
+                        ?error("start_2/3",
+                               "~p", [ [{node, Node}, {cause, Cause}] ]),
                         leo_manager_mnesia:update_storage_node_status(
                           update, #node_state{node = Node,
                                               when_is = leo_date:now()}),
@@ -753,7 +759,7 @@ start_2(Socket, NumOfNodes, TotalMembers, Errors) ->
 %% @doc Update the leo_storage status from ?STATE_ATTACHED to ?STATE_RUNNING
 %%
 -spec(update_running_storage_status() ->
-            {ok, list()}|{error, list()}).
+             {ok, list()}|{error, list()}).
 update_running_storage_status() ->
     case leo_redundant_manager_api:get_members() of
         {ok, Members} ->
@@ -761,7 +767,8 @@ update_running_storage_status() ->
                                          state = ?STATE_ATTACHED} <- Members],
             update_running_storage_status(StorageNodes, []);
         {error, Cause} ->
-            ?error("update_running_storage_status/0", "cause:~p", [Cause]),
+            ?error("update_running_storage_status/0",
+                   "~p", [{cause, Cause}]),
             {error, []}
     end.
 update_running_storage_status([], UpdatedNodes) ->
@@ -771,20 +778,22 @@ update_running_storage_status([Node|T], UpdatedNodes) ->
         ok ->
             update_running_storage_status(T, [Node|UpdatedNodes]);
         Error  ->
-            ?error("update_running_storage_status/2", "cause:~p", [Error]),
+            ?error("update_running_storage_status/2",
+                   "~p", [{cause, Error}]),
             {error, UpdatedNodes}
     end.
 
 %% @doc Rollback the leo_storage status from ?STATE_RUNNING to ?STATE_ATTACHED
 %%
 -spec(rollback_running_storage_status(list()) ->
-            ok | {error, any()}).
+             ok | {error, any()}).
 rollback_running_storage_status(UpdatedNodes) ->
     rollback_running_storage_status(UpdatedNodes, []).
 rollback_running_storage_status([], []) ->
     ok;
 rollback_running_storage_status([], Errors) ->
-    ?error("rollback_running_storage_status/2", "errors:~p", [Errors]),
+    ?error("rollback_running_storage_status/2",
+           "~p", [{cause, Errors}]),
     {error, Errors};
 rollback_running_storage_status([Node|T], Errors) ->
     case leo_redundant_manager_api:update_member_by_node(Node, ?STATE_ATTACHED) of
@@ -872,7 +881,7 @@ rebalance(Socket) ->
                     end
             end;
         {error, Cause} ->
-            ?error("rebalance/1", "cause:~p", [Cause]),
+            ?error("rebalance/1", "~p", [{cause, Cause}]),
             {error, ?ERROR_COULD_NOT_GET_MEMBER}
     end.
 
@@ -890,14 +899,14 @@ rebalance_1(true, Nodes) ->
                         {ok, List} ->
                             rebalance_2(dict:new(), List);
                         {error, Cause} ->
-                            ?error("rebalance_1/2", "cause:~p", [Cause]),
+                            ?error("rebalance_1/2", "~p", [{cause, Cause}]),
                             {error, ?ERROR_FAIL_REBALANCE}
                     end;
                 {false, _} ->
                     {error, ?ERROR_NOT_SATISFY_CONDITION}
             end;
         {error, Cause} ->
-            ?error("rebalance_1/2", "cause:~p", [Cause]),
+            ?error("rebalance_1/2", "~p", [{cause, Cause}]),
             {error, ?ERROR_FAIL_TO_ASSIGN_NODE}
     end.
 
@@ -965,7 +974,7 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
     case Ret of
         ok -> void;
         {error, Reason} ->
-            ?error("rebalance_3/2", "cause:~p", [Reason])
+            ?error("rebalance_3/2", "~p", [{cause, Reason}])
     end,
     rebalance_3(Rest, RebalanceProcInfo);
 
@@ -975,7 +984,7 @@ rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
             _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
             rebalance_3(Rest, RebalanceProcInfo);
         {error, Cause} ->
-            ?error("rebalance_3/2", "cause:~p", [Cause]),
+            ?error("rebalance_3/2", "~p", [{cause, Cause}]),
             {error, ?ERROR_FAIL_TO_REMOVE_NODE}
     end.
 
@@ -1036,12 +1045,13 @@ rebalance_4_loop(Socket, NumOfNodes, TotalMembers) ->
                                         {Node, <<"PENDING">>};
                                     {error, Cause} ->
                                         ?warn("rebalance_4_loop/3",
-                                              "node:~w, cause:~p", [Node, Cause]),
+                                              "~p", [ [{node, Node}, {cause, Cause}] ]),
                                         {Node, <<"ERROR">>}
                                 end;
                             {error, Reason} ->
                                 ?warn("rebalance_4_loop/3",
-                                      "qid:~w, node:~w, cause:~p", [QId, Node, Reason]),
+                                      "~p", [ [{qid, QId}, {node, Node},
+                                               {cause, Reason}] ]),
                                 {Node, <<"ERROR">>}
                         end
                 end,
@@ -1448,7 +1458,8 @@ recover(?RECOVER_REMOTE_CLUSTER, ClusterId, true) ->
                 {_RetL, []} ->
                     ok;
                 {_, BadNodes} ->
-                    ?warn("recover/3", "bad_nodes:~p", [BadNodes]),
+                    ?warn("recover/3",
+                          "~p", [{bad_nodes, BadNodes}]),
                     {error, BadNodes}
             end;
         _ ->
@@ -1478,7 +1489,8 @@ recover_node_2(true, Members, Node) ->
         {_RetL, []} ->
             ok;
         {_, BadNodes} ->
-            ?warn("recover_node_3/3", "bad_nodes:~p", [BadNodes]),
+            ?warn("recover_node_3/3",
+                  "~p", [{bad_nodes, BadNodes}]),
             {error, BadNodes}
     end;
 recover_node_2(false,_,_) ->
@@ -1512,7 +1524,7 @@ compact(Mode, Node) ->
                         {_, 'not_running'} ->
                             {error, ?ERROR_TARGET_NODE_NOT_RUNNING};
                         {_, Cause} ->
-                            ?warn("compact/2", "cause:~p", [Cause]),
+                            ?warn("compact/2", "~p", [{cause, Cause}]),
                             {error, ?ERROR_FAILED_COMPACTION}
                     end
             end;
@@ -1539,7 +1551,7 @@ compact(?COMPACT_START, Node, NumOfTargets, MaxProc) ->
                         {_, 'not_running'} ->
                             {error, ?ERROR_TARGET_NODE_NOT_RUNNING};
                         {_, Cause} ->
-                            ?warn("compact/4", "cause:~p", [Cause]),
+                            ?warn("compact/4", "~p", [{cause, Cause}]),
                             {error, ?ERROR_FAILED_COMPACTION}
                     end;
                 _ ->
@@ -1833,10 +1845,12 @@ brutal_synchronize_ring_1(Node, MembersList) ->
         not_found ->
             {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         {_, Cause} ->
-            ?warn("brutal_synchronize_ring_1/2", "cause:~p", [Cause]),
+            ?warn("brutal_synchronize_ring_1/2",
+                  "~p", [{cause, Cause}]),
             {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         timeout = Cause ->
-            ?warn("brutal_synchronize_ring_1/2", "cause:~p", [Cause]),
+            ?warn("brutal_synchronize_ring_1/2",
+                  "~p", [{cause, Cause}]),
             {error, Cause}
     end.
 
@@ -1982,7 +1996,8 @@ synchronize_1(Type, Node) when Type == ?SYNC_TARGET_RING_CUR;
                     synchronize_1_1(Type, Node)
             end;
         {_, Cause} ->
-            ?error("synchronize_1/2", "node:~p, cause:~p", [Node, Cause]),
+            ?error("synchronize_1/2",
+                   "~p", [ [{node, Node}, {cause, Cause}] ]),
             {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
         timeout = Cause ->
             {error, Cause}
@@ -2005,7 +2020,8 @@ synchronize_1_1(Type, Node) ->
                 {ok, Hashes} ->
                     synchronize_2(Node, Hashes);
                 {_, Cause} ->
-                    ?error("synchronize_1/2", "node:~p, cause:~p", [Node, Cause]),
+                    ?error("synchronize_1/2",
+                           "~p", [ [{node, Node}, {cause, Cause}] ]),
                     {error, ?ERROR_FAIL_TO_SYNCHRONIZE_RING};
                 timeout = Cause ->
                     {error, Cause}
@@ -2055,7 +2071,7 @@ set_endpoint(EndPoint) ->
         ok ->
             rpc_call_for_gateway(set_endpoint, [EndPoint]);
         {error, Cause} ->
-            ?error("set_endpoint/1", "cause:~p", [Cause]),
+            ?error("set_endpoint/1", "~p", [{cause ,Cause}]),
             {error, ?ERROR_COULD_NOT_SET_ENDPOINT}
     end.
 
@@ -2069,7 +2085,7 @@ delete_endpoint(EndPoint) ->
         ok ->
             rpc_call_for_gateway(delete_endpoint, [EndPoint]);
         {error, Cause} ->
-            ?error("delete_endpoint/1", "cause:~p", [Cause]),
+            ?error("delete_endpoint/1", "~p", [{cause, Cause}]),
             {error, ?ERROR_COULD_NOT_REMOVE_ENDPOINT}
     end.
 
@@ -2152,7 +2168,8 @@ delete_bucket_1(AccessKeyBin, BucketBin) ->
                                [BucketBin], ?DEF_TIMEOUT) of
                 {_, []} -> void;
                 {_, BadNodes} ->
-                    ?error("delete_bucket_1/2", "bad-nodes:~p", [BadNodes])
+                    ?error("delete_bucket_1/2",
+                           "~p", [{bad_nodes, BadNodes}])
             end,
             delete_bucket_2(AccessKeyBin, BucketBin);
         _ ->
@@ -2180,7 +2197,7 @@ update_acl(?CANNED_ACL_PRIVATE = Permission, AccessKey, Bucket) ->
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            ?error("update_acl/3", "cause:~p", [Cause]),
+            ?error("update_acl/3", "~p", [{cause, Cause}]),
             {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(?CANNED_ACL_PUBLIC_READ = Permission, AccessKey, Bucket) ->
@@ -2188,7 +2205,7 @@ update_acl(?CANNED_ACL_PUBLIC_READ = Permission, AccessKey, Bucket) ->
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            ?error("update_acl/3", "cause:~p", [Cause]),
+            ?error("update_acl/3", "~p", [{cause, Cause}]),
             {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(?CANNED_ACL_PUBLIC_READ_WRITE = Permission, AccessKey, Bucket) ->
@@ -2196,7 +2213,7 @@ update_acl(?CANNED_ACL_PUBLIC_READ_WRITE = Permission, AccessKey, Bucket) ->
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            ?error("update_acl/3", "cause:~p", [Cause]),
+            ?error("update_acl/3", "~p", [{cause, Cause}]),
             {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(?CANNED_ACL_AUTHENTICATED_READ = Permission, AccessKey, Bucket) ->
@@ -2204,7 +2221,7 @@ update_acl(?CANNED_ACL_AUTHENTICATED_READ = Permission, AccessKey, Bucket) ->
         ok ->
             rpc_call_for_gateway(update_acl, [Permission, AccessKey, Bucket]);
         {error, Cause} ->
-            ?error("update_acl/3", "cause:~p", [Cause]),
+            ?error("update_acl/3", "~p", [{cause, Cause}]),
             {error, ?ERROR_FAIL_TO_UPDATE_ACL}
     end;
 update_acl(_,_,_) ->
