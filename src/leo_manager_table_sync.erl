@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_table_sync).
 
--author('Yosuke Hara').
-
 -behaviour(gen_server).
 
 -include("leo_manager.hrl").

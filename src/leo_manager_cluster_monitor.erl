@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_cluster_monitor).
 
--author('Yosuke Hara').
-
 -behaviour(gen_server).
 
 -include("leo_manager.hrl").

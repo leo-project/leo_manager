@@ -20,7 +20,6 @@
 %%
 %%======================================================================
 -module(leo_manager_console_behaiviour).
--author('Yosuke Hara').
 
 -include("leo_manager.hrl").
 

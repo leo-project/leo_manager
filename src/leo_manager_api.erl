@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_api).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").

@@ -21,8 +21,6 @@
 %%======================================================================
 -module(tcp_server_acceptor).
 
--author('Yosuke Hara').
-
 %% External API
 -export([start_link/5]).
 

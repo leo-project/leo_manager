@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_sup).
 
--author('Yosuke Hara').
-
 -behaviour(supervisor).
 
 -include("leo_manager.hrl").
