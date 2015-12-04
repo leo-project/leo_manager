@@ -2146,7 +2146,7 @@ set_redundancy_method(CmdBody, Option) ->
                    AccessKeyId_2, Bucket_2, RedMethod_1,
                    DefECClass, {ECParam_K_2, ECParam_M_2}) of
                 ok ->
-                    ok;
+                    leo_manager_api:update_bucket(Bucket_2);
                 not_found ->
                     {error, ?ERROR_BUCKET_NOT_FOUND};
                 {error,_Cause} ->

@@ -69,7 +69,8 @@
          stats/2,
          mq_stats/1, mq_suspend/2, mq_resume/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1, delete_endpoint/1, add_bucket/2, add_bucket/3, delete_bucket/2,
+         set_endpoint/1, delete_endpoint/1,
+         add_bucket/2, add_bucket/3, delete_bucket/2, update_bucket/1,
          update_acl/3
         ]).
 
@@ -2173,7 +2174,9 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
         {error, _Cause} ->
             {error, ?ERROR_COULD_NOT_STORE}
     end.
-%% @doc Remove a bucket from storage-cluster and manager
+
+
+%% @doc Remove a bucket
 %%
 -spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
@@ -2225,6 +2228,21 @@ delete_bucket_2(AccessKeyBin, BucketBin) ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
             {error, ?ERROR_COULD_NOT_STORE}
+    end.
+
+
+%% @doc Update a bucket
+%%
+-spec(update_bucket(BucketName) ->
+             ok | {error, any()} when BucketName::binary()).
+update_bucket(BucketName) ->
+    case leo_s3_bucket:find_bucket_by_name(BucketName) of
+        {ok, #?BUCKET{} = Bucket} ->
+            rpc_call_for_gateway(update_bucket, [Bucket]);
+        not_found = Cause ->
+            {error, Cause};
+        Error ->
+            Error
     end.
 
 
