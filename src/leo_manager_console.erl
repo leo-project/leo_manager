@@ -553,7 +553,6 @@ handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Comma
 %%
 handle_call(_Socket, <<?CMD_SET_RED_METHOD, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
-    ?debugVal(Option),
     Fun = fun() ->
                   case set_redundancy_method(Command, Option) of
                       ok ->
@@ -2116,30 +2115,45 @@ change_bucket_owner(CmdBody, Option) ->
 %% #doc Set redundancy method of a bucket
 set_redundancy_method(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
-    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
-        {ok, [Bucket, AccessKeyId, RedMethod]} ->
-            case (RedMethod == "copy" orelse
-                  RedMethod == "erasure-code") of
-                true ->
-                    ?debugVal({Bucket, AccessKeyId, RedMethod}),
-                    case leo_s3_bucket:set_redundancy_method(
-                           list_to_binary(AccessKeyId),
-                           list_to_binary(Bucket),
-                           RedMethod) of
-                        ok ->
-                            ok;
-                        not_found ->
-                            {error, ?ERROR_BUCKET_NOT_FOUND};
-                        {error,_Cause} ->
-                            {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
-                    end;
-                false ->
-                    {error, ?ERROR_INVALID_ARGS}
+    Ret = case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+              {ok, [Bucket, AccessKeyId, "copy" = RedMethod]} ->
+                  {ok, [Bucket, AccessKeyId, RedMethod, undefined, undefined]};
+              {ok, [Bucket, AccessKeyId, "erasure-code" = RedMethod, ECParam_K, ECParam_M]} ->
+                  {ok, [Bucket, AccessKeyId, RedMethod, ECParam_K, ECParam_M]};
+              {ok,_} ->
+                  {error, ?ERROR_INVALID_ARGS};
+              Error ->
+                  Error
+          end,
+    case Ret of
+        {ok, [Bucket_1, AccessKeyId_1,
+              RedMethod_1, ECParam_K_1, ECParam_M_1]} ->
+            AccessKeyId_2 = list_to_binary(AccessKeyId_1),
+            Bucket_2 = list_to_binary(Bucket_1),
+            DefECClass = 'vandrs',
+            StrToInt = fun(_StrInt) ->
+                               case catch list_to_integer(_StrInt) of
+                                   {'EXIT',_} ->
+                                       void;
+                                   _Int ->
+                                       _Int
+                               end
+                       end,
+            ECParam_K_2 = StrToInt(ECParam_K_1),
+            ECParam_M_2 = StrToInt(ECParam_M_1),
+
+            case leo_s3_bucket:set_redundancy_method(
+                   AccessKeyId_2, Bucket_2, RedMethod_1,
+                   DefECClass, {ECParam_K_2, ECParam_M_2}) of
+                ok ->
+                    ok;
+                not_found ->
+                    {error, ?ERROR_BUCKET_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
             end;
-        {ok,_} ->
-            {error, ?ERROR_INVALID_ARGS};
-        Error ->
-            Error
+        Error_1 ->
+            Error_1
     end.
 
 
