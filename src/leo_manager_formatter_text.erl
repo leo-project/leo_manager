@@ -255,15 +255,15 @@ system_info_and_nodes_stat(Props) ->
 system_conf_with_node_stat(FormattedSystemConf, []) ->
     FormattedSystemConf;
 system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
-    Col1Len = lists:foldl(fun({_,N,_,_,_,_}, Acc) ->
-                                  Len = length(N),
-                                  case (Len > Acc) of
-                                      true  -> Len;
-                                      false -> Acc
-                                  end
-                          end, 0, Nodes) + 5,
+    Col_1_Len = lists:foldl(fun({_,N,_,_,_,_}, Acc) ->
+                                    Len = length(N),
+                                    case (Len > Acc) of
+                                        true  -> Len;
+                                        false -> Acc
+                                    end
+                            end, 0, Nodes) + 5,
     CellColumns = [{"type",          6},
-                   {"node",    Col1Len},
+                   {"node",    Col_1_Len},
                    {"state",        12},
                    {"current ring", 14},
                    {"prev ring",    14},
@@ -781,26 +781,26 @@ credential(AccessKeyId, SecretAccessKey) ->
 -spec(users([#?S3_USER{}]) ->
              string()).
 users(Owners) ->
-    Col1Len = lists:foldl(fun(User, Acc) ->
-                                  UserId = leo_misc:get_value(user_id, User),
-                                  Len = length(binary_to_list(UserId)),
-                                  case (Len > Acc) of
-                                      true  -> Len;
-                                      false -> Acc
-                                  end
-                          end, 7, Owners),
-    Col2Len = 7,
-    Col3Len = 22,
-    Col4Len = 26,
+    Col_1_Len = lists:foldl(fun(User, Acc) ->
+                                    UserId = leo_misc:get_value(user_id, User),
+                                    Len = length(binary_to_list(UserId)),
+                                    case (Len > Acc) of
+                                        true  -> Len;
+                                        false -> Acc
+                                    end
+                            end, 7, Owners),
+    Col_2_Len = 7,
+    Col_3_Len = 22,
+    Col_4_Len = 26,
 
-    Header = lists:append([string:left("user_id",       Col1Len), " | ",
-                           string:left("role_id",       Col2Len), " | ",
-                           string:left("access_key_id", Col3Len), " | ",
-                           string:left("created_at",    Col4Len), "\r\n",
-                           lists:duplicate(Col1Len, "-"), "-+-",
-                           lists:duplicate(Col2Len, "-"), "-+-",
-                           lists:duplicate(Col3Len, "-"), "-+-",
-                           lists:duplicate(Col4Len, "-"), "\r\n"]),
+    Header = lists:append([string:left("user_id",       Col_1_Len), " | ",
+                           string:left("role_id",       Col_2_Len), " | ",
+                           string:left("access_key_id", Col_3_Len), " | ",
+                           string:left("created_at",    Col_4_Len), "\r\n",
+                           lists:duplicate(Col_1_Len, "-"), "-+-",
+                           lists:duplicate(Col_2_Len, "-"), "-+-",
+                           lists:duplicate(Col_3_Len, "-"), "-+-",
+                           lists:duplicate(Col_4_Len, "-"), "\r\n"]),
     Fun = fun(User, Acc) ->
                   UserId      = leo_misc:get_value(user_id,       User),
                   RoleId      = leo_misc:get_value(role_id,       User),
@@ -812,9 +812,9 @@ users(Owners) ->
                   AccessKeyIdStr = binary_to_list(AccessKeyId),
 
                   Acc ++ io_lib:format("~s | ~s | ~s | ~s\r\n",
-                                       [string:left(UserIdStr,      Col1Len),
-                                        string:left(RoleIdStr,      Col2Len),
-                                        string:left(AccessKeyIdStr, Col3Len),
+                                       [string:left(UserIdStr,      Col_1_Len),
+                                        string:left(RoleIdStr,      Col_2_Len),
+                                        string:left(AccessKeyIdStr, Col_3_Len),
                                         leo_date:date_format(CreatedAt)])
           end,
     lists:append([lists:foldl(Fun, Header, Owners), "\r\n"]).
@@ -825,26 +825,26 @@ users(Owners) ->
 -spec(endpoints(list(tuple())) ->
              string()).
 endpoints(EndPoints) ->
-    Col1Len = lists:foldl(fun({_, EP, _}, Acc) ->
-                                  Len = byte_size(EP),
-                                  case (Len > Acc) of
-                                      true  -> Len;
-                                      false -> Acc
-                                  end
-                          end, 8, EndPoints),
-    Col2Len = 26,
+    Col_1_Len = lists:foldl(fun({_, EP, _}, Acc) ->
+                                    Len = byte_size(EP),
+                                    case (Len > Acc) of
+                                        true  -> Len;
+                                        false -> Acc
+                                    end
+                            end, 8, EndPoints),
+    Col_2_Len = 26,
 
-    Header = lists:append([string:left("endpoint", Col1Len),
+    Header = lists:append([string:left("endpoint", Col_1_Len),
                            " | ",
-                           string:left("created at", Col2Len),
+                           string:left("created at", Col_2_Len),
                            "\r\n",
-                           lists:duplicate(Col1Len, "-"),
-                           "-+-", lists:duplicate(Col2Len, "-"),
+                           lists:duplicate(Col_1_Len, "-"),
+                           "-+-", lists:duplicate(Col_2_Len, "-"),
                            "\r\n"]),
     Fun = fun({endpoint, EP, Created}, Acc) ->
                   EndpointStr = binary_to_list(EP),
                   Acc ++ io_lib:format("~s | ~s\r\n",
-                                       [string:left(EndpointStr,Col1Len),
+                                       [string:left(EndpointStr,Col_1_Len),
                                         leo_date:date_format(Created)])
           end,
     lists:append([lists:foldl(Fun, Header, EndPoints), "\r\n"]).
@@ -855,13 +855,12 @@ endpoints(EndPoints) ->
 -spec(buckets([#?BUCKET{}]) ->
              string()).
 buckets(Buckets) ->
-    Col1MinLen = 12,  %% cluster-id
-    Col2MinLen = 8,  %% bucket-name
-    Col3MinLen = 6,  %% owner
-    Col4MinLen = 12, %% permissions
-
-    {Col1Len, Col2Len,
-     Col3Len, Col4Len} =
+    Col_1_MinLen = 12, %% cluster-id
+    Col_2_MinLen = 8,  %% bucket-name
+    Col_3_MinLen = 6,  %% owner
+    Col_4_MinLen = 12, %% permissions
+    {Col_1_Len, Col_2_Len,
+     Col_3_Len, Col_4_Len} =
         lists:foldl(fun(#bucket_dto{name  = Bucket,
                                     owner = #user_credential{user_id= Owner},
                                     acls  = Permissions,
@@ -892,50 +891,72 @@ buckets(Buckets) ->
                              case (Len4 > C4) of
                                  true  -> Len4;
                                  false -> C4
-                             end
-                            }
-                    end, {Col1MinLen, Col2MinLen,
-                          Col3MinLen, Col4MinLen}, Buckets),
-    Col5Len = 26, %% created at
+                             end}
+                    end, {Col_1_MinLen, Col_2_MinLen,
+                          Col_3_MinLen, Col_4_MinLen}, Buckets),
+    Col_5_Len = 24, %% erasure-coding related items
+    Col_6_Len = 26, %% created at
 
     Header = lists:append(
                [
-                string:left("cluster id",  Col1Len), " | ",
-                string:left("bucket",      Col2Len), " | ",
-                string:left("owner",       Col3Len), " | ",
-                string:left("permissions", Col4Len), " | ",
-                string:left("created at",  Col5Len), "\r\n",
+                string:left("cluster id",  Col_1_Len), " | ",
+                string:left("bucket", Col_2_Len), " | ",
+                string:left("owner", Col_3_Len), " | ",
+                string:left("permissions", Col_4_Len), " | ",
+                string:left("redundancy method", Col_5_Len), " | ",
+                string:left("created at", Col_6_Len), "\r\n",
 
-                lists:duplicate(Col1Len, "-"), "-+-",
-                lists:duplicate(Col2Len, "-"), "-+-",
-                lists:duplicate(Col3Len, "-"), "-+-",
-                lists:duplicate(Col4Len, "-"), "-+-",
-                lists:duplicate(Col5Len, "-"), "\r\n"
+                lists:duplicate(Col_1_Len, "-"), "-+-",
+                lists:duplicate(Col_2_Len, "-"), "-+-",
+                lists:duplicate(Col_3_Len, "-"), "-+-",
+                lists:duplicate(Col_4_Len, "-"), "-+-",
+                lists:duplicate(Col_5_Len, "-"), "-+-",
+                lists:duplicate(Col_6_Len, "-"), "\r\n"
                ]),
 
     Fun = fun(#bucket_dto{name = Bucket,
                           owner = #user_credential{user_id= Owner},
-                          acls  = Permissions1,
+                          acls  = Permissions,
                           cluster_id = ClusterId,
-                          created_at = Created1}, Acc) ->
+                          redundancy_method = RedMethod,
+                          ec_params = ECParams,
+                          created_at = Created_1}, Acc) ->
                   ClusterIdStr = atom_to_list(ClusterId),
                   BucketStr = binary_to_list(Bucket),
-                  OwnerStr  = binary_to_list(Owner),
-                  PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions1),
-                  Created2  = case (Created1 > 0) of
-                                  true  -> leo_date:date_format(Created1);
-                                  false -> []
+                  OwnerStr = binary_to_list(Owner),
+                  PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions),
+                  ECParamsStr = get_redundancy_method_str(RedMethod, ECParams),
+                  Created_2  = case (Created_1 > 0) of
+                                  true ->
+                                       leo_date:date_format(Created_1);
+                                  false ->
+                                       []
                               end,
-
-                  Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s\r\n",
+                  Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s | ~s\r\n",
                                        [
-                                        string:left(ClusterIdStr,   Col1Len),
-                                        string:left(BucketStr,      Col2Len),
-                                        string:left(OwnerStr,       Col3Len),
-                                        string:left(PermissionsStr, Col4Len),
-                                        Created2])
+                                        string:left(ClusterIdStr, Col_1_Len),
+                                        string:left(BucketStr, Col_2_Len),
+                                        string:left(OwnerStr, Col_3_Len),
+                                        string:left(PermissionsStr, Col_4_Len),
+                                        string:left(ECParamsStr, Col_5_Len),
+                                        Created_2])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
+
+
+%% @doc Retrieve redundancy method str of the bucket
+%% @private
+get_redundancy_method_str(RedMethod, ECParams) ->
+    case RedMethod of
+        'erasure_code' ->
+            {ECParam_K, ECParam_M} = ECParams,
+            lists:append([atom_to_list(RedMethod), ", ",
+                          integer_to_list(ECParam_K),
+                          "/",
+                          integer_to_list(ECParam_M)]);
+        _ ->
+            atom_to_list(RedMethod)
+    end.
 
 
 %% @doc Format a bucket list
@@ -943,9 +964,9 @@ buckets(Buckets) ->
 -spec(bucket_by_access_key(list(#?BUCKET{})) ->
              string()).
 bucket_by_access_key(Buckets) ->
-    Col1MinLen = 8,
-    Col2MinLen = 12,
-    {Col1Len, Col2Len} =
+    Col_1_MinLen = 8,
+    Col_2_MinLen = 12,
+    {Col_1_Len, Col_2_Len} =
         lists:foldl(fun(#?BUCKET{name = Bucket,
                                  acls = Permissions}, {C1, C2}) ->
                             BucketStr = binary_to_list(Bucket),
@@ -961,30 +982,37 @@ bucket_by_access_key(Buckets) ->
                                  false -> C2
                              end
                             }
-                    end, {Col1MinLen, Col2MinLen}, Buckets),
-    Col3Len = 26,
+                    end, {Col_1_MinLen, Col_2_MinLen}, Buckets),
+    Col_3_Len = 24,
+    Col_4_Len = 26,
     Header = lists:append(
-               [string:left("bucket",      Col1Len), " | ",
-                string:left("permissions", Col2Len), " | ",
-                string:left("created at",  Col3Len), "\r\n",
+               [string:left("bucket", Col_1_Len), " | ",
+                string:left("permissions", Col_2_Len), " | ",
+                string:left("redundancy method", Col_3_Len), " | ",
+                string:left("created at", Col_4_Len), "\r\n",
 
-                lists:duplicate(Col1Len, "-"), "-+-",
-                lists:duplicate(Col2Len, "-"), "-+-",
-                lists:duplicate(Col3Len, "-"), "\r\n"]),
+                lists:duplicate(Col_1_Len, "-"), "-+-",
+                lists:duplicate(Col_2_Len, "-"), "-+-",
+                lists:duplicate(Col_3_Len, "-"), "-+-",
+                lists:duplicate(Col_4_Len, "-"), "\r\n"]),
 
     Fun = fun(#?BUCKET{name = Bucket1,
                        acls = Permissions1,
+                       redundancy_method = RedMethod,
+                       ec_params = ECParams,
                        created_at = Created1}, Acc) ->
                   BucketStr = binary_to_list(Bucket1),
                   PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions1),
+                  ECParamsStr = get_redundancy_method_str(RedMethod, ECParams),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
                                   false -> []
                               end,
 
-                  Acc ++ io_lib:format("~s | ~s | ~s\r\n",
-                                       [string:left(BucketStr,      Col1Len),
-                                        string:left(PermissionsStr, Col2Len),
+                  Acc ++ io_lib:format("~s | ~s | ~s | ~s\r\n",
+                                       [string:left(BucketStr, Col_1_Len),
+                                        string:left(PermissionsStr, Col_2_Len),
+                                        string:left(ECParamsStr, Col_3_Len),
                                         Created2])
           end,
     lists:append([lists:foldl(Fun, Header, Buckets), "\r\n"]).
@@ -995,20 +1023,20 @@ bucket_by_access_key(Buckets) ->
 -spec(acls(acls()) ->
              string()).
 acls(ACLs) ->
-    Col1Len = lists:foldl(fun(#bucket_acl_info{user_id = User} = _ACL, C1) ->
-                                  UserStr = binary_to_list(User),
-                                  Len = length(UserStr),
-                                  case (Len > C1) of
-                                      true  -> Len;
-                                      false -> C1
-                                  end
-                          end, 14, ACLs),
-    Col2Len = 24, % @todo to be calcurated
+    Col_1_Len = lists:foldl(fun(#bucket_acl_info{user_id = User} = _ACL, C1) ->
+                                    UserStr = binary_to_list(User),
+                                    Len = length(UserStr),
+                                    case (Len > C1) of
+                                        true  -> Len;
+                                        false -> C1
+                                    end
+                            end, 14, ACLs),
+    Col_2_Len = 24, % @todo to be calcurated
     Header = lists:append(
-               [string:left("access_key_id", Col1Len), " | ",
-                string:left("permissions",   Col2Len), "\r\n",
-                lists:duplicate(Col1Len, "-"), "-+-",
-                lists:duplicate(Col2Len, "-"), "\r\n"]),
+               [string:left("access_key_id", Col_1_Len), " | ",
+                string:left("permissions",   Col_2_Len), "\r\n",
+                lists:duplicate(Col_1_Len, "-"), "-+-",
+                lists:duplicate(Col_2_Len, "-"), "\r\n"]),
 
     Fun = fun(#bucket_acl_info{user_id = User, permissions = Permissions} = _ACL, Acc) ->
                   UserStr = binary_to_list(User),
@@ -1023,7 +1051,7 @@ acls(ACLs) ->
                                                                   "\r\n"]))
                               end,
                   Acc ++ io_lib:format(FormatStr,
-                                       [string:left(UserStr, Col1Len)] ++ Permissions)
+                                       [string:left(UserStr, Col_1_Len)] ++ Permissions)
           end,
     lists:append([lists:foldl(Fun, Header, ACLs), "\r\n"]).
 
@@ -1033,38 +1061,38 @@ acls(ACLs) ->
              string()).
 cluster_status(Stats) ->
     Col1Min = 10, %% cluster-id
-    Col1Len = lists:foldl(fun(N, Acc) ->
+    Col_1_Len = lists:foldl(fun(N, Acc) ->
 
-                                  Len = length(atom_to_list(leo_misc:get_value('cluster_id', N))),
-                                  case (Len > Acc) of
-                                      true  -> Len;
-                                      false -> Acc
-                                  end
-                          end, Col1Min, Stats),
+                                    Len = length(atom_to_list(leo_misc:get_value('cluster_id', N))),
+                                    case (Len > Acc) of
+                                        true  -> Len;
+                                        false -> Acc
+                                    end
+                            end, Col1Min, Stats),
     Col2Min = 10, %% dc-id
-    Col2Len = lists:foldl(fun(N, Acc) ->
-                                  Len = length(atom_to_list(leo_misc:get_value('dc_id', N))),
-                                  case (Len > Acc) of
-                                      true  -> Len;
-                                      false -> Acc
-                                  end
-                          end, Col2Min, Stats),
-    Col3Len = 12, %% status
-    Col4Len = 14, %% # of storages
-    Col5Len = 28, %% updated-at
+    Col_2_Len = lists:foldl(fun(N, Acc) ->
+                                    Len = length(atom_to_list(leo_misc:get_value('dc_id', N))),
+                                    case (Len > Acc) of
+                                        true  -> Len;
+                                        false -> Acc
+                                    end
+                            end, Col2Min, Stats),
+    Col_3_Len = 12, %% status
+    Col_4_Len = 14, %% # of storages
+    Col_5_Len = 28, %% updated-at
 
     Header = lists:append(
-               [string:centre("cluster id",    Col1Len), " | ",
-                string:centre("dc id",         Col2Len), " | ",
-                string:centre("status",        Col3Len), " | ",
-                string:centre("# of storages", Col4Len), " | ",
-                string:centre("updated at",    Col5Len), "\r\n",
+               [string:centre("cluster id",    Col_1_Len), " | ",
+                string:centre("dc id",         Col_2_Len), " | ",
+                string:centre("status",        Col_3_Len), " | ",
+                string:centre("# of storages", Col_4_Len), " | ",
+                string:centre("updated at",    Col_5_Len), "\r\n",
 
-                lists:duplicate(Col1Len, "-"), "-+-",
-                lists:duplicate(Col2Len, "-"), "-+-",
-                lists:duplicate(Col3Len, "-"), "-+-",
-                lists:duplicate(Col4Len, "-"), "-+-",
-                lists:duplicate(Col5Len, "-"), "\r\n"]),
+                lists:duplicate(Col_1_Len, "-"), "-+-",
+                lists:duplicate(Col_2_Len, "-"), "-+-",
+                lists:duplicate(Col_3_Len, "-"), "-+-",
+                lists:duplicate(Col_4_Len, "-"), "-+-",
+                lists:duplicate(Col_5_Len, "-"), "\r\n"]),
 
     Fun = fun(Items, Acc) ->
                   ClusterId_1 = leo_misc:get_value('cluster_id', Items),
@@ -1085,10 +1113,10 @@ cluster_status(Stats) ->
                                     false -> []
                                 end,
                   Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s\r\n",
-                                       [string:left(ClusterId_2, Col1Len),
-                                        string:left(DCId_2, Col2Len),
-                                        string:left(Status, Col3Len),
-                                        string:right(Storages, Col4Len),
+                                       [string:left(ClusterId_2, Col_1_Len),
+                                        string:left(DCId_2, Col_2_Len),
+                                        string:left(Status, Col_3_Len),
+                                        string:right(Storages, Col_4_Len),
                                         UpdatedAt_1])
           end,
     lists:append([lists:foldl(Fun, Header, Stats), "\r\n"]).
@@ -1099,15 +1127,15 @@ cluster_status(Stats) ->
 -spec(whereis(list()) ->
              string()).
 whereis(AssignedInfo) ->
-    Col2Len = lists:foldl(fun(N, Acc) ->
-                                  Len = length(element(1,N)),
-                                  case (Len > Acc) of
-                                      true  -> Len;
-                                      false -> Acc
-                                  end
-                          end, 0, AssignedInfo) + 5,
+    Col_2_Len = lists:foldl(fun(N, Acc) ->
+                                    Len = length(element(1,N)),
+                                    case (Len > Acc) of
+                                        true  -> Len;
+                                        false -> Acc
+                                    end
+                            end, 0, AssignedInfo) + 5,
     CellColumns = [{"del?",          6},
-                   {"node",    Col2Len},
+                   {"node",    Col_2_Len},
                    {"ring address", 36},
                    {"size",         10},
                    {"checksum",     12},
