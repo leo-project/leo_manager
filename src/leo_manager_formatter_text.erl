@@ -894,7 +894,7 @@ buckets(Buckets) ->
                              end}
                     end, {Col_1_MinLen, Col_2_MinLen,
                           Col_3_MinLen, Col_4_MinLen}, Buckets),
-    Col_5_Len = 24, %% erasure-coding related items
+    Col_5_Len = 28, %% erasure-coding related items
     Col_6_Len = 26, %% created at
 
     Header = lists:append(
@@ -919,19 +919,23 @@ buckets(Buckets) ->
                           acls  = Permissions,
                           cluster_id = ClusterId,
                           redundancy_method = RedMethod,
+                          cp_params = CPParams,
                           ec_params = ECParams,
                           created_at = Created_1}, Acc) ->
                   ClusterIdStr = atom_to_list(ClusterId),
                   BucketStr = binary_to_list(Bucket),
                   OwnerStr = binary_to_list(Owner),
                   PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions),
-                  ECParamsStr = get_redundancy_method_str(RedMethod, ECParams),
+
+                  {ok, RedOptions} = leo_redundant_manager_api:get_options(),
+                  ECParamsStr = get_redundancy_method_str(
+                                  RedMethod, CPParams, ECParams, RedOptions),
                   Created_2  = case (Created_1 > 0) of
-                                  true ->
+                                   true ->
                                        leo_date:date_format(Created_1);
-                                  false ->
+                                   false ->
                                        []
-                              end,
+                               end,
                   Acc ++ io_lib:format("~s | ~s | ~s | ~s | ~s | ~s\r\n",
                                        [
                                         string:left(ClusterIdStr, Col_1_Len),
@@ -946,16 +950,35 @@ buckets(Buckets) ->
 
 %% @doc Retrieve redundancy method str of the bucket
 %% @private
-get_redundancy_method_str(RedMethod, ECParams) ->
+get_redundancy_method_str(RedMethod, CPParams, ECParams, RedOptions) ->
     case RedMethod of
         'erasure_code' ->
             {ECParam_K, ECParam_M} = ECParams,
-            lists:append([atom_to_list(RedMethod), ", ",
-                          integer_to_list(ECParam_K),
-                          "/",
-                          integer_to_list(ECParam_M)]);
+            lists:append([atom_to_list(RedMethod),
+                          ",",
+                          " {k:", integer_to_list(ECParam_K),
+                          ", m:", integer_to_list(ECParam_M),
+                          "}"
+                         ]);
         _ ->
-            atom_to_list(RedMethod)
+            {N, W, R, D} =
+                case CPParams of
+                    {_,_,_,_} ->
+                        CPParams;
+                    _ ->
+                        {leo_misc:get_value('n', RedOptions),
+                         leo_misc:get_value('w', RedOptions),
+                         leo_misc:get_value('r', RedOptions),
+                         leo_misc:get_value('d', RedOptions)}
+                end,
+            lists:append([atom_to_list(RedMethod),
+                          ",",
+                          " {n:", integer_to_list(N),
+                          ", w:", integer_to_list(W),
+                          ", r:", integer_to_list(R),
+                          ", d:", integer_to_list(D),
+                          "}"
+                         ])
     end.
 
 
@@ -999,11 +1022,15 @@ bucket_by_access_key(Buckets) ->
     Fun = fun(#?BUCKET{name = Bucket1,
                        acls = Permissions1,
                        redundancy_method = RedMethod,
+                       cp_params = CPParams,
                        ec_params = ECParams,
                        created_at = Created1}, Acc) ->
                   BucketStr = binary_to_list(Bucket1),
                   PermissionsStr = leo_s3_bucket:aclinfo_to_str(Permissions1),
-                  ECParamsStr = get_redundancy_method_str(RedMethod, ECParams),
+
+                  RedOptions = leo_redundant_manager_api:get_options(),
+                  ECParamsStr = get_redundancy_method_str(
+                                  RedMethod, CPParams, ECParams, RedOptions),
                   Created2  = case (Created1 > 0) of
                                   true  -> leo_date:date_format(Created1);
                                   false -> []
