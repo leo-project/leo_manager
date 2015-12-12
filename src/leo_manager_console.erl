@@ -2116,21 +2116,21 @@ change_bucket_owner(CmdBody, Option) ->
 set_redundancy_method(CmdBody, Option) ->
     _ = leo_manager_mnesia:insert_history(CmdBody),
     Ret = case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
-              {ok, [Bucket, AccessKeyId, "copy" = RedMethod]} ->
-                  {ok, [Bucket, AccessKeyId, RedMethod, undefined, undefined]};
-              {ok, [Bucket, AccessKeyId, "erasure-code" = RedMethod, ECParam_K, ECParam_M]} ->
+              {ok, [Bucket, AccessKeyId, ?RED_METHOD_STR_COPY = RedMethod]} ->
+                  {ok, [Bucket, AccessKeyId, RedMethod, "0", "0"]};
+              {ok, [Bucket, AccessKeyId, ?RED_METHOD_STR_EC = RedMethod, ECParam_K, ECParam_M]} ->
                   {ok, [Bucket, AccessKeyId, RedMethod, ECParam_K, ECParam_M]};
               {ok,_} ->
                   {error, ?ERROR_INVALID_ARGS};
               Error ->
                   Error
           end,
+
     case Ret of
         {ok, [Bucket_1, AccessKeyId_1,
               RedMethod_1, ECParam_K_1, ECParam_M_1]} ->
             AccessKeyId_2 = list_to_binary(AccessKeyId_1),
             Bucket_2 = list_to_binary(Bucket_1),
-            DefECClass = 'vandrs',
             StrToInt = fun(_StrInt) ->
                                case catch list_to_integer(_StrInt) of
                                    {'EXIT',_} ->
@@ -2144,7 +2144,7 @@ set_redundancy_method(CmdBody, Option) ->
 
             case leo_s3_bucket:set_redundancy_method(
                    AccessKeyId_2, Bucket_2, RedMethod_1,
-                   DefECClass, {ECParam_K_2, ECParam_M_2}) of
+                   'vandrs', {ECParam_K_2, ECParam_M_2}) of
                 ok ->
                     leo_manager_api:update_bucket(Bucket_2);
                 not_found ->
