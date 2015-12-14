@@ -1357,15 +1357,10 @@ whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
             RPCKey  = rpc:async_call(Node, leo_object_storage_api, head, [{AddrId, Key}]),
             Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
                           {value, {ok, MetaBin}} ->
-                              #?METADATA{addr_id   = AddrId,
-                                         dsize     = DSize,
-                                         cnumber   = ChunkedObjs,
-                                         clock     = Clock,
-                                         timestamp = Timestamp,
-                                         checksum  = Checksum,
-                                         del       = DelFlag} = binary_to_term(MetaBin),
-                              {NodeStr, AddrId, DSize, ChunkedObjs, Clock,
-                               Timestamp, Checksum, DelFlag};
+                              Metadata = binary_to_term(MetaBin),
+                              {NodeStr,
+                               lists:zip(record_info(fields, ?METADATA),
+                                         tl(tuple_to_list(Metadata)))};
                           _ ->
                               {NodeStr, not_found}
                       end,
