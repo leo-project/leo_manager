@@ -434,21 +434,21 @@ mq_stats([]) ->
     gen_json([]);
 mq_stats(Stats) ->
     JSON = lists:map(
-               fun(#mq_state{id = Id,
-                             state = ConsumerStats,
-                             desc = Desc}) ->
-                       State       = leo_misc:get_value(?MQ_CNS_PROP_STATUS,        ConsumerStats),
-                       NumOfMsgs   = leo_misc:get_value(?MQ_CNS_PROP_NUM_OF_MSGS,   ConsumerStats, 0),
-                       BatchOfMsgs = leo_misc:get_value(?MQ_CNS_PROP_BATCH_OF_MSGS, ConsumerStats, 0),
-                       Interval    = leo_misc:get_value(?MQ_CNS_PROP_INTERVAL,      ConsumerStats, 0),
-                       {[{<<"id">>,             leo_misc:any_to_binary(atom_to_list(Id))},
-                         {<<"state">>,          leo_misc:any_to_binary(atom_to_list(State))},
-                         {<<"number_of_msgs">>, NumOfMsgs},
-                         {<<"batch_of_msgs">>,  BatchOfMsgs},
-                         {<<"interval">>,       Interval},
-                         {<<"description">>,    leo_misc:any_to_binary(Desc)}
-                        ]}
-               end, Stats),
+             fun(#mq_state{id = Id,
+                           state = ConsumerStats,
+                           desc = Desc}) ->
+                     State       = leo_misc:get_value(?MQ_CNS_PROP_STATUS,        ConsumerStats),
+                     NumOfMsgs   = leo_misc:get_value(?MQ_CNS_PROP_NUM_OF_MSGS,   ConsumerStats, 0),
+                     BatchOfMsgs = leo_misc:get_value(?MQ_CNS_PROP_BATCH_OF_MSGS, ConsumerStats, 0),
+                     Interval    = leo_misc:get_value(?MQ_CNS_PROP_INTERVAL,      ConsumerStats, 0),
+                     {[{<<"id">>,             leo_misc:any_to_binary(atom_to_list(Id))},
+                       {<<"state">>,          leo_misc:any_to_binary(atom_to_list(State))},
+                       {<<"number_of_msgs">>, NumOfMsgs},
+                       {<<"batch_of_msgs">>,  BatchOfMsgs},
+                       {<<"interval">>,       Interval},
+                       {<<"description">>,    leo_misc:any_to_binary(Desc)}
+                      ]}
+             end, Stats),
     gen_json({[{<<"mq_stats">>, JSON}]}).
 
 
@@ -593,24 +593,48 @@ cluster_status(Stats) ->
              binary()).
 whereis(AssignedInfo) ->
     JSON = lists:map(fun({Node, not_found}) ->
-                             {[{<<"node">>,      leo_misc:any_to_binary(Node)},
-                               {<<"vnode_id">>,      <<>>},
-                               {<<"size">>,          <<>>},
+                             {[{<<"node">>, leo_misc:any_to_binary(Node)},
+                               {<<"vnode_id">>, <<>>},
+                               {<<"size">>, <<>>},
                                {<<"num_of_chunks">>, 0},
-                               {<<"clock">>,         <<>>},
-                               {<<"checksum">>,      <<>>},
-                               {<<"timestamp">>,     <<>>},
-                               {<<"delete">>,        0}
+                               {<<"clock">>,  <<>>},
+                               {<<"checksum">>, <<>>},
+                               {<<"timestamp">>, <<>>},
+                               {<<"delete">>, 0}
                               ]};
-                        ({Node, VNodeId, DSize, ChunkedObjs, Clock, Timestamp, Checksum, DelFlag}) ->
-                             {[{<<"node">>,          leo_misc:any_to_binary(Node)},
-                               {<<"vnode_id">>,      leo_misc:any_to_binary(leo_hex:integer_to_hex(VNodeId, 8))},
-                               {<<"size">>,          DSize},
+                        ({Node, ItemL}) ->
+                             VNodeId = leo_misc:get_value('addr_id', ItemL),
+                             DSize = leo_misc:get_value('dsize', ItemL),
+                             ChunkedObjs = leo_misc:get_value('cnumber', ItemL),
+                             Clock = leo_misc:get_value('clock', ItemL),
+                             Timestamp = leo_misc:get_value('timestamp', ItemL),
+                             Checksum = leo_misc:get_value('checksum', ItemL),
+                             RedMethod = leo_misc:get_value('redundancy_method', ItemL),
+                             ECLib = leo_misc:get_value('ec_lib', ItemL),
+                             ECParams = leo_misc:get_value('ec_params', ItemL),
+                             CSize = leo_misc:get_value('csize', ItemL),
+                             HasChildren = leo_misc:get_value('has_children', ItemL),
+                             DelFlag = leo_misc:get_value('del', ItemL),
+                             {ECParam_K, ECParam_M} = case ECParams of
+                                                          {_,_} ->
+                                                              ECParams;
+                                                          _ ->
+                                                              {0,0}
+                                                      end,
+                             {[{<<"node">>, leo_misc:any_to_binary(Node)},
+                               {<<"vnode_id">>, leo_misc:any_to_binary(leo_hex:integer_to_hex(VNodeId, 8))},
+                               {<<"size">>, DSize},
                                {<<"num_of_chunks">>, ChunkedObjs},
-                               {<<"clock">>,         leo_misc:any_to_binary(leo_hex:integer_to_hex(Clock, 8))},
-                               {<<"checksum">>,      leo_misc:any_to_binary(leo_hex:integer_to_hex(Checksum, 8))},
-                               {<<"timestamp">>,     leo_misc:any_to_binary(leo_date:date_format(Timestamp))},
-                               {<<"delete">>,        DelFlag}
+                               {<<"clock">>, leo_misc:any_to_binary(leo_hex:integer_to_hex(Clock, 8))},
+                               {<<"checksum">>, leo_misc:any_to_binary(leo_hex:integer_to_hex(Checksum, 8))},
+                               {<<"timestamp">>, leo_misc:any_to_binary(leo_date:date_format(Timestamp))},
+                               {<<"redundancy_method">>, list_to_binary(atom_to_list(RedMethod))},
+                               {<<"erasure_code_lib">>, list_to_binary(atom_to_list(ECLib))},
+                               {<<"erasure_param_k">>, ECParam_K},
+                               {<<"erasure_param_m">>, ECParam_M},
+                               {<<"chunk_size">>, CSize},
+                               {<<"has_children">>, list_to_binary(atom_to_list(HasChildren))},
+                               {<<"delete">>, DelFlag}
                               ]}
                      end, AssignedInfo),
     gen_json({[{<<"assigned_info">>, JSON}]}).
