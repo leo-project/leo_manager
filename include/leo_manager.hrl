@@ -29,18 +29,18 @@
 -define(RETRY_TIMES, 5).
 
 -ifdef(TEST).
--define(DEF_TIMEOUT,             1000). %% 1sec
--define(DEF_MONITOR_INTERVAL,    3000). %% 3sec
--define(DEF_PROC_INTERVAL,        100). %% 100ms
--define(DEF_RING_SYNC_INTERVAL,   100). %% 100ms
+-define(DEF_TIMEOUT, 1000).           %% 1sec
+-define(DEF_MONITOR_INTERVAL, 3000).  %% 3sec
+-define(DEF_PROC_INTERVAL, 100).      %% 100ms
+-define(DEF_RING_SYNC_INTERVAL, 100). %% 100ms
 -else.
--define(DEF_TIMEOUT,           120000). %% 120sec
--define(DEF_MONITOR_INTERVAL,   20000). %%  20sec
--define(DEF_PROC_INTERVAL,        250). %% 250ms
+-define(DEF_TIMEOUT, 120000).           %% 120sec
+-define(DEF_MONITOR_INTERVAL, 20000).   %%  20sec
+-define(DEF_PROC_INTERVAL, 250).        %% 250ms
 -define(DEF_RING_SYNC_INTERVAL, 10000). %%  10sec
 -endif.
 
--define(SYSTEM_CONF_FILE,  "conf/leofs.conf").
+-define(SYSTEM_CONF_FILE, "conf/leofs.conf").
 
 
 -ifdef(TEST).
@@ -53,10 +53,10 @@
 
 
 %% manager-related tables
--define(TBL_STORAGE_NODES,  'leo_storage_nodes').
--define(TBL_GATEWAY_NODES,  'leo_gateway_nodes').
+-define(TBL_STORAGE_NODES, 'leo_storage_nodes').
+-define(TBL_GATEWAY_NODES, 'leo_gateway_nodes').
 -define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
--define(TBL_HISTORIES,      'leo_histories').
+-define(TBL_HISTORIES, 'leo_histories').
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
 
 %% server-type
@@ -65,152 +65,154 @@
 
 
 %% command-related
--define(COMMAND_ERROR,     "Command Error").
+-define(COMMAND_ERROR, "Command Error").
 -define(COMMAND_DELIMITER, " \r\n").
 
--define(OK,           "OK\r\n").
--define(ERROR,        "ERROR\r\n").
--define(LF,           "\n").
--define(CRLF,         "\r\n").
--define(SPACE,        " ").
--define(SEPARATOR,    " | ").
--define(STORED,       "STORED\r\n").
--define(NOT_STORED,   "NOT_STORED\r\n").
--define(DELETED,      "DELETED\r\n").
--define(NOT_FOUND,    "NOT FOUND\r\n").
+-define(OK, "OK\r\n").
+-define(ERROR, "ERROR\r\n").
+-define(LF, "\n").
+-define(CRLF, "\r\n").
+-define(SPACE, " ").
+-define(SEPARATOR, " | ").
+-define(STORED, "STORED\r\n").
+-define(NOT_STORED, "NOT_STORED\r\n").
+-define(DELETED, "DELETED\r\n").
+-define(NOT_FOUND, "NOT FOUND\r\n").
 -define(SERVER_ERROR, "SERVER_ERROR").
--define(BYE,          "BYE\r\n").
+-define(BYE, "BYE\r\n").
 
 %% Common Commands
--define(CMD_HELP,    "help").
--define(CMD_QUIT,    "quit").
+-define(CMD_HELP, "help").
+-define(CMD_QUIT, "quit").
 -define(CMD_VERSION, "version").
--define(CMD_STATUS,  "status").
+-define(CMD_STATUS, "status").
 
 %% For S3-API
--define(CMD_CREATE_USER,      "create-user").
+-define(CMD_CREATE_USER, "create-user").
 -define(CMD_UPDATE_USER_ROLE, "update-user-role").
--define(CMD_UPDATE_USER_PW,   "update-user-password").
--define(CMD_DELETE_USER,      "delete-user").
--define(CMD_GET_USERS,        "get-users").
--define(CMD_ADD_ENDPOINT,     "add-endpoint").
--define(CMD_SET_ENDPOINT,     "set-endpoint").
--define(CMD_DEL_ENDPOINT,     "delete-endpoint").
--define(CMD_GET_ENDPOINTS,    "get-endpoints").
--define(CMD_ADD_BUCKET,       "add-bucket").
--define(CMD_GET_BUCKETS,      "get-buckets").
+-define(CMD_UPDATE_USER_PW, "update-user-password").
+-define(CMD_DELETE_USER, "delete-user").
+-define(CMD_GET_USERS, "get-users").
+-define(CMD_ADD_ENDPOINT, "add-endpoint").
+-define(CMD_SET_ENDPOINT, "set-endpoint").
+-define(CMD_DEL_ENDPOINT, "delete-endpoint").
+-define(CMD_GET_ENDPOINTS, "get-endpoints").
+-define(CMD_ADD_BUCKET, "add-bucket").
+-define(CMD_GET_BUCKETS, "get-buckets").
 -define(CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket").
--define(CMD_DELETE_BUCKET,            "delete-bucket").
--define(CMD_CHANGE_BUCKET_OWNER,      "chown-bucket").
--define(CMD_UPDATE_ACL,               "update-acl").
+-define(CMD_DELETE_BUCKET, "delete-bucket").
+-define(CMD_CHANGE_BUCKET_OWNER, "chown-bucket").
+-define(CMD_UPDATE_ACL, "update-acl").
 
 %% For Storage
--define(CMD_ATTACH,        "attach").
--define(CMD_DETACH,        "detach").
--define(CMD_SUSPEND,       "suspend").
--define(CMD_RESUME,        "resume").
--define(CMD_ROLLBACK,      "rollback").
--define(CMD_START,         "start").
--define(CMD_REBALANCE,     "rebalance").
--define(CMD_COMPACT,       "compact").
+-define(CMD_ATTACH, "attach").
+-define(CMD_DETACH, "detach").
+-define(CMD_SUSPEND, "suspend").
+-define(CMD_RESUME, "resume").
+-define(CMD_ROLLBACK, "rollback").
+-define(CMD_START, "start").
+-define(CMD_REBALANCE, "rebalance").
+-define(CMD_COMPACT, "compact").
 -define(CMD_DIAGNOSE_DATA, "diagnose-data").
--define(CMD_DU,            "du").
--define(CMD_WHEREIS,       "whereis").
+-define(CMD_DU, "du").
+-define(CMD_WHEREIS, "whereis").
 
 %% For Storage-MQ
--define(CMD_MQ_STATS,   "mq-stats").
+-define(CMD_MQ_STATS, "mq-stats").
 -define(CMD_MQ_SUSPEND, "mq-suspend").
--define(CMD_MQ_RESUME,  "mq-resume").
+-define(CMD_MQ_RESUME, "mq-resume").
 
 %% For Gateway
--define(CMD_PURGE,           "purge").
--define(CMD_REMOVE,          "remove").
--define(CMD_BACKUP_MNESIA,   "backup-mnesia").
--define(CMD_RESTORE_MNESIA,  "restore-mnesia").
+-define(CMD_PURGE, "purge").
+-define(CMD_REMOVE, "remove").
+-define(CMD_BACKUP_MNESIA, "backup-mnesia").
+-define(CMD_RESTORE_MNESIA, "restore-mnesia").
 -define(CMD_UPDATE_MANAGERS, "update-managers").
 
 %% For Maintenance
--define(CMD_RECOVER,     "recover").
--define(CMD_HISTORY,     "history").
--define(CMD_DUMP_RING,   "dump-ring").
+-define(CMD_RECOVER, "recover").
+-define(CMD_HISTORY, "history").
+-define(CMD_DUMP_RING, "dump-ring").
+-define(CMD_UPDATE_LOG_LEVEL, "update-log-level").
 -define(CMD_UPDATE_PROP, "update-property").
 
 %% For MDC-Replication
--define(CMD_JOIN_CLUSTER,   "join-cluster").
+-define(CMD_JOIN_CLUSTER, "join-cluster").
 -define(CMD_REMOVE_CLUSTER, "remove-cluster").
--define(CMD_CLUSTER_STAT,   "cluster-status").
+-define(CMD_CLUSTER_STAT, "cluster-status").
 
--define(LOGIN,      "login").
+-define(LOGIN, "login").
 -define(AUTHORIZED, <<"_authorized_\r\n">>).
--define(USER_ID,    <<"_user_id_\r\n">>).
--define(PASSWORD,   <<"_password_\r\n">>).
+-define(USER_ID, <<"_user_id_\r\n">>).
+-define(PASSWORD, <<"_password_\r\n">>).
 
--define(COMMANDS, [{?CMD_HELP,      "help"},
-                   {?CMD_QUIT,      "quit"},
-                   {?CMD_VERSION,   "version"},
-                   {?CMD_STATUS,    "status [<storage-node>|<gateway-node>]"},
-                   {?CMD_HISTORY,   "history"},
-                   {?CMD_DUMP_RING, "dump-ring <manager-node>|<storage-node>|<gateway-node>"},
+-define(COMMANDS, [{?CMD_HELP, "help"},
+                   {?CMD_QUIT, "quit"},
+                   {?CMD_VERSION, "version"},
+                   {?CMD_STATUS, "status [<storage-node>|<gateway-node>]"},
+                   {?CMD_HISTORY, "history"},
+                   {?CMD_DUMP_RING, "dump-ring (<manager-node>|<storage-node>|<gateway-node>)"},
+                   {?CMD_UPDATE_LOG_LEVEL, "update-log-level (<storage-node>|<gateway-node>) (debug|info|warn|error)"},
                    %% for Cluster
-                   {?CMD_WHEREIS,   "whereis <path>"},
-                   {?CMD_RECOVER,   lists:append(
-                                      ["recover file <path>", ?CRLF,
-                                       "recover node <storage-node>", ?CRLF,
-                                       "recover ring <storage-node>", ?CRLF,
-                                       "recover cluster <cluster-id>"
-                                      ])},
-                   {?CMD_DETACH,    "detach <storage-node>"},
-                   {?CMD_SUSPEND,   "suspend <storage-node>"},
-                   {?CMD_RESUME,    "resume <storage-node>"},
-                   {?CMD_ROLLBACK,  "rollback <storage-node>"},
-                   {?CMD_START,     "start"},
+                   {?CMD_WHEREIS, "whereis <path>"},
+                   {?CMD_RECOVER, lists:append(
+                                    ["recover file <path>", ?CRLF,
+                                     "recover node <storage-node>", ?CRLF,
+                                     "recover ring <storage-node>", ?CRLF,
+                                     "recover cluster <cluster-id>"
+                                    ])},
+                   {?CMD_DETACH, "detach <storage-node>"},
+                   {?CMD_SUSPEND, "suspend <storage-node>"},
+                   {?CMD_RESUME, "resume <storage-node>"},
+                   {?CMD_ROLLBACK, "rollback <storage-node>"},
+                   {?CMD_START, "start"},
                    {?CMD_REBALANCE, "rebalance"},
                    %% for Storage
-                   {?CMD_COMPACT,   lists:append(
-                                      ["compact start <storage-node> all|<num_of_targets> [<num_of_compact_procs>]", ?CRLF,
-                                       "compact suspend <storage-node>", ?CRLF,
-                                       "compact resume  <storage-node>", ?CRLF,
-                                       "compact status  <storage-node>"
-                                      ])},
+                   {?CMD_COMPACT, lists:append(
+                                    ["compact start <storage-node> (all|<num_of_targets>) [<num_of_compact_procs>]", ?CRLF,
+                                     "compact suspend <storage-node>", ?CRLF,
+                                     "compact resume <storage-node>", ?CRLF,
+                                     "compact status <storage-node>"
+                                    ])},
                    {?CMD_DIAGNOSE_DATA, "diagnose-data <storage-node>"},
                    {?CMD_DU, "du <storage-node>"},
                    %% for Storage-mq
-                   {?CMD_MQ_STATS,   "mq-stats <storage-node>"},
+                   {?CMD_MQ_STATS, "mq-stats <storage-node>"},
                    {?CMD_MQ_SUSPEND, "mq-suspend <storage-node> <mq-id>"},
-                   {?CMD_MQ_RESUME,  "mq-resume <storage-node> <mq-id>"},
+                   {?CMD_MQ_RESUME, "mq-resume <storage-node> <mq-id>"},
                    %% for Gateway
-                   {?CMD_PURGE,  "purge <path>"},
+                   {?CMD_PURGE, "purge <path>"},
                    {?CMD_REMOVE, "remove <gateway-node>"},
                    %% for Watchdog
                    {?CMD_UPDATE_PROP, "update-property <node> <property-name> <property-value>"},
                    %% for S3-API
                    %% - user-related
-                   {?CMD_CREATE_USER,      "create-user <user-id> [<password>]"},
-                   {?CMD_DELETE_USER,      "delete-user <user-id>"},
+                   {?CMD_CREATE_USER, "create-user <user-id> [<password>]"},
+                   {?CMD_DELETE_USER, "delete-user <user-id>"},
                    {?CMD_UPDATE_USER_ROLE, "update-user-role <user-id> <role-id>"},
-                   {?CMD_UPDATE_USER_PW,   "update-user-password <user-id> <password>"},
-                   {?CMD_GET_USERS,        "get-users"},
+                   {?CMD_UPDATE_USER_PW, "update-user-password <user-id> <password>"},
+                   {?CMD_GET_USERS, "get-users"},
                    %% - endpoint-related
-                   {?CMD_ADD_ENDPOINT,  "add-endpoint <endpoint>"},
-                   {?CMD_SET_ENDPOINT,  "set-endpoint <endpoint>"},
-                   {?CMD_DEL_ENDPOINT,  "delete-endpoint <endpoint>"},
+                   {?CMD_ADD_ENDPOINT, "add-endpoint <endpoint>"},
+                   {?CMD_SET_ENDPOINT, "set-endpoint <endpoint>"},
+                   {?CMD_DEL_ENDPOINT, "delete-endpoint <endpoint>"},
                    {?CMD_GET_ENDPOINTS, "get-endpoints"},
                    %% - bucket-related
-                   {?CMD_ADD_BUCKET,    "add-bucket <bucket> <access-key-id>"},
+                   {?CMD_ADD_BUCKET, "add-bucket <bucket> <access-key-id>"},
                    {?CMD_DELETE_BUCKET, "delete-bucket <bucket> <access-key-id>"},
-                   {?CMD_GET_BUCKETS,   "get-buckets"},
+                   {?CMD_GET_BUCKETS, "get-buckets"},
                    {?CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket <access-key-id>"},
-                   {?CMD_CHANGE_BUCKET_OWNER,      "chown-bucket <bucket> <new-access-key-id>"},
+                   {?CMD_CHANGE_BUCKET_OWNER, "chown-bucket <bucket> <new-access-key-id>"},
                    %% - acl-related
                    {?CMD_UPDATE_ACL, "update-acl <bucket> <access-key-id> private|public-read|public-read-write"},
                    %% - multi-dc replication
-                   {?CMD_JOIN_CLUSTER,   "join-cluster <remote-manager-master> <remote-manager-slave>"},
+                   {?CMD_JOIN_CLUSTER, "join-cluster <remote-manager-master> <remote-manager-slave>"},
                    {?CMD_REMOVE_CLUSTER, "remove-cluster <remote-manager-master> <remote-manager-slave>"},
-                   {?CMD_CLUSTER_STAT,   "cluster-status"},
+                   {?CMD_CLUSTER_STAT, "cluster-status"},
                    %% for Manager
                    {?CMD_UPDATE_MANAGERS, "update-managers <manager-master> <manager-slave>"},
-                   {?CMD_BACKUP_MNESIA,   "backup-mnesia <backupfilepath>"},
-                   {?CMD_RESTORE_MNESIA,  "restore-mnesia <backupfilepath>"}
+                   {?CMD_BACKUP_MNESIA, "backup-mnesia <backupfilepath>"},
+                   {?CMD_RESTORE_MNESIA, "restore-mnesia <backupfilepath>"}
                   ]).
 -record(cmd_state, {name :: string(),
                     help :: string(),
@@ -221,10 +223,10 @@
 -define(NULL_DATETIME, "____-__-__ __:__:__").
 
 %% compaction-related
--define(COMPACT_START,      "start").
--define(COMPACT_SUSPEND,    "suspend").
--define(COMPACT_RESUME,     "resume").
--define(COMPACT_STATUS,     "status").
+-define(COMPACT_START, "start").
+-define(COMPACT_SUSPEND, "suspend").
+-define(COMPACT_RESUME, "resume").
+-define(COMPACT_STATUS, "status").
 -define(COMPACT_TARGET_ALL, "all").
 
 
@@ -238,73 +240,74 @@
 -define(DEF_NUM_OF_ERROR_COUNT, 2).
 
 %% error
--define(ERROR_COULD_NOT_CONNECT,         "Could not connect").
--define(ERROR_NODE_NOT_EXISTS,           "Node not exist").
--define(ERROR_TABLE_NOT_EXISTS,          "Tables not exist").
--define(ERROR_FAILED_COMPACTION,         "Failed compaction").
--define(ERROR_FAILED_GET_STORAGE_STATS,  "Failed to get storage stats").
--define(ERROR_USER_NOT_FOUND,            "User not found").
--define(ERROR_COULD_NOT_GET_USER,        "Could not get user(s)").
--define(ERROR_COULD_NOT_ADD_USER,        "Could not add a user").
--define(ERROR_COULD_NOT_REMOVE_USER,     "Could not delete a user").
--define(ERROR_COULD_NOT_UPDATE_USER,     "Could not update a user").
--define(ERROR_ENDPOINT_NOT_FOUND,        "Endpoint not found").
--define(ERROR_COULD_NOT_SET_ENDPOINT,    "Could not set an endpoint").
--define(ERROR_COULD_NOT_GET_ENDPOINT,    "Could not get endpoint(s)").
+-define(ERROR_COULD_NOT_CONNECT, "Could not connect").
+-define(ERROR_NODE_NOT_EXISTS, "Node not exist").
+-define(ERROR_TABLE_NOT_EXISTS, "Tables not exist").
+-define(ERROR_FAILED_COMPACTION, "Failed compaction").
+-define(ERROR_FAILED_GET_STORAGE_STATS, "Failed to get storage stats").
+-define(ERROR_USER_NOT_FOUND, "User not found").
+-define(ERROR_COULD_NOT_GET_USER, "Could not get user(s)").
+-define(ERROR_COULD_NOT_ADD_USER, "Could not add a user").
+-define(ERROR_COULD_NOT_REMOVE_USER, "Could not delete a user").
+-define(ERROR_COULD_NOT_UPDATE_USER, "Could not update a user").
+-define(ERROR_ENDPOINT_NOT_FOUND, "Endpoint not found").
+-define(ERROR_COULD_NOT_SET_ENDPOINT, "Could not set an endpoint").
+-define(ERROR_COULD_NOT_GET_ENDPOINT, "Could not get endpoint(s)").
 -define(ERROR_COULD_NOT_REMOVE_ENDPOINT, "Could not remove an endpoint").
--define(ERROR_COULD_NOT_ATTACH_NODE,     "Could not attach the node").
--define(ERROR_COULD_NOT_DETACH_NODE,     "Could not detach the node").
--define(ERROR_COULD_NOT_SUSPEND_NODE,    "Could not suspend the node").
--define(ERROR_COULD_NOT_RESUME_NODE,     "Could not resume the node").
--define(ERROR_COULD_NOT_ROLLBACK,        "Could not rollback the node").
--define(ERROR_COULD_NOT_UPDATE_NODE,     "Could not update state of a node").
--define(ERROR_COULD_NOT_UPDATE_MANAGER,  "Could not update manager(s)").
--define(ERROR_COULD_NOT_CREATE_RING,     "Could not create RING").
--define(ERROR_MNESIA_PROC_FAILURE,       "Mnesia processing failure").
--define(ERROR_NOT_SPECIFIED_COMMAND,     "Command not exist").
--define(ERROR_NOT_SPECIFIED_NODE,        "Not specified node").
--define(ERROR_NO_CMODE_SPECIFIED,        "Not specified compaction mode").
--define(ERROR_INVALID_PATH,              "Invalid path").
--define(ERROR_INVALID_ARGS,              "Invalid arguments").
--define(ERROR_COULD_NOT_STORE,           "Could not store value").
--define(ERROR_INVALID_BUCKET_FORMAT,     "Invalid bucket format").
--define(ERROR_BUCKET_NOT_FOUND,          "Bucket not found").
--define(ERROR_COULD_NOT_GET_BUCKET,      "Could not get bucket(s)").
--define(ERROR_COULD_NOT_UPDATE_BUCKET,   "Could not update bucket(s)").
--define(ERROR_NOT_STARTED,               "Storage cluster is not running, yet").
--define(ERROR_ALREADY_STARTED,           "Storage cluster already started").
--define(ERROR_STILL_RUNNING,             "still running").
--define(ERROR_MNESIA_NOT_START,          "Mnesia does not start, yet").
--define(ERROR_NOT_SATISFY_CONDITION,     "Not satisfy conditions").
--define(ERROR_TARGET_NODE_NOT_RUNNING,   "Target node does not running").
--define(ERROR_FAILED_BACKUP_MNESIA,      "Failed to backup the mnesia backup file").
--define(ERROR_FAILED_RESTORE_MNESIA,     "Failed to restore the mnesia backup file").
--define(ERROR_FAILED_UPDATE_MANAGERS,    "Failed to update the manager nodes").
--define(ERROR_COULD_NOT_GET_CONF,        "Could not get the system-config").
--define(ERROR_MEMBER_NOT_FOUND,          "Member not found").
--define(ERROR_COULD_NOT_GET_MEMBER,      "Could not get member").
--define(ERROR_COULD_NOT_GET_GATEWAY,     "Could not get gateway(s)").
--define(ERROR_NOT_NEED_REBALANCE,        "Not need rebalance").
--define(ERROR_FAIL_REBALANCE,            "Fail rebalance").
--define(ERROR_FAIL_TO_ASSIGN_NODE,       "Fail to assign node(s)").
--define(ERROR_FAIL_TO_REMOVE_NODE,       "Fail to remove a node").
--define(ERROR_FAIL_TO_SYNCHRONIZE_RING,  "Fail to synchronize RING").
--define(ERROR_FAIL_TO_UPDATE_ACL,        "Fail to update acl of a bucket").
--define(ERROR_FAIL_ACCESS_MNESIA,        "Fail to access mnesia").
--define(ERROR_ALREADY_HAS_SAME_CLUSTER,  "Already has a same name of cluster").
+-define(ERROR_COULD_NOT_ATTACH_NODE, "Could not attach the node").
+-define(ERROR_COULD_NOT_DETACH_NODE, "Could not detach the node").
+-define(ERROR_COULD_NOT_SUSPEND_NODE, "Could not suspend the node").
+-define(ERROR_COULD_NOT_RESUME_NODE, "Could not resume the node").
+-define(ERROR_COULD_NOT_ROLLBACK, "Could not rollback the node").
+-define(ERROR_COULD_NOT_UPDATE_NODE, "Could not update state of a node").
+-define(ERROR_COULD_NOT_UPDATE_MANAGER, "Could not update manager(s)").
+-define(ERROR_COULD_NOT_CREATE_RING, "Could not create RING").
+-define(ERROR_MNESIA_PROC_FAILURE, "Mnesia processing failure").
+-define(ERROR_NOT_SPECIFIED_COMMAND, "Command not exist").
+-define(ERROR_NOT_SPECIFIED_NODE, "Not specified node").
+-define(ERROR_NO_CMODE_SPECIFIED, "Not specified compaction mode").
+-define(ERROR_INVALID_PATH, "Invalid path").
+-define(ERROR_INVALID_ARGS, "Invalid arguments").
+-define(ERROR_COULD_NOT_STORE, "Could not store value").
+-define(ERROR_INVALID_BUCKET_FORMAT, "Invalid bucket format").
+-define(ERROR_BUCKET_NOT_FOUND, "Bucket not found").
+-define(ERROR_COULD_NOT_GET_BUCKET, "Could not get bucket(s)").
+-define(ERROR_COULD_NOT_UPDATE_BUCKET, "Could not update bucket(s)").
+-define(ERROR_NOT_STARTED, "Storage cluster is not running, yet").
+-define(ERROR_ALREADY_STARTED, "Storage cluster already started").
+-define(ERROR_STILL_RUNNING, "still running").
+-define(ERROR_MNESIA_NOT_START, "Mnesia does not start, yet").
+-define(ERROR_NOT_SATISFY_CONDITION, "Not satisfy conditions").
+-define(ERROR_TARGET_NODE_NOT_RUNNING, "Target node does not running").
+-define(ERROR_FAILED_BACKUP_MNESIA, "Failed to backup the mnesia backup file").
+-define(ERROR_FAILED_RESTORE_MNESIA, "Failed to restore the mnesia backup file").
+-define(ERROR_FAILED_UPDATE_MANAGERS, "Failed to update the manager nodes").
+-define(ERROR_COULD_NOT_GET_CONF, "Could not get the system-config").
+-define(ERROR_MEMBER_NOT_FOUND, "Member not found").
+-define(ERROR_COULD_NOT_GET_MEMBER, "Could not get member").
+-define(ERROR_COULD_NOT_GET_GATEWAY, "Could not get gateway(s)").
+-define(ERROR_NOT_NEED_REBALANCE, "Not need rebalance").
+-define(ERROR_FAIL_REBALANCE, "Failed to do data-rebalance").
+-define(ERROR_FAIL_TO_ASSIGN_NODE, "Failed to assign node(s)").
+-define(ERROR_FAIL_TO_REMOVE_NODE, "Failed to remove a node").
+-define(ERROR_FAIL_TO_SYNCHRONIZE_RING, "Failed to synchronize RING").
+-define(ERROR_FAIL_TO_UPDATE_ACL, "Failed to update acl of a bucket").
+-define(ERROR_FAIL_ACCESS_MNESIA, "Failed to access mnesia").
+-define(ERROR_ALREADY_HAS_SAME_CLUSTER, "Already has a same name of cluster").
 -define(ERROR_COULD_NOT_GET_CLUSTER_INFO,"Could not get cluster info").
--define(ERROR_OVER_MAX_CLUSTERS,         "Over max number of clusters").
--define(ERROR_UPDATED_SYSTEM_CONF,       "Updated the system configuration").
+-define(ERROR_OVER_MAX_CLUSTERS, "Over max number of clusters").
+-define(ERROR_UPDATED_SYSTEM_CONF, "Updated the system configuration").
+-define(ERROR_FAILED_UPDATE_LOG_LEVEL, "Failed to update the log-level").
 
 %% type of console
--define(CONSOLE_CUI,  'cui').
+-define(CONSOLE_CUI, 'cui').
 -define(CONSOLE_JSON, 'json').
 -define(MOD_TEXT_FORMATTER, 'leo_manager_formatter_text').
 -define(MOD_JSON_FORMATTER, 'leo_manager_formatter_json').
 
 
 %% test values and default values
--define(TEST_USER_ID,    <<"_test_leofs">>).
+-define(TEST_USER_ID, <<"_test_leofs">>).
 -define(TEST_ACCESS_KEY, <<"05236">>).
 -define(TEST_SECRET_KEY, <<"802562235">>).
 
@@ -324,7 +327,7 @@
 -define(AUTH_USERID_1, 1).
 -define(AUTH_USERID_2, 2).
 -define(AUTH_PASSWORD, 3).
--define(AUTH_DONE,     5).
+-define(AUTH_DONE, 5).
 -type(auth() :: ?AUTH_NOT_YET  |
                 ?AUTH_USERID_1 |
                 ?AUTH_USERID_2 |
@@ -332,40 +335,40 @@
                 ?AUTH_DONE).
 
 -ifdef(TEST).
--record(state, {formatter         :: atom(),
+-record(state, {formatter :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = <<>>    :: binary(),
-                password = <<>>   :: binary(),
-                plugin_mod        :: atom()
+                user_id = <<>> :: binary(),
+                password = <<>> :: binary(),
+                plugin_mod :: atom()
                }).
 -else.
--record(state, {formatter         :: atom(),
+-record(state, {formatter :: atom(),
                 auth = ?AUTH_DONE :: auth(),
-                user_id = <<>>    :: binary(),
-                password = <<>>   :: binary(),
-                plugin_mod        :: atom()
+                user_id = <<>> :: binary(),
+                password = <<>> :: binary(),
+                plugin_mod :: atom()
                }).
 -endif.
 
 -record(rebalance_info, {
-          vnode_id         = -1  :: integer(),
-          node                   :: atom(),
-          total_of_objects = 0   :: integer(),
-          num_of_remains   = 0   :: integer(),
-          when_is          = 0   :: integer() %% Posted at
+          vnode_id = -1  :: integer(),
+          node :: atom(),
+          total_of_objects = 0 :: integer(),
+          num_of_remains = 0 :: integer(),
+          when_is = 0 :: integer() %% Posted at
          }).
 
 -record(history, {
-          id           :: pos_integer(),
+          id = 1 :: pos_integer(),
           command = [] :: string(), %% Command
           created = -1 :: integer() %% Created At
          }).
 
 -record(recovery_rebalance_info, {
-          id   :: pos_integer(),
+          id = 1 :: pos_integer(),
           node :: atom(),
           rebalance_info = [] :: list(tuple()),
-          timestamp = 0       :: pos_integer()
+          timestamp = 0 :: pos_integer()
          }).
 
 
