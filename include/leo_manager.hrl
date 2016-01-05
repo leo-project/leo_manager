@@ -134,6 +134,7 @@
 -define(CMD_HISTORY, "history").
 -define(CMD_DUMP_RING, "dump-ring").
 -define(CMD_UPDATE_LOG_LEVEL, "update-log-level").
+-define(CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level").
 -define(CMD_UPDATE_PROP, "update-property").
 
 %% For MDC-Replication
@@ -153,6 +154,7 @@
                    {?CMD_HISTORY, "history"},
                    {?CMD_DUMP_RING, "dump-ring (<manager-node>|<storage-node>|<gateway-node>)"},
                    {?CMD_UPDATE_LOG_LEVEL, "update-log-level (<storage-node>|<gateway-node>) (debug|info|warn|error)"},
+                   {?CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level (<storage-node>|<gateway-node>) <write-quorum> <read-quorum> <delete-quorum>"},
                    %% for Cluster
                    {?CMD_WHEREIS, "whereis <path>"},
                    {?CMD_RECOVER, lists:append(
@@ -261,6 +263,7 @@
 -define(ERROR_COULD_NOT_ROLLBACK, "Could not rollback the node").
 -define(ERROR_COULD_NOT_UPDATE_NODE, "Could not update state of a node").
 -define(ERROR_COULD_NOT_UPDATE_MANAGER, "Could not update manager(s)").
+-define(ERROR_COULD_NOT_UPDATE_CONF, "Could not update the system conf").
 -define(ERROR_COULD_NOT_CREATE_RING, "Could not create RING").
 -define(ERROR_MNESIA_PROC_FAILURE, "Mnesia processing failure").
 -define(ERROR_NOT_SPECIFIED_COMMAND, "Command not exist").

@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_api).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
@@ -39,7 +37,7 @@
 -define(API_GATEWAY, leo_gateway_api).
 
 -define(TYPE_REBALANCE_TAKEOVER, 'takeover').
--define(TYPE_REBALANCE_REGULAR,  'regular').
+-define(TYPE_REBALANCE_REGULAR, 'regular').
 -define(type_rebalance(_Ret),
         case _Ret of
             {?TYPE_REBALANCE_TAKEOVER, _} ->
@@ -56,7 +54,8 @@
          get_members/0, get_members_of_all_versions/0,
          update_manager_nodes/1,
          get_node_status/1, get_routing_table_chksum/0, get_nodes/0,
-         update_log_level/2
+         update_log_level/2,
+         update_consistency_level/1
         ]).
 
 -export([attach/1, attach/4, attach/5,
@@ -81,13 +80,13 @@
          sync_mdc_tables/2, update_cluster_manager/2,
          remove_cluster/1]).
 
+
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
-
 -record(rebalance_proc_info, {
-          members_cur    = [] :: [#member{}],
-          members_prev   = [] :: [#member{}],
-          system_conf    = [] :: #?SYSTEM_CONF{},
+          members_cur = [] :: [#member{}],
+          members_prev = [] :: [#member{}],
+          system_conf = [] :: #?SYSTEM_CONF{},
           rebalance_list = [] :: list()
          }).
 
@@ -107,8 +106,8 @@ load_system_config() ->
                      r = leo_misc:get_value(r, Props, 1),
                      d = leo_misc:get_value(d, Props, 1),
                      bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
-                     max_mdc_targets      = leo_misc:get_value(max_mdc_targets,      Props, 0),
-                     num_of_dc_replicas   = leo_misc:get_value(num_of_dc_replicas,   Props, 0),
+                     max_mdc_targets = leo_misc:get_value(max_mdc_targets, Props, 0),
+                     num_of_dc_replicas = leo_misc:get_value(num_of_dc_replicas, Props, 0),
                      num_of_rack_replicas = leo_misc:get_value(num_of_rack_replicas, Props, 0)
                     },
     SystemConf.
@@ -127,8 +126,8 @@ load_system_config_with_store_data() ->
                   w = W,
                   d = D,
                   bit_of_ring = BitOfRing,
-                  max_mdc_targets      = MaxMDCTargets,
-                  num_of_dc_replicas   = NumOfDCReplicas,
+                  max_mdc_targets = MaxMDCTargets,
+                  num_of_dc_replicas = NumOfDCReplicas,
                   num_of_rack_replicas = NumOfRackReplicas
                  } = SystemConf,
 
@@ -155,8 +154,8 @@ load_system_config_with_store_data() ->
                                   w = W,
                                   d = D,
                                   bit_of_ring = BitOfRing,
-                                  max_mdc_targets      = MaxMDCTargets,
-                                  num_of_dc_replicas   = NumOfDCReplicas,
+                                  max_mdc_targets = MaxMDCTargets,
+                                  num_of_dc_replicas = NumOfDCReplicas,
                                   num_of_rack_replicas = NumOfRackReplicas}) of
                 ok ->
                     {ok, SystemConf};
@@ -192,6 +191,8 @@ compare_system_conf([{K,V}|Rest], SystemConf) ->
 
 %% @doc Modify the system config
 %%      when it did not join remote-cluster(s), yet
+
+
 -spec(update_mdc_items_in_system_conf() ->
              ok | {error, any()}).
 update_mdc_items_in_system_conf() ->
@@ -363,19 +364,27 @@ get_routing_table_chksum() ->
 -spec(get_nodes() ->
              {ok, [atom()]}).
 get_nodes() ->
-    Nodes_0 = case leo_manager_mnesia:get_gateway_nodes_all() of
-                  {ok, R1} ->
-                      [_N1 || #node_state{node = _N1} <- R1];
-                  _ ->
-                      []
-              end,
-    Nodes_1 = case leo_redundant_manager_api:get_members() of
-                  {ok, R2} ->
-                      [_N2 || #member{node = _N2} <- R2];
-                  _Error ->
-                      []
-              end,
-    {ok, Nodes_0 ++ Nodes_1}.
+    Gateways = get_nodes(gateway),
+    Storages = get_nodes(storage),
+    {ok, Gateways ++ Storages}.
+
+%% @private
+get_nodes(gateway) ->
+    case leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, R} ->
+            [Node || #node_state{node = Node,
+                                 state = ?STATE_RUNNING} <- R];
+        _ ->
+            []
+    end;
+get_nodes(storage) ->
+    case leo_redundant_manager_api:get_members() of
+        {ok, R} ->
+            [_N || #member{node = _N,
+                           state = ?STATE_RUNNING} <- R];
+        _Error ->
+            []
+    end.
 
 
 %% @doc Update a log level of a node
@@ -384,66 +393,54 @@ get_nodes() ->
                                       LogLevel::non_neg_integer(),
                                       Cause::any()).
 update_log_level(NodeStr, LogLevel) ->
-    case leo_redundant_manager_api:get_members() of
-        {ok, Members_1} ->
-            case update_log_level_1(Members_1, NodeStr, LogLevel) of
-                {error, ?ERROR_NODE_NOT_EXISTS} ->
-                    case leo_manager_mnesia:get_gateway_nodes_all() of
-                        {ok, Members_2} ->
-                            update_log_level_2(Members_2, NodeStr, LogLevel);
-                        Error ->
-                            Error
-                    end;
-                Other ->
-                    Other
-            end;
-        Error ->
-            Error
-    end.
+    call_remote_node_fun(NodeStr, 'update_conf',
+                         [log_level, LogLevel]).
 
-%% @private
-update_log_level_1([],_NodeStr,_LogLevel) ->
-    {error, ?ERROR_NODE_NOT_EXISTS};
-update_log_level_1([#member{node = Node}|Rest], NodeStr, LogLevel) ->
-    case atom_to_list(Node) of
-        NodeStr ->
-            case leo_redundant_manager_api:get_member_by_node(Node) of
-                {ok, #member{state = ?STATE_RUNNING}} ->
-                    case rpc:call(Node, ?API_STORAGE,
-                                  update_conf, [log_level, LogLevel], ?DEF_TIMEOUT) of
-                        ok ->
-                            ok;
-                        {_, Cause} ->
-                            ?error("update_log_level_2/3", [{cause, Cause}]),
-                            {error, ?ERROR_FAILED_UPDATE_LOG_LEVEL};
-                        timeout = Cause ->
-                            {error, Cause}
-                    end;
-                _ ->
-                    {error, ?ERROR_TARGET_NODE_NOT_RUNNING}
-            end;
-        _ ->
-            update_log_level_1(Rest, NodeStr, LogLevel)
-    end.
 
-%% @private
-update_log_level_2([],_NodeStr,_LogLevel) ->
-    {error, ?ERROR_NODE_NOT_EXISTS};
-update_log_level_2([#node_state{node = Node}|Rest], NodeStr, LogLevel) ->
-    case atom_to_list(Node) of
-        NodeStr ->
-            case rpc:call(Node, ?API_GATEWAY,
-                          update_conf, [log_level, LogLevel], ?DEF_TIMEOUT) of
+%% @doc Update a consistency level of a node
+-spec(update_consistency_level(ConsistencyLevel) ->
+             ok | {error, Cause} when ConsistencyLevel::{W, R, D},
+                                      W::pos_integer(),
+                                      R::pos_integer(),
+                                      D::pos_integer(),
+                                      Cause::any()).
+update_consistency_level({W, R, D} = ConsistencyLevel) ->
+    Gateways = get_nodes(gateway),
+    Storages = get_nodes(storage),
+    Args = ['consistency_level', ConsistencyLevel],
+
+    case rpc:multicall(Gateways, ?API_GATEWAY,
+                       update_conf, Args, ?DEF_TIMEOUT) of
+        {_,[]} ->
+            void;
+        {_,BadNodes_1} ->
+            ?error("update_consistency_level/1",
+                   [{bad_nodes, BadNodes_1}])
+    end,
+    case rpc:multicall(Storages, ?API_STORAGE,
+                       update_conf, Args, ?DEF_TIMEOUT) of
+        {_,[]} ->
+            void;
+        {_,BadNodes_2} ->
+            ?error("update_consistency_level/1",
+                   [{bad_nodes, BadNodes_2}])
+    end,
+    case leo_cluster_tbl_conf:get() of
+        {ok, #?SYSTEM_CONF{} = SystemConf} ->
+            SystemConf_1 = SystemConf#?SYSTEM_CONF{w = W,
+                                                   r = R,
+                                                   d = D},
+            case leo_cluster_tbl_conf:update(SystemConf_1) of
                 ok ->
-                    ok;
-                {_, Cause} ->
-                    ?error("update_log_level_2/3", [{cause, Cause}]),
-                    {error, ?ERROR_FAILED_UPDATE_LOG_LEVEL};
-                timeout = Cause ->
-                    {error, Cause}
+                    SystemConf_2 = lists:zip(
+                                     record_info(fields, ?SYSTEM_CONF),
+                                     tl(tuple_to_list(SystemConf_1))),
+                    leo_redundant_manager_api:set_options(SystemConf_2);
+                _ ->
+                    {error, ?ERROR_COULD_NOT_UPDATE_CONF}
             end;
         _ ->
-            update_log_level_1(Rest, NodeStr, LogLevel)
+            {error, ?ERROR_COULD_NOT_UPDATE_CONF}
     end.
 
 
@@ -2414,3 +2411,67 @@ is_allow_to_distribute_command(Node) ->
         _ ->
             {false, []}
     end.
+
+
+%% @doc Execute a function of a remote node (Gateway/Storage)
+%% @private
+call_remote_node_fun(NodeStr, Method, Args) ->
+    case leo_redundant_manager_api:get_members() of
+        {ok, Members} ->
+            call_remote_node_fun(Members, NodeStr, Method, Args);
+        Error ->
+            Error
+    end.
+
+%% @private
+call_remote_node_fun([], NodeStr, Method, Args) ->
+    case leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, Members_2} ->
+            call_remote_node_fun_1(Members_2, NodeStr, Method, Args);
+        _ ->
+            {error, ?ERROR_NODE_NOT_EXISTS}
+    end;
+call_remote_node_fun([#member{node = Node}|Rest], NodeStr, Method, Args) ->
+    case atom_to_list(Node) of
+        NodeStr ->
+            case leo_redundant_manager_api:get_member_by_node(Node) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
+                    case rpc:call(Node, ?API_STORAGE,
+                                  Method, Args, ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        {_, Cause} ->
+                            ?error("call_remote_node_fun/4", [{cause, Cause}]),
+                            {error, ?ERROR_FAILED_UPDATE_LOG_LEVEL};
+                        timeout = Cause ->
+                            {error, Cause}
+                    end;
+                _ ->
+                    {error, ?ERROR_TARGET_NODE_NOT_RUNNING}
+            end;
+        _ ->
+            call_remote_node_fun(Rest, NodeStr, Method, Args)
+    end.
+
+%% @private
+call_remote_node_fun_1([],_NodeStr,_Method,_Args) ->
+    {error, ?ERROR_NODE_NOT_EXISTS};
+call_remote_node_fun_1([#node_state{node = Node,
+                                    state = ?STATE_RUNNING}|Rest], NodeStr, Method, Args) ->
+    case atom_to_list(Node) of
+        NodeStr ->
+            case rpc:call(Node, ?API_GATEWAY,
+                          Method, Args, ?DEF_TIMEOUT) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    ?error("call_remote_node_fun_1/4", [{cause, Cause}]),
+                    {error, ?ERROR_FAILED_UPDATE_LOG_LEVEL};
+                timeout = Cause ->
+                    {error, Cause}
+            end;
+        _ ->
+            call_remote_node_fun_1(Rest, NodeStr, Method, Args)
+    end;
+call_remote_node_fun_1([_|Rest], NodeStr, Method, Args) ->
+    call_remote_node_fun_1(Rest, NodeStr, Method, Args).

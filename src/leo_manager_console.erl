@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_console).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
@@ -673,11 +671,25 @@ handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
     {reply, Reply, State};
 
 
-%% Command: "dump-ring ${NODE}"
+%% Command: "update-log-level ${NODE} ${LOG_LEVEL}"
 handle_call(_Socket, <<?CMD_UPDATE_LOG_LEVEL, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case update_log_level(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_LOG_LEVEL, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "update-consistency-level ${NODE} ${WRITE_QUORUM} ${READ_QUORUM} ${DELETE_QUORUM}"
+handle_call(_Socket, <<?CMD_UPDATE_CONSISTENCY_LEVEL, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case update_consistency_level(Command, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -1054,6 +1066,49 @@ update_log_level(CmdBody, Option) ->
             end;
         _ ->
             {error, badarg}
+    end.
+
+
+%% @doc Update a consistency level of a node
+%% @private
+update_consistency_level(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [WStr, RStr, DStr|_] ->
+            Ret = case catch list_to_integer(WStr) of
+                      {'EXIT',_} ->
+                          {error, badarg};
+                      WInt ->
+                          case catch list_to_integer(RStr) of
+                              {'EXIT',_} ->
+                                  {error, badarg};
+                              RInt ->
+                                  case catch list_to_integer(DStr) of
+                                      {'EXIT',_} ->
+                                          {error, badarg};
+                                      DInt ->
+                                          {ok, {WInt, RInt, DInt}}
+                                  end
+                          end
+                  end,
+            update_consistency_level_1(Ret);
+        _ ->
+            {error, badarg}
+    end.
+
+%% @private
+update_consistency_level_1({error, Cause}) ->
+    {error, Cause};
+update_consistency_level_1({ok, {W, R, D} = ConsistencyLevel}) ->
+    %% Validate the consistency level
+    N = leo_redundant_manager_api:get_option(?PROP_N),
+    case (N /= 0) of
+        true when N >= W andalso W > 0 andalso
+                  N >= R andalso R > 0 andalso
+                  N >= D andalso D > 0  ->
+            leo_manager_api:update_consistency_level(ConsistencyLevel);
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 
