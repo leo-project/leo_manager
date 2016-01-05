@@ -20,7 +20,6 @@
 %%
 %%======================================================================
 -module(leo_manager_mnesia_tests).
--author('Yosuke Hara').
 
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").

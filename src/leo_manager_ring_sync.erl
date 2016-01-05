@@ -20,7 +20,6 @@
 %%
 %%======================================================================
 -module(leo_manager_ring_sync).
--author('Yosuke Hara').
 
 -behaviour(gen_server).
 

@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_formatter_commons).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 
 -export([exchange_value/2]).

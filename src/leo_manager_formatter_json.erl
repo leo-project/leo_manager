@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_formatter_json).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_mq/include/leo_mq.hrl").

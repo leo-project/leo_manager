@@ -21,8 +21,6 @@
 %%======================================================================
 -module(tcp_server_sup).
 
--author('Yosuke Hara').
-
 -behaviour(supervisor).
 
 -include("tcp_server.hrl").

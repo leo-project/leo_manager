@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_mq_client).
 
--author('Yosuke Hara').
-
 -behaviour(leo_mq_behaviour).
 
 -include("leo_manager.hrl").

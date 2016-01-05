@@ -19,7 +19,6 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
--author('yosuke hara').
 -include_lib("eunit/include/eunit.hrl").
 
 %% constants
