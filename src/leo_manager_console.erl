@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_console).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_logger/include/leo_logger.hrl").
@@ -63,7 +61,6 @@ init([Formatter, PluginMod]) ->
 %% Operation-1
 %%----------------------------------------------------------------------
 %% Command: "help"
-%%
 handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter  = Formatter,
                                                   plugin_mod = PluginMod} = State) ->
     Fun = fun() ->
@@ -74,7 +71,6 @@ handle_call(_Socket, <<?CMD_HELP, ?CRLF>>, #state{formatter  = Formatter,
 
 
 %% Command: "version"
-%%
 handle_call(_Socket, <<?CMD_VERSION, ?LF>>, #state{formatter = Formatter} = State) ->
     Reply = version(Formatter),
     {reply, Reply, State};
@@ -84,28 +80,24 @@ handle_call(_Socket, <<?CMD_VERSION, ?CRLF>>, #state{formatter = Formatter} = St
 
 
 %% Command: "_user-id_"
-%%
 handle_call(_Socket, ?USER_ID, #state{formatter = Formatter} = State) ->
     Reply = Formatter:user_id(),
     {reply, Reply, State};
 
 
-                                                % Command: "_password_"
-%%
+%% Command: "_password_"
 handle_call(_Socket, ?PASSWORD, #state{formatter = Formatter} = State) ->
     Reply = Formatter:password(),
     {reply, Reply, State};
 
 
 %% Command: "_authorized_"
-%%
 handle_call(_Socket, ?AUTHORIZED, #state{formatter = Formatter} = State) ->
     Reply = Formatter:authorized(),
     {reply, Reply, State};
 
 
 %% Command: "_authorized_"
-%%
 handle_call(_Socket, <<?LOGIN, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Reply = case login(Command, Option) of
@@ -119,7 +111,6 @@ handle_call(_Socket, <<?LOGIN, ?SPACE, Option/binary>> = Command,
 
 %% Command: "status"
 %% Command: "status ${NODE_NAME}"
-%%
 handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -139,7 +130,6 @@ handle_call(_Socket, <<?CMD_STATUS, Option/binary>> = Command,
 
 
 %% Command : "detach ${NODE_NAME}"
-%%
 handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -155,7 +145,6 @@ handle_call(_Socket, <<?CMD_DETACH, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "suspend ${NODE_NAME}"
-%%
 handle_call(_Socket, <<?CMD_SUSPEND, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -171,7 +160,6 @@ handle_call(_Socket, <<?CMD_SUSPEND, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "resume ${NODE_NAME}"
-%%
 handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -187,7 +175,6 @@ handle_call(_Socket, <<?CMD_RESUME, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "rollback ${NODE_NAME}"
-%%
 handle_call(_Socket, <<?CMD_ROLLBACK, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -203,7 +190,6 @@ handle_call(_Socket, <<?CMD_ROLLBACK, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "start"
-%%
 handle_call(Socket, <<?CMD_START, ?LF>> = Command,
             #state{formatter = Formatter} = State) ->
     Reply = start(Socket, Command, Formatter),
@@ -215,7 +201,6 @@ handle_call(Socket, <<?CMD_START, ?CRLF>> = Command,
 
 
 %% Command: "rebalance"
-%%
 handle_call(Socket, <<?CMD_REBALANCE, ?LF>> = Command,
             #state{formatter = Formatter} = State) ->
     Reply = rebalance(Socket, Command, Formatter),
@@ -227,7 +212,6 @@ handle_call(Socket, <<?CMD_REBALANCE, ?CRLF>> = Command,
 
 
 %% Command: "update-property" for watchdog
-%%
 handle_call(_Socket, <<?CMD_UPDATE_PROP, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -245,7 +229,6 @@ handle_call(_Socket, <<?CMD_UPDATE_PROP, ?SPACE, Option/binary>> = Command,
 %% Operation-2
 %%----------------------------------------------------------------------
 %% Command: "du ${NODE_NAME}"
-%%
 handle_call(_Socket, <<?CMD_DU, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -261,7 +244,6 @@ handle_call(_Socket, <<?CMD_DU, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "compact ${NODE_NAME}"
-%%
 handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -277,7 +259,7 @@ handle_call(_Socket, <<?CMD_COMPACT, ?SPACE, Option/binary>> = Command,
     Reply = invoke(?CMD_COMPACT, Formatter, Fun),
     {reply, Reply, State};
 
-
+%% Command: "diagnose-data ${NODE_NAME}"
 handle_call(_Socket, <<?CMD_DIAGNOSE_DATA, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -339,7 +321,6 @@ handle_call(_Socket, <<?CMD_MQ_RESUME, ?SPACE, Option/binary>> = Command,
 %% Operation-3
 %%----------------------------------------------------------------------
 %% Command: "create-user ${USER_ID} ${PASSWORD}"
-%%
 handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -357,7 +338,6 @@ handle_call(_Socket, <<?CMD_CREATE_USER, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "update-user-role ${USER_ID} ${ROLE}"
-%%
 handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -373,7 +353,6 @@ handle_call(_Socket, <<?CMD_UPDATE_USER_ROLE, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "update-user-password ${USER_ID} ${PASSWORD}"
-%%
 handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -389,7 +368,6 @@ handle_call(_Socket, <<?CMD_UPDATE_USER_PW, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "delete-user ${USER_ID} ${PASSWORD}"
-%%
 handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -405,7 +383,6 @@ handle_call(_Socket, <<?CMD_DELETE_USER, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "get-users"
-%%
 handle_call(_Socket, <<?CMD_GET_USERS, ?LF>> = Command,
             #state{formatter = Formatter} = State) ->
     Reply = get_users(Command, Formatter),
@@ -417,7 +394,6 @@ handle_call(_Socket, <<?CMD_GET_USERS, ?CRLF>> = Command,
 
 
 %% Command: "end-endpoint ${END_POINT}"
-%%
 handle_call(_Socket, <<?CMD_ADD_ENDPOINT, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -446,7 +422,6 @@ handle_call(_Socket, <<?CMD_SET_ENDPOINT, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "get-endpoints"
-%%
 handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?LF>> = Command,
             #state{formatter = Formatter} = State) ->
     Reply = get_endpoints(Command, Formatter),
@@ -458,7 +433,6 @@ handle_call(_Socket, <<?CMD_GET_ENDPOINTS, ?CRLF>> = Command,
 
 
 %% Command: "del-endpoint ${end_point}"
-%%
 handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -474,7 +448,6 @@ handle_call(_Socket, <<?CMD_DEL_ENDPOINT, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "add-buckets ${bucket} ${access-key-id}"
-%%
 handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -490,7 +463,6 @@ handle_call(_Socket, <<?CMD_ADD_BUCKET, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "delete-buckets ${bucket} ${access-key-id}"
-%%
 handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -506,7 +478,6 @@ handle_call(_Socket, <<?CMD_DELETE_BUCKET, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "get-buckets"
-%%
 handle_call(_Socket, <<?CMD_GET_BUCKETS, ?LF>> = Command,
             #state{formatter = Formatter} = State) ->
     Reply = get_buckets(Command, Formatter),
@@ -518,7 +489,6 @@ handle_call(_Socket, <<?CMD_GET_BUCKETS, ?CRLF>> = Command,
 
 
 %% Command: "get-bucket ${access-key-id}"
-%%
 handle_call(_Socket, <<?CMD_GET_BUCKET_BY_ACCESS_KEY, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -536,7 +506,6 @@ handle_call(_Socket, <<?CMD_GET_BUCKET_BY_ACCESS_KEY, ?SPACE, Option/binary>> = 
 
 
 %% Command: "chown-bucket ${bucket} ${new-access-key-id}"
-%%
 handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -552,7 +521,6 @@ handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>> = Comma
 
 
 %% Command: "update-acl ${bucket} ${canned_acl}"
-%%
 handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -568,7 +536,6 @@ handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "whereis ${PATH}"
-%%
 handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -584,7 +551,6 @@ handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "recover file|node ${PATH}|${NODE}"
-%%
 handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -600,7 +566,6 @@ handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "purge ${PATH}"
-%%
 handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -616,7 +581,6 @@ handle_call(_Socket, <<?CMD_PURGE, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "remove ${GATEWAY_NODE}"
-%%
 handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -632,7 +596,6 @@ handle_call(_Socket, <<?CMD_REMOVE, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "backup-mnesia ${MNESIA_BACKUPFILE}"
-%%
 handle_call(_Socket, <<?CMD_BACKUP_MNESIA, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -648,7 +611,6 @@ handle_call(_Socket, <<?CMD_BACKUP_MNESIA, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "restore-mnesia ${MNESIA_BACKUPFILE}"
-%%
 handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -664,7 +626,6 @@ handle_call(_Socket, <<?CMD_RESTORE_MNESIA, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "update-managers ${MANAGER_MASTER} ${MANAGER_SLAVE}"
-%%
 handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -680,7 +641,6 @@ handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "history"
-%%
 handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
     Fun = fun() ->
                   case leo_manager_mnesia:get_histories() of
@@ -697,7 +657,6 @@ handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = St
 
 
 %% Command: "dump-ring ${NODE}"
-%%
 handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -712,11 +671,39 @@ handle_call(_Socket, <<?CMD_DUMP_RING, ?SPACE, Option/binary>> = Command,
     {reply, Reply, State};
 
 
+%% Command: "update-log-level ${NODE} ${LOG_LEVEL}"
+handle_call(_Socket, <<?CMD_UPDATE_LOG_LEVEL, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case update_log_level(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_LOG_LEVEL, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "update-consistency-level ${NODE} ${WRITE_QUORUM} ${READ_QUORUM} ${DELETE_QUORUM}"
+handle_call(_Socket, <<?CMD_UPDATE_CONSISTENCY_LEVEL, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case update_consistency_level(Command, Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_UPDATE_LOG_LEVEL, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %%----------------------------------------------------------------------
 %% Operation-4
 %%----------------------------------------------------------------------
 %% Command: "join-cluster [${REMOTE_MANAGER_NODE}, ${REMOTE_MANAGER_NODE}, ...]"
-%%
 handle_call(_Socket, <<?CMD_JOIN_CLUSTER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -730,8 +717,8 @@ handle_call(_Socket, <<?CMD_JOIN_CLUSTER, ?SPACE, Option/binary>> = Command,
     Reply = invoke(?CMD_JOIN_CLUSTER, Formatter, Fun),
     {reply, Reply, State};
 
+
 %% Command: "remove-cluster [${REMOTE_MANAGER_NODE}, ${REMOTE_MANAGER_NODE}, ...]"
-%%
 handle_call(_Socket, <<?CMD_REMOVE_CLUSTER, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
@@ -747,7 +734,6 @@ handle_call(_Socket, <<?CMD_REMOVE_CLUSTER, ?SPACE, Option/binary>> = Command,
 
 
 %% Command: "cluster-status"
-%%
 handle_call(_Socket, <<?CMD_CLUSTER_STAT, ?LF>> = Command,
             #state{formatter = Formatter} = State) ->
     Reply = cluster_status(Command, Formatter),
@@ -759,7 +745,6 @@ handle_call(_Socket, <<?CMD_CLUSTER_STAT, ?CRLF>> = Command,
 
 
 %% Command: "quit"
-%%
 handle_call(_Socket, <<?CMD_QUIT, ?CRLF>>, State) ->
     {close, <<?BYE>>, State};
 
@@ -1051,6 +1036,79 @@ dump_ring(CmdBody, Option) ->
             rpc:call(list_to_atom(Node), leo_redundant_manager_api, dump, [both]);
         _ ->
             {error, ?ERROR_NOT_SPECIFIED_NODE}
+    end.
+
+
+%% @doc Updaet a log level of a node
+%% @private
+update_log_level(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Node, LogLevel|_] ->
+            {CanSendMsg, LogLevel_1} =
+                case LogLevel of
+                    "debug" ->
+                        {ok, 0};
+                    "info" ->
+                        {ok, 1};
+                    "warn" ->
+                        {ok, 2};
+                    "error" ->
+                        {ok, 3};
+                    _ ->
+                        {{error, badarg}, -1}
+                end,
+            case CanSendMsg of
+                ok ->
+                    leo_manager_api:update_log_level(Node, LogLevel_1);
+                Error ->
+                    Error
+            end;
+        _ ->
+            {error, badarg}
+    end.
+
+
+%% @doc Update a consistency level of a node
+%% @private
+update_consistency_level(CmdBody, Option) ->
+    _ = leo_manager_mnesia:insert_history(CmdBody),
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [WStr, RStr, DStr|_] ->
+            Ret = case catch list_to_integer(WStr) of
+                      {'EXIT',_} ->
+                          {error, badarg};
+                      WInt ->
+                          case catch list_to_integer(RStr) of
+                              {'EXIT',_} ->
+                                  {error, badarg};
+                              RInt ->
+                                  case catch list_to_integer(DStr) of
+                                      {'EXIT',_} ->
+                                          {error, badarg};
+                                      DInt ->
+                                          {ok, {WInt, RInt, DInt}}
+                                  end
+                          end
+                  end,
+            update_consistency_level_1(Ret);
+        _ ->
+            {error, badarg}
+    end.
+
+%% @private
+update_consistency_level_1({error, Cause}) ->
+    {error, Cause};
+update_consistency_level_1({ok, {W, R, D} = ConsistencyLevel}) ->
+    %% Validate the consistency level
+    N = leo_redundant_manager_api:get_option(?PROP_N),
+    case (N /= 0) of
+        true when N >= W andalso W > 0 andalso
+                  N >= R andalso R > 0 andalso
+                  N >= D andalso D > 0  ->
+            leo_manager_api:update_consistency_level(ConsistencyLevel);
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
     end.
 
 

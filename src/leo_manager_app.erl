@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_app).
 
--author('Yosuke Hara').
-
 -behaviour(application).
 
 -include("leo_manager.hrl").

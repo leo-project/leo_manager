@@ -21,8 +21,6 @@
 %%======================================================================
 -module(tcp_server_acceptor).
 
--author('Yosuke Hara').
-
 %% External API
 -export([start_link/5]).
 
@@ -116,7 +114,7 @@ recv(false, Socket, State, Module, Option) ->
         {error, closed} ->
             tcp_closed;
         {error, Reason} ->
-            ?warn("recv/5", "cause:~p", [Reason]),
+            ?warn("recv/5", [{cause, Reason}]),
             {error, Reason}
     end;
 
@@ -127,7 +125,7 @@ recv(true, _DummySocket, State, Module, Option) ->
         {tcp_closed, _Socket} ->
             tcp_closed;
         {error, Reason} ->
-            ?warn("recv/5", "cause:~p", [Reason]),
+            ?warn("recv/5", [{cause, Reason}]),
             {error, Reason}
     after Option#tcp_server_params.recv_timeout ->
             tcp_timeout
@@ -176,5 +174,5 @@ call_1(HasCommand, Active, Socket, Data, State, Module, Option) ->
         {close, DataToSend, State} ->
             gen_tcp:send(Socket, DataToSend);
         Other ->
-            ?warn("recv/5", "cause:~p", [Other])
+            ?warn("recv/5", [{cause, Other}])
     end.

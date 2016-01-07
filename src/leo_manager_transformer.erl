@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_transformer).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 -include_lib("leo_redundant_manager/include/leo_redundant_manager.hrl").
 -include_lib("eunit/include/eunit.hrl").

@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_mq_client).
 
--author('Yosuke Hara').
-
 -behaviour(leo_mq_behaviour).
 
 -include("leo_manager.hrl").
@@ -138,7 +136,8 @@ handle_call({publish, _Id, _Reply}) ->
 handle_call({consume, ?QUEUE_ID_FAIL_REBALANCE, MessageBin}) ->
     case catch binary_to_term(MessageBin) of
         {'EXIT', Cause} ->
-            ?error("handle_call/1 - QUEUE_ID_FAIL_REBALANCE", "cause:~p", [Cause]),
+            ?error("handle_call/1 - QUEUE_ID_FAIL_REBALANCE",
+                   [{cause, Cause}]),
             {error, Cause};
         #recovery_rebalance_info{node = Node,
                                  rebalance_info = RebalanceInfo} ->

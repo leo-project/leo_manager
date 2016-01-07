@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_formatter_text).
 
--author('Yosuke Hara').
-
 -include("leo_manager.hrl").
 -include_lib("leo_commons/include/leo_commons.hrl").
 -include_lib("leo_mq/include/leo_mq.hrl").
@@ -317,14 +315,15 @@ system_conf_with_node_stat(FormattedSystemConf, Nodes) ->
 -spec(node_stat(string(), [tuple()]) ->
              string()).
 node_stat(?SERVER_TYPE_GATEWAY, State) ->
-    Version      = leo_misc:get_value('version',       State, []),
-    Directories  = leo_misc:get_value('dirs',          State, []),
-    HttpConf     = leo_misc:get_value('http_conf',     State, []),
-    RingHashes   = leo_misc:get_value('ring_checksum', State, []),
-    Statistics   = leo_misc:get_value('statistics',    State, []),
+    Version = leo_misc:get_value('version', State, []),
+    Directories = leo_misc:get_value('dirs', State, []),
+    HttpConf = leo_misc:get_value('http_conf', State, []),
+    RingHashes = leo_misc:get_value('ring_checksum', State, []),
+    Statistics = leo_misc:get_value('statistics', State, []),
+    LogLevel = leo_misc:get_value('log_level', State, []),
 
     MaxChunkedObjs = leo_misc:get_value('max_chunked_objs', HttpConf, 0),
-    ChunkedObjLen  = leo_misc:get_value('chunked_obj_len',  HttpConf, 0),
+    ChunkedObjLen = leo_misc:get_value('chunked_obj_len',  HttpConf, 0),
     MaxObjLen = MaxChunkedObjs * ChunkedObjLen,
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
 
@@ -339,6 +338,7 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                                 "                       version | ~s\r\n",
                                 "                using protocol | ~w\r\n",
                                 "                 log directory | ~s\r\n",
+                                "                     log level | ~s\r\n",
                                 "-------------------------------+------------------\r\n",
                                 " [http server related for rest/s3 api]\r\n",
                                 "-------------------------------+------------------\r\n",
@@ -405,86 +405,88 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   [
                    %% config-1 [2]
                    Version,
-                   leo_misc:get_value('handler',                  HttpConf, ''),
+                   leo_misc:get_value('handler', HttpConf, ''),
                    leo_misc:get_value('log', Directories, []),
+                   LogLevel,
                    %% config-2 [17]
-                   leo_misc:get_value('port',                     HttpConf, 0),
-                   leo_misc:get_value('ssl_port',                 HttpConf, 0),
-                   leo_misc:get_value('num_of_acceptors',         HttpConf, 0),
-                   leo_misc:get_value('http_cache',               HttpConf, ''),
-                   leo_misc:get_value('cache_workers',            HttpConf, 0),
-                   leo_misc:get_value('cache_expire',             HttpConf, 0),
-                   leo_misc:get_value('cache_max_content_len',    HttpConf, 0),
-                   leo_misc:get_value('cache_ram_capacity',       HttpConf, 0),
-                   leo_misc:get_value('cache_disc_capacity',      HttpConf, 0),
+                   leo_misc:get_value('port', HttpConf, 0),
+                   leo_misc:get_value('ssl_port', HttpConf, 0),
+                   leo_misc:get_value('num_of_acceptors', HttpConf, 0),
+                   leo_misc:get_value('http_cache', HttpConf, ''),
+                   leo_misc:get_value('cache_workers', HttpConf, 0),
+                   leo_misc:get_value('cache_expire', HttpConf, 0),
+                   leo_misc:get_value('cache_max_content_len', HttpConf, 0),
+                   leo_misc:get_value('cache_ram_capacity', HttpConf, 0),
+                   leo_misc:get_value('cache_disc_capacity', HttpConf, 0),
                    leo_misc:get_value('cache_disc_threshold_len', HttpConf, 0),
-                   leo_misc:get_value('cache_disc_dir_data',      HttpConf, ""),
-                   leo_misc:get_value('cache_disc_dir_journal',   HttpConf, ""),
+                   leo_misc:get_value('cache_disc_dir_data', HttpConf, ""),
+                   leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""),
 
                    %% large-object
                    MaxChunkedObjs,
                    ChunkedObjLen,
                    MaxObjLen,
-                   leo_misc:get_value('reading_chunked_obj_len',  HttpConf, 0),
-                   leo_misc:get_value('threshold_of_chunk_len',   HttpConf, 0),
+                   leo_misc:get_value('reading_chunked_obj_len', HttpConf, 0),
+                   leo_misc:get_value('threshold_of_chunk_len', HttpConf, 0),
                    %% config-3:watchdog
-                   leo_misc:get_value('rex_interval',                WatchdogProps),
-                   leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps),
+                   leo_misc:get_value('rex_interval', WatchdogProps),
+                   leo_misc:get_value('rex_threshold_mem_capacity', WatchdogProps),
                    leo_manager_formatter_commons:exchange_value(
                      ?BOOL_TO_ENABLE,
-                     leo_misc:get_value('cpu_enabled',  WatchdogProps)),
-                   leo_misc:get_value('cpu_interval',                WatchdogProps),
-                   leo_misc:get_value('cpu_threshold_cpu_load_avg',  WatchdogProps),
-                   leo_misc:get_value('cpu_threshold_cpu_util',      WatchdogProps),
+                     leo_misc:get_value('cpu_enabled', WatchdogProps)),
+                   leo_misc:get_value('cpu_interval', WatchdogProps),
+                   leo_misc:get_value('cpu_threshold_cpu_load_avg', WatchdogProps),
+                   leo_misc:get_value('cpu_threshold_cpu_util', WatchdogProps),
                    leo_manager_formatter_commons:exchange_value(
                      ?BOOL_TO_ENABLE,
-                     leo_misc:get_value('io_enabled',   WatchdogProps)),
-                   leo_misc:get_value('io_interval',                 WatchdogProps),
-                   leo_misc:get_value('io_threshold_input_per_sec',  WatchdogProps),
+                     leo_misc:get_value('io_enabled', WatchdogProps)),
+                   leo_misc:get_value('io_interval', WatchdogProps),
+                   leo_misc:get_value('io_threshold_input_per_sec', WatchdogProps),
                    leo_misc:get_value('io_threshold_output_per_sec', WatchdogProps),
                    %% status-1 [2]
-                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
+                   leo_hex:integer_to_hex(leo_misc:get_value('ring_cur', RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
                    %% status-2 [8]
-                   leo_misc:get_value('vm_version',       Statistics, []),
-                   leo_misc:get_value('total_mem_usage',  Statistics, 0),
+                   leo_misc:get_value('vm_version', Statistics, []),
+                   leo_misc:get_value('total_mem_usage', Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
-                   leo_misc:get_value('proc_mem_usage',   Statistics, 0),
-                   leo_misc:get_value('ets_mem_usage',    Statistics, 0),
-                   leo_misc:get_value('num_of_procs',     Statistics, 0),
-                   leo_misc:get_value('process_limit',    Statistics, 0),
-                   leo_misc:get_value('kernel_poll',      Statistics, false),
+                   leo_misc:get_value('proc_mem_usage', Statistics, 0),
+                   leo_misc:get_value('ets_mem_usage', Statistics, 0),
+                   leo_misc:get_value('num_of_procs', Statistics, 0),
+                   leo_misc:get_value('process_limit', Statistics, 0),
+                   leo_misc:get_value('kernel_poll', Statistics, false),
                    leo_misc:get_value('thread_pool_size', Statistics, 0)
                   ]);
 
 node_stat(?SERVER_TYPE_STORAGE, State) ->
-    Version       = leo_misc:get_value('version',       State, []),
-    NumOfVNodes   = leo_misc:get_value('num_of_vnodes', State, []),
-    _GrpLevel2    = leo_misc:get_value('grp_level_2',   State, []),
-    Directories   = leo_misc:get_value('dirs',          State, []),
-    RingHashes    = leo_misc:get_value('ring_checksum', State, []),
-    Statistics    = leo_misc:get_value('statistics',    State, []),
-    ObjContainer  = leo_misc:get_value('avs',           State, []),
-    CustomItems   = leo_misc:get_value('storage',  Statistics, []),
+    Version = leo_misc:get_value('version', State, []),
+    NumOfVNodes = leo_misc:get_value('num_of_vnodes', State, []),
+    _GrpLevel2 = leo_misc:get_value('grp_level_2', State, []),
+    Directories = leo_misc:get_value('dirs', State, []),
+    RingHashes = leo_misc:get_value('ring_checksum', State, []),
+    Statistics = leo_misc:get_value('statistics', State, []),
+    ObjContainer = leo_misc:get_value('avs', State, []),
+    CustomItems = leo_misc:get_value('storage', Statistics, []),
     WatchdogProps = leo_misc:get_value('watchdog', State, []),
+    LogLevel = leo_misc:get_value('log_level', State, []),
 
     MQConf_1 = leo_misc:get_value('mq_num_of_procs', State, []),
-    MQConf_2 = leo_misc:get_value('mq_num_of_batch_process_max',  State, []),
-    MQConf_3 = leo_misc:get_value('mq_num_of_batch_process_reg',  State, []),
-    MQConf_4 = leo_misc:get_value('mq_interval_between_batch_procs_max',  State, []),
-    MQConf_5 = leo_misc:get_value('mq_interval_between_batch_procs_reg',  State, []),
+    MQConf_2 = leo_misc:get_value('mq_num_of_batch_process_max', State, []),
+    MQConf_3 = leo_misc:get_value('mq_num_of_batch_process_reg', State, []),
+    MQConf_4 = leo_misc:get_value('mq_interval_between_batch_procs_max', State, []),
+    MQConf_5 = leo_misc:get_value('mq_interval_between_batch_procs_reg', State, []),
 
     AutoCompactionEnabled = leo_misc:get_value('auto_compaction_enabled', State),
-    AutoCompactionConf_1  = leo_misc:get_value('auto_compaction_warn_active_size_ratio', State),
-    AutoCompactionConf_2  = leo_misc:get_value('auto_compaction_threshold_active_size_ratio', State),
-    AutoCompactionConf_3  = leo_misc:get_value('auto_compaction_parallel_procs', State),
-    AutoCompactionConf_4  = leo_misc:get_value('auto_compaction_interval', State),
+    AutoCompactionConf_1 = leo_misc:get_value('auto_compaction_warn_active_size_ratio', State),
+    AutoCompactionConf_2 = leo_misc:get_value('auto_compaction_threshold_active_size_ratio', State),
+    AutoCompactionConf_3 = leo_misc:get_value('auto_compaction_parallel_procs', State),
+    AutoCompactionConf_4 = leo_misc:get_value('auto_compaction_interval', State),
 
-    CompactionConf_1 = leo_misc:get_value('limit_num_of_compaction_procs',      State),
-    CompactionConf_2 = leo_misc:get_value('compaction_num_of_batch_procs_max',  State),
-    CompactionConf_3 = leo_misc:get_value('compaction_num_of_batch_procs_reg',  State),
-    CompactionConf_4 = leo_misc:get_value('compaction_interval_between_batch_procs_max',  State),
-    CompactionConf_5 = leo_misc:get_value('compaction_interval_between_batch_procs_reg',  State),
+    CompactionConf_1 = leo_misc:get_value('limit_num_of_compaction_procs', State),
+    CompactionConf_2 = leo_misc:get_value('compaction_num_of_batch_procs_max', State),
+    CompactionConf_3 = leo_misc:get_value('compaction_num_of_batch_procs_reg', State),
+    CompactionConf_4 = leo_misc:get_value('compaction_interval_between_batch_procs_max', State),
+    CompactionConf_5 = leo_misc:get_value('compaction_interval_between_batch_procs_reg', State),
 
     ObjContainer_1 = lists:flatten(
                        lists:foldl(
@@ -513,6 +515,7 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                                 "                     number of vnodes | ~w\r\n",
                                 "                    object containers | ~s\r\n",
                                 "                        log directory | ~s\r\n",
+                                "                            log level | ~s\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
                                 " Config-2: watchdog\r\n",
                                 "--------------------------------------+--------------------------------------\r\n",
@@ -584,23 +587,24 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    NumOfVNodes,
                    ObjContainer_1,
                    leo_misc:get_value('log', Directories, []),
+                   LogLevel,
                    %% Watchdog
                    leo_misc:get_value('rex_interval', WatchdogProps),
                    leo_misc:get_value('rex_threshold_mem_capacity', WatchdogProps),
                    leo_manager_formatter_commons:exchange_value(
                      ?BOOL_TO_ENABLE,
                      leo_misc:get_value('cpu_enabled', WatchdogProps)),
-                   leo_misc:get_value('cpu_interval',               WatchdogProps),
+                   leo_misc:get_value('cpu_interval', WatchdogProps),
                    leo_misc:get_value('cpu_threshold_cpu_load_avg', WatchdogProps),
-                   leo_misc:get_value('cpu_threshold_cpu_util',     WatchdogProps),
+                   leo_misc:get_value('cpu_threshold_cpu_util', WatchdogProps),
                    leo_manager_formatter_commons:exchange_value(
                      ?BOOL_TO_ENABLE,
                      leo_misc:get_value('disk_enabled', WatchdogProps)),
-                   leo_misc:get_value('disk_interval',       WatchdogProps),
-                   leo_misc:get_value('disk_threshold_use',  WatchdogProps),
+                   leo_misc:get_value('disk_interval', WatchdogProps),
+                   leo_misc:get_value('disk_threshold_use', WatchdogProps),
                    leo_misc:get_value('disk_threshold_util', WatchdogProps),
-                   leo_misc:get_value('disk_threshold_rkb',  WatchdogProps),
-                   leo_misc:get_value('disk_threshold_wkb',  WatchdogProps),
+                   leo_misc:get_value('disk_threshold_rkb', WatchdogProps),
+                   leo_misc:get_value('disk_threshold_wkb', WatchdogProps),
                    %% MQ
                    MQConf_1,
                    MQConf_2,
@@ -624,19 +628,19 @@ node_stat(?SERVER_TYPE_STORAGE, State) ->
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_cur',  RingHashes, 0), 8),
                    leo_hex:integer_to_hex(leo_misc:get_value('ring_prev', RingHashes, 0), 8),
                    %% Erlang-VM
-                   leo_misc:get_value('vm_version',       Statistics, []),
-                   leo_misc:get_value('total_mem_usage',  Statistics, 0),
+                   leo_misc:get_value('vm_version', Statistics, []),
+                   leo_misc:get_value('total_mem_usage', Statistics, 0),
                    leo_misc:get_value('system_mem_usage', Statistics, 0),
-                   leo_misc:get_value('proc_mem_usage',   Statistics, 0),
-                   leo_misc:get_value('ets_mem_usage',    Statistics, 0),
-                   leo_misc:get_value('num_of_procs',     Statistics, 0),
-                   leo_misc:get_value('process_limit',    Statistics, 0),
-                   leo_misc:get_value('kernel_poll',      Statistics, false),
+                   leo_misc:get_value('proc_mem_usage', Statistics, 0),
+                   leo_misc:get_value('ets_mem_usage', Statistics, 0),
+                   leo_misc:get_value('num_of_procs', Statistics, 0),
+                   leo_misc:get_value('process_limit', Statistics, 0),
+                   leo_misc:get_value('kernel_poll', Statistics, false),
                    leo_misc:get_value('thread_pool_size', Statistics, 0),
                    %% MQ
                    leo_misc:get_value('num_of_replication_msg', CustomItems, 0),
-                   leo_misc:get_value('num_of_sync_vnode_msg',  CustomItems, 0),
-                   leo_misc:get_value('num_of_rebalance_msg',   CustomItems, 0)
+                   leo_misc:get_value('num_of_sync_vnode_msg', CustomItems, 0),
+                   leo_misc:get_value('num_of_rebalance_msg', CustomItems, 0)
                   ]).
 
 

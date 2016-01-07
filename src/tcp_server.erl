@@ -21,8 +21,6 @@
 %%======================================================================
 -module(tcp_server).
 
--author('Yosuke Hara').
-
 -export([behaviour_info/1]).
 -export([start_link/3, stop/0]).
 

@@ -21,8 +21,6 @@
 %%======================================================================
 -module(leo_manager_cluster_monitor).
 
--author('Yosuke Hara').
-
 -behaviour(gen_server).
 
 -include("leo_manager.hrl").
@@ -272,7 +270,7 @@ handle_info({'DOWN', MonitorRef, _Type, Pid, _Info}, {MonitorRefs, Htbl, Pids}) 
             undefined ->
                 Htbl;
             {_, Node, TypeOfNode, _} ->
-                ?error("handle_call - DOWN", "node:~w", [Node]),
+                ?error("handle_call - DOWN", [{node, Node}]),
 
                 case TypeOfNode of
                     ?WORKER_NODE ->
@@ -520,7 +518,7 @@ register_fun_1(#registration{node = Node,
         {ok, #node_state{state = ?STATE_RUNNING}} ->
             ok;
         {error, Cause} ->
-            ?error("register_fun_1/2", "cause:~p", [Cause]),
+            ?error("register_fun_1/2", [{cause, Cause}]),
             {error, Cause};
         _Other ->
             case rpc:call(Node, leo_redundant_manager_api,
@@ -571,7 +569,8 @@ register_fun_2({ok, #member{state = ?STATE_DETACHED}},
         ok ->
             update_node_state_1(?STATE_RESTARTED, Node);
         {error, Cause} ->
-            ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
+            ?error("register_fun_2/2",
+                   [{node, Node}, {cause, Cause}]),
             {error, Cause}
     end;
 
@@ -592,15 +591,18 @@ register_fun_2({error, not_found}, #registration{node = Node,
                 ok ->
                     ok;
                 {error, Cause} ->
-                    ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
+                    ?error("register_fun_2/2",
+                           [{node, Node}, {cause, Cause}]),
                     {error, Cause}
             end;
         {error, Cause} ->
-            ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
+            ?error("register_fun_2/2",
+                   [{node, Node}, {cause, Cause}]),
             {error, Cause}
     end;
 
 register_fun_2({error, Cause}, #registration{node = Node,
                                              type = ?PERSISTENT_NODE}) ->
-    ?error("register_fun_2/2", "node:~w, cause:~p", [Node, Cause]),
+    ?error("register_fun_2/2",
+           [{node, Node}, {cause, Cause}]),
     {error, Cause}.
