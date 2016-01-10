@@ -37,7 +37,7 @@
 -define(API_GATEWAY, leo_gateway_api).
 
 -define(TYPE_REBALANCE_TAKEOVER, 'takeover').
--define(TYPE_REBALANCE_REGULAR,  'regular').
+-define(TYPE_REBALANCE_REGULAR, 'regular').
 -define(type_rebalance(_Ret),
         case _Ret of
             {?TYPE_REBALANCE_TAKEOVER, _} ->
@@ -53,7 +53,10 @@
          get_system_config/0, get_system_status/0,
          get_members/0, get_members_of_all_versions/0,
          update_manager_nodes/1,
-         get_node_status/1, get_routing_table_chksum/0, get_nodes/0]).
+         get_node_status/1, get_routing_table_chksum/0, get_nodes/0,
+         update_log_level/2,
+         update_consistency_level/1
+        ]).
 
 -export([attach/1, attach/4, attach/5,
          detach/1, suspend/1, resume/1,
@@ -78,13 +81,13 @@
          sync_mdc_tables/2, update_cluster_manager/2,
          remove_cluster/1]).
 
+
 -type(system_status() :: ?STATE_RUNNING | ?STATE_STOP).
 
-
 -record(rebalance_proc_info, {
-          members_cur    = [] :: [#member{}],
-          members_prev   = [] :: [#member{}],
-          system_conf    = [] :: #?SYSTEM_CONF{},
+          members_cur = [] :: [#member{}],
+          members_prev = [] :: [#member{}],
+          system_conf = [] :: #?SYSTEM_CONF{},
           rebalance_list = [] :: list()
          }).
 
@@ -104,15 +107,14 @@ load_system_config() ->
                      r = leo_misc:get_value(r, Props, 1),
                      d = leo_misc:get_value(d, Props, 1),
                      bit_of_ring = leo_misc:get_value(bit_of_ring, Props, 128),
-                     max_mdc_targets      = leo_misc:get_value(max_mdc_targets,      Props, 0),
-                     num_of_dc_replicas   = leo_misc:get_value(num_of_dc_replicas,   Props, 0),
+                     max_mdc_targets = leo_misc:get_value(max_mdc_targets, Props, 0),
+                     num_of_dc_replicas = leo_misc:get_value(num_of_dc_replicas, Props, 0),
                      num_of_rack_replicas = leo_misc:get_value(num_of_rack_replicas, Props, 0)
                     },
     SystemConf.
 
 
 %% @doc load a system config file. a system config file store to mnesia.
-%%
 -spec(load_system_config_with_store_data() ->
              {ok, #?SYSTEM_CONF{}} | {error, any()}).
 load_system_config_with_store_data() ->
@@ -125,8 +127,8 @@ load_system_config_with_store_data() ->
                   w = W,
                   d = D,
                   bit_of_ring = BitOfRing,
-                  max_mdc_targets      = MaxMDCTargets,
-                  num_of_dc_replicas   = NumOfDCReplicas,
+                  max_mdc_targets = MaxMDCTargets,
+                  num_of_dc_replicas = NumOfDCReplicas,
                   num_of_rack_replicas = NumOfRackReplicas
                  } = SystemConf,
 
@@ -153,8 +155,8 @@ load_system_config_with_store_data() ->
                                   w = W,
                                   d = D,
                                   bit_of_ring = BitOfRing,
-                                  max_mdc_targets      = MaxMDCTargets,
-                                  num_of_dc_replicas   = NumOfDCReplicas,
+                                  max_mdc_targets = MaxMDCTargets,
+                                  num_of_dc_replicas = NumOfDCReplicas,
                                   num_of_rack_replicas = NumOfRackReplicas}) of
                 ok ->
                     {ok, SystemConf};
@@ -173,14 +175,15 @@ compare_system_conf([],_SystemConf) ->
 compare_system_conf([{K,V}|Rest], SystemConf) ->
     V_1 = leo_misc:get_value(K, SystemConf),
     case (V /= V_1) of
-        true -> error_logger:error_msg(
-                  "~p,~p,~p,~p~n",
-                  [{module, ?MODULE_STRING},
-                   {function, "load_system_config_with_store_data/0"},
-                   {line, ?LINE}, {body, {?ERROR_UPDATED_SYSTEM_CONF,
-                                          K, [{prev, V},
-                                              {cur, V_1}]}}
-                  ]);
+        true ->
+            error_logger:error_msg(
+              "~p,~p,~p,~p~n",
+              [{module, ?MODULE_STRING},
+               {function, "load_system_config_with_store_data/0"},
+               {line, ?LINE}, {body, {?ERROR_UPDATED_SYSTEM_CONF,
+                                      K, [{prev, V},
+                                          {cur, V_1}]}}
+              ]);
         false ->
             void
     end,
@@ -189,6 +192,8 @@ compare_system_conf([{K,V}|Rest], SystemConf) ->
 
 %% @doc Modify the system config
 %%      when it did not join remote-cluster(s), yet
+
+
 -spec(update_mdc_items_in_system_conf() ->
              ok | {error, any()}).
 update_mdc_items_in_system_conf() ->
@@ -229,7 +234,6 @@ update_mdc_items_in_system_conf_1() ->
 
 
 %% @doc Retrieve system configuration from mnesia(localdb).
-%%
 -spec(get_system_config() ->
              {ok, #?SYSTEM_CONF{}} |
              atom() |
@@ -252,7 +256,6 @@ get_system_status() ->
 
 
 %% @doc Retrieve members from mnesia(localdb).
-%%
 -spec(get_members() ->
              {ok, list()} | {error, any()}).
 get_members() ->
@@ -313,7 +316,6 @@ exclude_attached_members([#member{} = Member|Rest], Acc) ->
 
 
 %% @doc Retrieve cluster-node-status from each server.
-%%
 -spec(get_node_status(string()) ->
              ok | {error, any()}).
 get_node_status(Node_1) ->
@@ -347,7 +349,6 @@ get_node_status(Node_1) ->
 
 
 %% @doc Retrieve ring checksums from redundant-manager.
-%%
 -spec(get_routing_table_chksum() ->
              {ok, any()} |
              {error, any()}).
@@ -361,30 +362,93 @@ get_routing_table_chksum() ->
 
 
 %% @doc Retrieve list of cluster nodes from mnesia.
-%%
 -spec(get_nodes() ->
              {ok, [atom()]}).
 get_nodes() ->
-    Nodes_0 = case leo_manager_mnesia:get_gateway_nodes_all() of
-                  {ok, R1} ->
-                      [_N1 || #node_state{node  = _N1} <- R1];
-                  _ ->
-                      []
-              end,
-    Nodes_1 = case leo_redundant_manager_api:get_members() of
-                  {ok, R2} ->
-                      [_N2 || #member{node = _N2} <- R2];
-                  _Error ->
-                      []
-              end,
-    {ok, Nodes_0 ++ Nodes_1}.
+    Gateways = get_nodes(gateway),
+    Storages = get_nodes(storage),
+    {ok, Gateways ++ Storages}.
+
+%% @private
+get_nodes(gateway) ->
+    case leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, R} ->
+            [Node || #node_state{node = Node,
+                                 state = ?STATE_RUNNING} <- R];
+        _ ->
+            []
+    end;
+get_nodes(storage) ->
+    case leo_redundant_manager_api:get_members() of
+        {ok, R} ->
+            [_N || #member{node = _N,
+                           state = ?STATE_RUNNING} <- R];
+        _Error ->
+            []
+    end.
+
+
+%% @doc Update a log level of a node
+-spec(update_log_level(NodeStr, LogLevel) ->
+             ok | {error, Cause} when NodeStr::string(),
+                                      LogLevel::non_neg_integer(),
+                                      Cause::any()).
+update_log_level(NodeStr, LogLevel) ->
+    call_remote_node_fun(NodeStr, 'update_conf',
+                         [log_level, LogLevel]).
+
+
+%% @doc Update a consistency level of a node
+-spec(update_consistency_level(ConsistencyLevel) ->
+             ok | {error, Cause} when ConsistencyLevel::{W, R, D},
+                                      W::pos_integer(),
+                                      R::pos_integer(),
+                                      D::pos_integer(),
+                                      Cause::any()).
+update_consistency_level({W, R, D} = ConsistencyLevel) ->
+    Gateways = get_nodes(gateway),
+    Storages = get_nodes(storage),
+    Args = ['consistency_level', ConsistencyLevel],
+
+    case rpc:multicall(Gateways, ?API_GATEWAY,
+                       update_conf, Args, ?DEF_TIMEOUT) of
+        {_,[]} ->
+            void;
+        {_,BadNodes_1} ->
+            ?error("update_consistency_level/1",
+                   [{bad_nodes, BadNodes_1}])
+    end,
+    case rpc:multicall(Storages, ?API_STORAGE,
+                       update_conf, Args, ?DEF_TIMEOUT) of
+        {_,[]} ->
+            void;
+        {_,BadNodes_2} ->
+            ?error("update_consistency_level/1",
+                   [{bad_nodes, BadNodes_2}])
+    end,
+    case leo_cluster_tbl_conf:get() of
+        {ok, #?SYSTEM_CONF{} = SystemConf} ->
+            SystemConf_1 = SystemConf#?SYSTEM_CONF{w = W,
+                                                   r = R,
+                                                   d = D},
+            case leo_cluster_tbl_conf:update(SystemConf_1) of
+                ok ->
+                    SystemConf_2 = lists:zip(
+                                     record_info(fields, ?SYSTEM_CONF),
+                                     tl(tuple_to_list(SystemConf_1))),
+                    leo_redundant_manager_api:set_options(SystemConf_2);
+                _ ->
+                    {error, ?ERROR_COULD_NOT_UPDATE_CONF}
+            end;
+        _ ->
+            {error, ?ERROR_COULD_NOT_UPDATE_CONF}
+    end.
 
 
 %%----------------------------------------------------------------------
 %% API-Function(s) - Operate for the Cluster nodes.
 %%----------------------------------------------------------------------
 %% @doc Attach an storage-node into the cluster.
-%%
 -spec(attach(atom()) ->
              ok | {error, any()}).
 attach(Node) ->
@@ -427,7 +491,6 @@ attach_1(_, Node,_L1, L2, Clock, NumOfVNodes, RPCPort) ->
 
 
 %% @doc Suspend a node.
-%%
 -spec(suspend(atom()) ->
              ok | {error, any()}).
 suspend(Node) ->
@@ -446,7 +509,6 @@ suspend(Node) ->
 
 
 %% @doc Remove a storage-node from the cluster.
-%%
 -spec(detach(atom()) ->
              ok | {error, any()}).
 detach(Node) ->
@@ -473,7 +535,6 @@ detach(Node) ->
 
 
 %% @doc Resume a storage-node when its status is 'RUNNING' OR 'DOWNED'.
-%%
 -spec(resume(atom()) ->
              ok | {error, any()}).
 resume(Node) ->
@@ -538,7 +599,6 @@ rollback(Node) ->
 
 
 %% @doc Retrieve active storage nodes
-%%
 -spec(active_storage_nodes() ->
              {ok, [atom()]} | {error, any()}).
 active_storage_nodes() ->
@@ -651,7 +711,6 @@ update_manager_nodes(_Managers,_Error) ->
 
 
 %% @doc Launch the leo-storage, but exclude Gateway(s).
-%%
 -spec(start(port()) ->
              ok | {error, any()}).
 start(Socket) ->
@@ -756,7 +815,6 @@ start_2(Socket, NumOfNodes, TotalMembers, Errors) ->
     end.
 
 %% @doc Update the leo_storage status from ?STATE_ATTACHED to ?STATE_RUNNING
-%%
 -spec(update_running_storage_status() ->
              {ok, list()}|{error, list()}).
 update_running_storage_status() ->
@@ -783,7 +841,6 @@ update_running_storage_status([Node|T], UpdatedNodes) ->
     end.
 
 %% @doc Rollback the leo_storage status from ?STATE_RUNNING to ?STATE_ATTACHED
-%%
 -spec(rollback_running_storage_status(list()) ->
              ok | {error, any()}).
 rollback_running_storage_status(UpdatedNodes) ->
@@ -802,9 +859,9 @@ rollback_running_storage_status([Node|T], Errors) ->
             rollback_running_storage_status(T, [{Node, Error}|Errors])
     end.
 
+
 %% Output a message to the console
 %% @private
-
 output_message_to_console(null,_MsgBin) ->
     ok;
 output_message_to_console(Socket, MsgBin) ->
@@ -1099,7 +1156,6 @@ assign_nodes_to_ring([{?STATE_DETACHED, Node}|Rest]) ->
 %% API-Function(s) - for system maintenance.
 %%----------------------------------------------------------------------
 %% @doc Register Pid of storage-node and Pid of gateway-node into the manager-monitors.
-%%
 -spec(register(atom(), pid(), atom(), atom()) ->
              {ok, #?SYSTEM_CONF{}}).
 register(RequestedTimes, Pid, Node, Type) ->
@@ -1133,7 +1189,6 @@ register_1() ->
 
 
 %% @doc Notified "Synchronized" from cluster-nods.
-%%
 notify(synchronized,_VNodeId, Node) ->
     synchronize_1(?SYNC_TARGET_RING_PREV, Node);
 notify(_,_,_) ->
@@ -1141,7 +1196,6 @@ notify(_,_,_) ->
 
 
 %% @doc Notified "Server Error" from cluster-nods.
-%%
 notify(error, DownedNode, NotifyNode, ?ERR_TYPE_NODE_DOWN) ->
     Ret1 = notify_1(DownedNode),
     Ret2 = notify_1(NotifyNode),
@@ -1149,7 +1203,6 @@ notify(error, DownedNode, NotifyNode, ?ERR_TYPE_NODE_DOWN) ->
 
 
 %% @doc Notified "Rebalance Progress" from cluster-nods.
-%%
 notify(rebalance, VNodeId, Node, TotalOfObjects) ->
     leo_manager_mnesia:update_rebalance_info(
       #rebalance_info{vnode_id = VNodeId,
@@ -1159,7 +1212,6 @@ notify(rebalance, VNodeId, Node, TotalOfObjects) ->
 
 
 %% @doc Notified "Server Launch" from cluster-nods.
-%%
 notify(launched, gateway, Node, Checksums0) ->
     case get_routing_table_chksum() of
         {ok, Checksums1} when Checksums0 == Checksums1 ->
@@ -1269,14 +1321,12 @@ notify_3({error,_Cause},_State,_Node) ->
 
 
 %% @doc purge an object.
-%%
 -spec(purge(string()) ->
              ok | {error, any()}).
 purge(Path) ->
     rpc_call_for_gateway(purge, [Path]).
 
 %% @doc remove a gateway-node
-%%
 -spec(remove(atom()|string()) ->
              ok | {error, any()}).
 remove(Node) when is_atom(Node) ->
@@ -1324,7 +1374,6 @@ remove_4(NodeState) ->
 
 
 %% @doc Retrieve assigned file information.
-%%
 -spec(whereis(list(), boolean()) ->
              {ok, any()} |
              {error, any()}).
@@ -1381,7 +1430,6 @@ recover_remote([Node|Rest], AddrId, Key) ->
     end.
 
 %% @doc Recover key/node
-%%
 -spec(recover(string(), atom()|string(), boolean()) ->
              ok | {error, any()}).
 recover(?RECOVER_FILE, Key, true) ->
@@ -1534,7 +1582,6 @@ rebuild_dir_metadata_1(Socket, [{Node, State}|Rest], Error) ->
 
 
 %% @doc Do compact.
-%%
 -spec(compact(string(), string() | atom()) ->
              ok | {ok, _} |{error, any()}).
 compact(Mode, Node) when is_list(Node) ->
@@ -1601,7 +1648,6 @@ compact(_,_,_,_) ->
 
 
 %% @doc Diagnose data of the storage-node
-%%
 -spec(diagnose_data(Node) ->
              ok | {error, any()} when Node::atom()).
 diagnose_data(Node) ->
@@ -1625,7 +1671,6 @@ diagnose_data(Node) ->
 
 
 %% @doc get storage stats.
-%%
 -spec(stats(summary | detail, string() | atom()) ->
              {ok, list()} | {error, any}).
 stats(_, []) ->
@@ -1729,7 +1774,6 @@ mq_resume(Node, MQId) ->
 
 
 %% @doc Synchronize Members and Ring (both New and Old).
-%%
 synchronize(Type) when Type == ?CHECKSUM_RING;
                        Type == ?CHECKSUM_MEMBER;
                        Type == ?CHECKSUM_WORKER;
@@ -1755,7 +1799,6 @@ synchronize(Type) when Type == ?CHECKSUM_RING;
     end;
 
 %% @doc Compare local ring checksum with remote it
-%%
 synchronize(Node) when is_atom(Node) ->
     case leo_redundant_manager_api:checksum(?CHECKSUM_RING) of
         {ok, {RingHashCur, RingHashPrev}} ->
@@ -2099,7 +2142,6 @@ compare_local_chksum_with_remote_chksum( Type, Node, Checksum_1, Checksum_2)
 
 
 %% @doc Insert an endpoint
-%%
 -spec(set_endpoint(binary()) ->
              ok | {error, any()}).
 set_endpoint(EndPoint) ->
@@ -2113,7 +2155,6 @@ set_endpoint(EndPoint) ->
 
 
 %% @doc Insert an endpoint
-%%
 -spec(delete_endpoint(binary()) ->
              ok | {error, any()}).
 delete_endpoint(EndPoint) ->
@@ -2126,7 +2167,6 @@ delete_endpoint(EndPoint) ->
     end.
 
 %% @doc Add a bucket
-%%
 -spec(add_bucket(binary(), binary()) ->
              ok | {error, any()}).
 add_bucket(AccessKey, Bucket) ->
@@ -2171,8 +2211,7 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
     end.
 
 
-%% @doc Remove a bucket
-%%
+%% @doc Remove a bucket from storage-cluster and manager
 -spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
 delete_bucket(AccessKey, Bucket) ->
@@ -2242,7 +2281,6 @@ update_bucket(BucketName) ->
 
 
 %% @doc Update permission by access-key-id
-%%
 -spec(update_acl(string(), binary(), binary()) ->
              ok | {error, any()}).
 update_acl(?CANNED_ACL_PRIVATE = Permission, AccessKey, Bucket) ->
@@ -2309,7 +2347,6 @@ rpc_call_for_gateway(Method, Args) ->
 
 
 %% @doc Join a cluster (MDC-Replication)
-%%
 -spec(join_cluster([atom()], #?SYSTEM_CONF{}) ->
              {ok, #?SYSTEM_CONF{}} | {error, any()}).
 join_cluster(RemoteManagerNodes,
@@ -2347,7 +2384,6 @@ join_cluster(RemoteManagerNodes,
 
 
 %% @doc Synchronize mdc-related tables
-%%
 -spec(sync_mdc_tables(atom(), [atom()]) ->
              ok).
 sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
@@ -2371,7 +2407,6 @@ sync_mdc_tables(ClusterId, RemoteManagerNodes) ->
 
 
 %% @doc Update cluster members for MDC-replication
-%%
 -spec(update_cluster_manager([atom()], atom()) ->
              ok | {error, any()}).
 update_cluster_manager([],_ClusterId) ->
@@ -2388,7 +2423,6 @@ update_cluster_manager([Node|Rest], ClusterId) ->
 
 
 %% @doc Remove a cluster (MDC-Replication)
-%%
 -spec(remove_cluster(#?SYSTEM_CONF{}) ->
              {ok, #?SYSTEM_CONF{}} | {error, any()}).
 remove_cluster(#?SYSTEM_CONF{cluster_id = ClusterId}) ->
@@ -2432,3 +2466,67 @@ is_allow_to_distribute_command(Node) ->
         _ ->
             {false, []}
     end.
+
+
+%% @doc Execute a function of a remote node (Gateway/Storage)
+%% @private
+call_remote_node_fun(NodeStr, Method, Args) ->
+    case leo_redundant_manager_api:get_members() of
+        {ok, Members} ->
+            call_remote_node_fun(Members, NodeStr, Method, Args);
+        Error ->
+            Error
+    end.
+
+%% @private
+call_remote_node_fun([], NodeStr, Method, Args) ->
+    case leo_manager_mnesia:get_gateway_nodes_all() of
+        {ok, Members_2} ->
+            call_remote_node_fun_1(Members_2, NodeStr, Method, Args);
+        _ ->
+            {error, ?ERROR_NODE_NOT_EXISTS}
+    end;
+call_remote_node_fun([#member{node = Node}|Rest], NodeStr, Method, Args) ->
+    case atom_to_list(Node) of
+        NodeStr ->
+            case leo_redundant_manager_api:get_member_by_node(Node) of
+                {ok, #member{state = ?STATE_RUNNING}} ->
+                    case rpc:call(Node, ?API_STORAGE,
+                                  Method, Args, ?DEF_TIMEOUT) of
+                        ok ->
+                            ok;
+                        {_, Cause} ->
+                            ?error("call_remote_node_fun/4", [{cause, Cause}]),
+                            {error, ?ERROR_FAILED_UPDATE_LOG_LEVEL};
+                        timeout = Cause ->
+                            {error, Cause}
+                    end;
+                _ ->
+                    {error, ?ERROR_TARGET_NODE_NOT_RUNNING}
+            end;
+        _ ->
+            call_remote_node_fun(Rest, NodeStr, Method, Args)
+    end.
+
+%% @private
+call_remote_node_fun_1([],_NodeStr,_Method,_Args) ->
+    {error, ?ERROR_NODE_NOT_EXISTS};
+call_remote_node_fun_1([#node_state{node = Node,
+                                    state = ?STATE_RUNNING}|Rest], NodeStr, Method, Args) ->
+    case atom_to_list(Node) of
+        NodeStr ->
+            case rpc:call(Node, ?API_GATEWAY,
+                          Method, Args, ?DEF_TIMEOUT) of
+                ok ->
+                    ok;
+                {_, Cause} ->
+                    ?error("call_remote_node_fun_1/4", [{cause, Cause}]),
+                    {error, ?ERROR_FAILED_UPDATE_LOG_LEVEL};
+                timeout = Cause ->
+                    {error, Cause}
+            end;
+        _ ->
+            call_remote_node_fun_1(Rest, NodeStr, Method, Args)
+    end;
+call_remote_node_fun_1([_|Rest], NodeStr, Method, Args) ->
+    call_remote_node_fun_1(Rest, NodeStr, Method, Args).

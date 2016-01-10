@@ -22,13 +22,13 @@
 -record(tcp_server_params, {
           prefix_of_name = "tcp_server_" :: string(),
           listen = [binary, {packet, line}, {active, false}, {reuseaddr, true}],
-          port = 10010 :: integer(),
-          num_of_listeners = 3 :: integer(),
-          restart_times = 3 :: integer(),
-          time = 60 :: integer(),
-          shutdown = 2000 :: integer(),
+          port = 10010 :: pos_integer(),
+          num_of_listeners = 3 :: pos_integer(),
+          restart_times = 3 :: pos_integer(),
+          time = 60 :: pos_integer(),
+          shutdown = 2000  :: pos_integer(),
           accept_timeout = infinity,
-          accept_error_sleep_time = 3000 :: integer(),
-          recv_length = 0 :: integer(),
+          accept_error_sleep_time = 3000 :: pos_integer(),
+          recv_length = 0 :: non_neg_integer(),
           recv_timeout = infinity
          }).

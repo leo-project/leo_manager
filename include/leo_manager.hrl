@@ -28,14 +28,14 @@
 -define(RETRY_TIMES, 5).
 
 -ifdef(TEST).
--define(DEF_TIMEOUT, 1000). %% 1sec
--define(DEF_MONITOR_INTERVAL, 3000). %% 3sec
--define(DEF_PROC_INTERVAL, 100). %% 100ms
+-define(DEF_TIMEOUT, 1000).           %% 1sec
+-define(DEF_MONITOR_INTERVAL, 3000).  %% 3sec
+-define(DEF_PROC_INTERVAL, 100).      %% 100ms
 -define(DEF_RING_SYNC_INTERVAL, 100). %% 100ms
 -else.
--define(DEF_TIMEOUT, 120000). %% 120sec
--define(DEF_MONITOR_INTERVAL, 20000). %%  20sec
--define(DEF_PROC_INTERVAL, 250). %% 250ms
+-define(DEF_TIMEOUT, 120000).           %% 120sec
+-define(DEF_MONITOR_INTERVAL, 20000).   %%  20sec
+-define(DEF_PROC_INTERVAL, 250).        %% 250ms
 -define(DEF_RING_SYNC_INTERVAL, 10000). %%  10sec
 -endif.
 
@@ -86,6 +86,7 @@
 -define(CMD_QUIT, "quit").
 -define(CMD_VERSION, "version").
 -define(CMD_STATUS, "status").
+
 %% For S3-API
 -define(CMD_CREATE_USER, "create-user").
 -define(CMD_UPDATE_USER_ROLE, "update-user-role").
@@ -103,6 +104,7 @@
 -define(CMD_DELETE_BUCKET, "delete-bucket").
 -define(CMD_CHANGE_BUCKET_OWNER, "chown-bucket").
 -define(CMD_UPDATE_ACL, "update-acl").
+
 %% For Storage
 -define(CMD_ATTACH, "attach").
 -define(CMD_DETACH, "detach").
@@ -124,6 +126,7 @@
 -define(CMD_EC_ADD_PROFILE, "add-erasure-code-profile").
 -define(CMD_EC_UPDATE_PROFILE, "update-erasure-code-profile").
 -define(CMD_EC_DEL_PROFILE, "delete-erasure-code-profile").
+
 %% For Gateway
 -define(CMD_PURGE, "purge").
 -define(CMD_REMOVE, "remove").
@@ -134,6 +137,8 @@
 -define(CMD_RECOVER, "recover").
 -define(CMD_HISTORY, "history").
 -define(CMD_DUMP_RING, "dump-ring").
+-define(CMD_UPDATE_LOG_LEVEL, "update-log-level").
+-define(CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level").
 -define(CMD_UPDATE_PROP, "update-property").
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER, "join-cluster").
@@ -266,6 +271,7 @@
 -define(ERROR_COULD_NOT_ROLLBACK, "Could not rollback the node").
 -define(ERROR_COULD_NOT_UPDATE_NODE, "Could not update state of a node").
 -define(ERROR_COULD_NOT_UPDATE_MANAGER, "Could not update manager(s)").
+-define(ERROR_COULD_NOT_UPDATE_CONF, "Could not update the system conf").
 -define(ERROR_COULD_NOT_CREATE_RING, "Could not create RING").
 -define(ERROR_MNESIA_PROC_FAILURE, "Mnesia processing failure").
 -define(ERROR_NOT_SPECIFIED_COMMAND, "Command not exist").
@@ -302,6 +308,7 @@
 -define(ERROR_COULD_NOT_GET_CLUSTER_INFO,"Could not get cluster info").
 -define(ERROR_OVER_MAX_CLUSTERS, "Over max number of clusters").
 -define(ERROR_UPDATED_SYSTEM_CONF, "Updated the system configuration").
+-define(ERROR_FAILED_UPDATE_LOG_LEVEL, "Failed to update the log-level").
 
 %% type of console
 -define(CONSOLE_CUI, 'cui').
@@ -344,7 +351,7 @@
 -define(AUTH_USERID_1, 1).
 -define(AUTH_USERID_2, 2).
 -define(AUTH_PASSWORD, 3).
--define(AUTH_DONE,     5).
+-define(AUTH_DONE, 5).
 -type(auth() :: ?AUTH_NOT_YET  |
                 ?AUTH_USERID_1 |
                 ?AUTH_USERID_2 |
