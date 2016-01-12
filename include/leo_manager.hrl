@@ -135,11 +135,11 @@
 -define(CMD_UPDATE_MANAGERS, "update-managers").
 %% For Maintenance
 -define(CMD_RECOVER, "recover").
--define(CMD_HISTORY, "history").
 -define(CMD_DUMP_RING, "dump-ring").
 -define(CMD_UPDATE_LOG_LEVEL, "update-log-level").
 -define(CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level").
 -define(CMD_UPDATE_PROP, "update-property").
+-define(CMD_GEN_NFS_MNT_KEY, "gen-nfs-mnt-key").
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER, "join-cluster").
 -define(CMD_REMOVE_CLUSTER, "remove-cluster").
@@ -154,8 +154,9 @@
                    {?CMD_QUIT, "quit"},
                    {?CMD_VERSION, "version"},
                    {?CMD_STATUS,  "status [<storage-node>|<gateway-node>]"},
-                   {?CMD_HISTORY, "history"},
                    {?CMD_DUMP_RING, "dump-ring <manager-node>|<storage-node>|<gateway-node>"},
+                   {?CMD_UPDATE_LOG_LEVEL, "update-log-level (<storage-node>|<gateway-node>) (debug|info|warn|error)"},
+                   {?CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level (<storage-node>|<gateway-node>) <write-quorum> <read-quorum> <delete-quorum>"},
                    %% for Cluster
                    {?CMD_WHEREIS, "whereis <path>"},
                    {?CMD_RECOVER, lists:append(
@@ -213,6 +214,7 @@
                    {?CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket <access-key-id>"},
                    {?CMD_CHANGE_BUCKET_OWNER, "chown-bucket <bucket> <new-access-key-id>"},
                    {?CMD_SET_RED_METHOD, "set-redundancy-method <bucket> <access-key-id> <redundancy-method>"},
+                   {?CMD_GEN_NFS_MNT_KEY, "gen-nfs-mnt-key <bucket> <access-key-id> <client-ip-address>"},
                    %% - acl-related
                    {?CMD_UPDATE_ACL, "update-acl <bucket> <access-key-id> private|public-read|public-read-write"},
                    %% - multi-dc replication

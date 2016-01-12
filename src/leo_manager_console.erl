@@ -662,20 +662,21 @@ handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>> = Command,
     {reply, Reply, State};
 
 
-%% Command: "history"
-handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case leo_manager_mnesia:get_histories() of
-                      {ok, Histories} ->
-                          Formatter:histories(Histories);
-                      not_found ->
-                          Formatter:histories([]);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_HISTORY, Formatter, Fun),
-    {reply, Reply, State};
+%% @deplicated
+%% %% Command: "history"
+%% handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
+%%     Fun = fun() ->
+%%                   case leo_manager_mnesia:get_histories() of
+%%                       {ok, Histories} ->
+%%                           Formatter:histories(Histories);
+%%                       not_found ->
+%%                           Formatter:histories([]);
+%%                       {error, Cause} ->
+%%                           Formatter:error(Cause)
+%%                   end
+%%           end,
+%%     Reply = invoke(?CMD_HISTORY, Formatter, Fun),
+%%     {reply, Reply, State};
 
 
 %% Command: "dump-ring ${NODE}"
@@ -719,6 +720,20 @@ handle_call(_Socket, <<?CMD_UPDATE_CONSISTENCY_LEVEL, ?SPACE, Option/binary>> = 
                   end
           end,
     Reply = invoke(?CMD_UPDATE_LOG_LEVEL, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "update-consistency-level ${NODE} ${WRITE_QUORUM} ${READ_QUORUM} ${DELETE_QUORUM}"
+handle_call(_Socket, <<?CMD_GEN_NFS_MNT_KEY, ?SPACE, Option/binary>> = Command,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case gen_nfs_mnt_key(Command, Option) of
+                      {ok, Key} ->
+                          Formatter:nfs_mnt_key(Key);
+                      {error,_Cause} ->
+                          Formatter:error(?ERROR_INVALID_ARGS)
+                  end
+          end,
+    Reply = invoke(?CMD_GEN_NFS_MNT_KEY, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -830,8 +845,7 @@ start(Socket, Command, Formatter) ->
 
 %% @doc Execute the rebalance
 %% @private
-rebalance(Socket, Command, Formatter) ->
-    _ = leo_manager_mnesia:insert_history(Command),
+rebalance(Socket,_Command, Formatter) ->
     Socket_1 = case Formatter of
                    ?MOD_TEXT_FORMATTER -> Socket;
                    _ -> null
@@ -866,8 +880,7 @@ rebalance(Socket, Command, Formatter) ->
 %% $ leofs-adm update-property watchdog.cluster_interval <integer>
 %% </p>
 %% @private
-update_property(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+update_property(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_COMMAND) of
         {ok, [Node, PropertyName, PropertyValue|_]} ->
             update_property_1(Node, PropertyName, PropertyValue);
@@ -1013,8 +1026,7 @@ update_property_2(Node, Method, Args) ->
 %% @private
 -spec(backup_mnesia(binary(), binary()) ->
              ok | {error, any()}).
-backup_mnesia(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+backup_mnesia(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, [BackupFile|_]} ->
             leo_manager_mnesia:backup(BackupFile);
@@ -1027,8 +1039,7 @@ backup_mnesia(CmdBody, Option) ->
 %% @private
 -spec(restore_mnesia(binary(), binary()) ->
              ok | {error, any()}).
-restore_mnesia(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+restore_mnesia(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, [BackupFile|_]} ->
             leo_manager_mnesia:restore(BackupFile);
@@ -1041,8 +1052,7 @@ restore_mnesia(CmdBody, Option) ->
 %% @private
 -spec(update_manager_nodes(binary(), binary()) ->
              ok | {error, any()}).
-update_manager_nodes(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+update_manager_nodes(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, [Master, Slave|_]} ->
             leo_manager_api:update_manager_nodes(
@@ -1054,8 +1064,7 @@ update_manager_nodes(CmdBody, Option) ->
 
 %% @doc Output ring of a targe node
 %% @private
-dump_ring(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+dump_ring(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, [Node|_]} ->
             rpc:call(list_to_atom(Node),
@@ -1067,8 +1076,7 @@ dump_ring(CmdBody, Option) ->
 
 %% @doc Updaet a log level of a node
 %% @private
-update_log_level(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+update_log_level(_CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [Node, LogLevel|_] ->
             {CanSendMsg, LogLevel_1} =
@@ -1097,8 +1105,7 @@ update_log_level(CmdBody, Option) ->
 
 %% @doc Update a consistency level of a node
 %% @private
-update_consistency_level(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+update_consistency_level(_CmdBody, Option) ->
     case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
         [WStr, RStr, DStr|_] ->
             Ret = case catch list_to_integer(WStr) of
@@ -1138,11 +1145,21 @@ update_consistency_level_1({ok, {W, R, D} = ConsistencyLevel}) ->
     end.
 
 
+%% @private
+gen_nfs_mnt_key(_Command, Option) ->
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, AccessKey, IP|_] ->
+            leo_s3_bucket:gen_nfs_mnt_key(list_to_binary(Bucket),
+                                          list_to_binary(AccessKey),
+                                          list_to_binary(IP));
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
 %% @doc Join a cluster
 %% @private
-join_cluster(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
-
+join_cluster(_CmdBody, Option) ->
     case leo_cluster_tbl_conf:get() of
         {ok, #?SYSTEM_CONF{max_mdc_targets = MaxTargets}} ->
             case leo_mdcr_tbl_cluster_stat:all() of
@@ -1241,8 +1258,7 @@ join_cluster_2([Node|Rest] = RemoteNodes) ->
 
 %% @doc Remove a cluster
 %% @private
-remove_cluster(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+remove_cluster(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, Nodes} ->
             remove_cluster_1(Nodes);
@@ -1265,8 +1281,7 @@ remove_cluster_1([Node|Rest]) ->
 
 %% @doc Retrieve cluster-statuses
 %% @private
-cluster_status(Command, Formatter) ->
-    _ = leo_manager_mnesia:insert_history(Command),
+cluster_status(_Command, Formatter) ->
     Fun = fun() ->
                   case cluster_status_1() of
                       {ok, ResL} ->
@@ -1336,8 +1351,7 @@ version() ->
 %% @private
 -spec(login(binary(), binary()) ->
              {ok, #?S3_USER{}, [tuple()]} | {error, any()}).
-login(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+login(_CmdBody, Option) ->
     case ?get_tokens(Option, invalid_args) of
         {ok, [UserId, Password]} ->
             UserIdBin = list_to_binary(UserId),
@@ -1363,7 +1377,7 @@ login(CmdBody, Option) ->
 %% @private
 -spec(status(binary(), binary()) ->
              {ok, any()} | {error, any()}).
-status(_CmdBody, Option) ->
+status(__CmdBody, Option) ->
     Tokens = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
     case (Tokens == []) of
         true ->
@@ -1451,9 +1465,7 @@ status({node_state, Node}) ->
 %% @private
 -spec(start(port()|null, binary()) ->
              ok | {error, any()}).
-start(Socket, CmdBody) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
-
+start(Socket, _CmdBody) ->
     case leo_manager_mnesia:get_storage_nodes_all() of
         {ok, _} ->
             case leo_manager_api:get_system_status() of
@@ -1483,8 +1495,7 @@ start(Socket, CmdBody) ->
 %% @private
 -spec(detach(binary(), binary()) ->
              ok | {error, {atom(), string()}} | {error, any()}).
-detach(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+detach(_CmdBody, Option) ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
 
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
@@ -1578,8 +1589,7 @@ allow_to_detach_node_2(N, NodeAtom) ->
 %% @private
 -spec(suspend(binary(), binary()) ->
              ok | {error, any()}).
-suspend(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+suspend(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, [Node|_]} ->
             NodeAtom = list_to_atom(Node),
@@ -1598,8 +1608,7 @@ suspend(CmdBody, Option) ->
 %% @private
 -spec(resume(binary(), binary()) ->
              ok | {error, any()}).
-resume(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+resume(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, [Node|_]} ->
             NodeAtom = list_to_atom(Node),
@@ -1624,8 +1633,7 @@ resume(CmdBody, Option) ->
 %% @private
 -spec(rollback(binary(), binary()) ->
              ok | {error, any()}).
-rollback(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+rollback(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, [Node|_]} ->
             NodeAtom = list_to_atom(Node),
@@ -1646,8 +1654,7 @@ rollback(CmdBody, Option) ->
 %% @private
 -spec(purge(binary(), binary()) ->
              ok | {error, any()}).
-purge(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+purge(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
         {ok, [Key|_]} ->
             leo_manager_api:purge(Key);
@@ -1660,8 +1667,7 @@ purge(CmdBody, Option) ->
 %% @private
 -spec(remove(binary(), binary()) ->
              ok | {error, any()}).
-remove(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+remove(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
         {ok, [Node|_]} ->
             leo_manager_api:remove(Node);
@@ -1674,8 +1680,7 @@ remove(CmdBody, Option) ->
 %% @private
 -spec(du(binary(), binary()) ->
              ok | {error, any()}).
-du(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+du(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
         {ok, Tokens} ->
             Mode = case length(Tokens) of
@@ -1711,8 +1716,7 @@ du(CmdBody, Option) ->
 %% @private
 -spec(compact(binary(), binary()) ->
              ok | {ok,_} | {error, any()}).
-compact(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+compact(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
         {ok, [Mode, Node|Rest]} ->
             %% command patterns:
@@ -1770,8 +1774,7 @@ compact(_,_,_,_) ->
 
 
 %% @doc Execute data-diagnosis
-diagnose_data(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+diagnose_data(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
         {ok, [Node|_]} ->
             leo_manager_api:diagnose_data(list_to_atom(Node));
@@ -1781,8 +1784,7 @@ diagnose_data(CmdBody, Option) ->
 
 
 %% @doc Execute data-diagnosis
-mq_stats(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+mq_stats(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
         {ok, [Node|_]} ->
             leo_manager_api:mq_stats(list_to_atom(Node));
@@ -1792,8 +1794,7 @@ mq_stats(CmdBody, Option) ->
 
 
 %% @doc Execute data-diagnosis
-mq_suspend(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+mq_suspend(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
         {ok, [Node, MQId|_]} ->
             leo_manager_api:mq_suspend(
@@ -1804,8 +1805,7 @@ mq_suspend(CmdBody, Option) ->
 
 
 %% @doc Execute data-diagnosis
-mq_resume(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+mq_resume(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
         {ok, [Node, MQId|_]} ->
             leo_manager_api:mq_resume(
@@ -1821,8 +1821,7 @@ mq_resume(CmdBody, Option) ->
 %% @private
 -spec(whereis(binary(), binary()) ->
              ok | {error, any()}).
-whereis(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+whereis(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
         {ok, [Key|_]}->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
@@ -1854,8 +1853,7 @@ escape_large_obj_sep(SrcKey) ->
 %% @private
 -spec(recover(pid(),binary(), binary()) ->
              ok | {error, any()}).
-recover(Socket, CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+recover(Socket, _CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
         {ok, [?RECOVER_DIR]} ->
             leo_manager_api:rebuild_dir_metadata(Socket, []);
@@ -1878,8 +1876,7 @@ recover(Socket, CmdBody, Option) ->
 %% @private
 -spec(create_user(binary(), binary()) ->
              {ok, [tuple()]} | {error, any()}).
-create_user(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+create_user(_CmdBody, Option) ->
     Ret = case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
               {ok, [UserId]} ->
                   {ok, {list_to_binary(UserId), <<>>}};
@@ -1921,8 +1918,7 @@ create_user(CmdBody, Option) ->
 %% @private
 -spec(update_user_role(binary(), binary()) ->
              ok | {error, any()}).
-update_user_role(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+update_user_role(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [UserId, RoleId|_]} ->
             case leo_s3_user:update(#?S3_USER{id       = list_to_binary(UserId),
@@ -1944,8 +1940,7 @@ update_user_role(CmdBody, Option) ->
 %% @private
 -spec(update_user_password(binary(), binary()) ->
              ok | {error, any()}).
-update_user_password(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+update_user_password(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [UserId, Password|_]} ->
             UserIdBin   = list_to_binary(UserId),
@@ -1971,8 +1966,7 @@ update_user_password(CmdBody, Option) ->
 %% @private
 -spec(delete_user(binary(), binary()) ->
              ok | {error, any()}).
-delete_user(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+delete_user(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [UserId|_]} ->
             case leo_s3_user:delete(list_to_binary(UserId)) of
@@ -1988,8 +1982,7 @@ delete_user(CmdBody, Option) ->
 
 %% @doc Retrieve Users
 %% @private
-get_users(Command, Formatter) ->
-    _ = leo_manager_mnesia:insert_history(Command),
+get_users(_Command, Formatter) ->
     Fun = fun() ->
                   case get_users_1() of
                       {ok, List} ->
@@ -2019,8 +2012,7 @@ get_users_1() ->
 %% @private
 -spec(set_endpoint(binary(), binary()) ->
              ok | {error, any()}).
-set_endpoint(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+set_endpoint(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [EndPoint|_]} ->
             EndPointBin = list_to_binary(EndPoint),
@@ -2032,8 +2024,7 @@ set_endpoint(CmdBody, Option) ->
 
 %% @doc Retrieve an Endpoint from the manager
 %% @private
-get_endpoints(Command, Formatter) ->
-    _ = leo_manager_mnesia:insert_history(Command),
+get_endpoints(_Command, Formatter) ->
     Fun = fun() ->
                   case get_endpoints_1() of
                       {ok, EndPoints} ->
@@ -2062,8 +2053,7 @@ get_endpoints_1() ->
 %% @private
 -spec(delete_endpoint(binary(), binary()) ->
              ok | {error, any()}).
-delete_endpoint(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+delete_endpoint(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [EndPoint|_]} ->
             EndPointBin = list_to_binary(EndPoint),
@@ -2077,8 +2067,7 @@ delete_endpoint(CmdBody, Option) ->
 %% @private
 -spec(add_bucket(binary(), binary()) ->
              ok | {error, any()}).
-add_bucket(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+add_bucket(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [Bucket, AccessKey]} ->
             BucketBin = list_to_binary(Bucket),
@@ -2095,8 +2084,7 @@ add_bucket(CmdBody, Option) ->
 %% @private
 -spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
-delete_bucket(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+delete_bucket(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [Bucket, AccessKey]} ->
             BucketBin = list_to_binary(Bucket),
@@ -2111,8 +2099,7 @@ delete_bucket(CmdBody, Option) ->
 
 %% @doc Retrieve a Buckets from the manager
 %% @private
-get_buckets(Command, Formatter) ->
-    _ = leo_manager_mnesia:insert_history(Command),
+get_buckets(_Command, Formatter) ->
     Fun = fun() ->
                   case get_buckets_1() of
                       {ok, Buckets} ->
@@ -2140,8 +2127,7 @@ get_buckets_1() ->
 %% @private
 -spec(get_bucket_by_access_key(binary(), binary()) ->
              ok | {error, any()}).
-get_bucket_by_access_key(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+get_bucket_by_access_key(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [AccessKey|_]} ->
             leo_s3_bucket:find_buckets_by_id(list_to_binary(AccessKey));
@@ -2154,8 +2140,7 @@ get_bucket_by_access_key(CmdBody, Option) ->
 %% @private
 -spec(change_bucket_owner(binary(), binary()) ->
              ok | {error, any()}).
-change_bucket_owner(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+change_bucket_owner(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [Bucket, NewAccessKeyId]} ->
             case leo_s3_bucket:change_bucket_owner(
@@ -2175,8 +2160,7 @@ change_bucket_owner(CmdBody, Option) ->
     end.
 
 %% #doc Set redundancy method of a bucket
-set_redundancy_method(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+set_redundancy_method(_CmdBody, Option) ->
     Ret = case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
               {ok, [Bucket, AccessKeyId, ?RED_METHOD_STR_COPY = RedMethod]} ->
                   {ok, [Bucket, AccessKeyId, RedMethod, "0", "0"]};
@@ -2223,8 +2207,7 @@ set_redundancy_method(CmdBody, Option) ->
 %% @private
 -spec(update_acl(binary(), binary()) ->
              ok | {error, any()}).
-update_acl(CmdBody, Option) ->
-    _ = leo_manager_mnesia:insert_history(CmdBody),
+update_acl(_CmdBody, Option) ->
     case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
         {ok, [Bucket, AccessKey, Permission]} ->
             BucketBin = list_to_binary(Bucket),

@@ -37,7 +37,8 @@
          credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
          acls/1, cluster_status/1,
-         whereis/1, histories/1,
+         whereis/1, nfs_mnt_key/1,
+         histories/1,
          authorized/0, user_id/0, password/0
         ]).
 
@@ -77,23 +78,37 @@ help(PluginMod) ->
                                 [?CMD_DETACH,
                                  ?CMD_SUSPEND,
                                  ?CMD_RESUME,
-                                 ?CMD_START,
                                  ?CMD_ROLLBACK,
+                                 ?CMD_START,
                                  ?CMD_REBALANCE,
                                  ?CMD_WHEREIS,
-                                 ?CMD_RECOVER], []),
+                                 ?CMD_RECOVER
+                                ], []),
+                           help("[MQ-related commands]\r\n",
+                                [?CMD_MQ_STATS,
+                                 ?CMD_MQ_SUSPEND,
+                                 ?CMD_MQ_RESUME
+                                ], []),
                            help("[Storage Maintenance]\r\n",
                                 [?CMD_DU,
-                                 ?CMD_COMPACT], []),
+                                 ?CMD_COMPACT,
+                                 ?CMD_RECOVER
+                                ], []),
                            help("[Gateway Maintenance]\r\n",
                                 [?CMD_PURGE,
-                                 ?CMD_REMOVE], []),
+                                 ?CMD_REMOVE
+                                ], []),
                            help("[Watchdog Operation]\r\n",
-                                [?CMD_UPDATE_PROP], []),
+                                [?CMD_UPDATE_PROP
+                                ], []),
                            help("[Manager Maintenance]\r\n",
                                 [?CMD_UPDATE_MANAGERS,
                                  ?CMD_BACKUP_MNESIA,
-                                 ?CMD_RESTORE_MNESIA], []),
+                                 ?CMD_RESTORE_MNESIA,
+                                 ?CMD_DUMP_RING,
+                                 ?CMD_UPDATE_LOG_LEVEL,
+                                 ?CMD_UPDATE_CONSISTENCY_LEVEL
+                                ], []),
                            help("[S3-related Maintenance]\r\n",
                                 [?CMD_CREATE_USER,
                                  ?CMD_DELETE_USER,
@@ -108,6 +123,7 @@ help(PluginMod) ->
                                  ?CMD_GET_BUCKETS,
                                  ?CMD_GET_BUCKET_BY_ACCESS_KEY,
                                  ?CMD_CHANGE_BUCKET_OWNER,
+                                 ?CMD_SET_RED_METHOD,
                                  ?CMD_UPDATE_ACL], []),
                            help("[Multi-DC Replication]\r\n",
                                 [?CMD_JOIN_CLUSTER,
@@ -122,7 +138,6 @@ help(PluginMod) ->
     Help_3 = lists:append([help("[Misc]\r\n",
                                 [?CMD_VERSION,
                                  ?CMD_STATUS,
-                                 ?CMD_HISTORY,
                                  ?CMD_DUMP_RING,
                                  ?CMD_QUIT], [])]),
     lists:append([Help_1, Help_2, Help_3]).
@@ -1256,6 +1271,11 @@ whereis(AssignedInfo) ->
                    List ++ [Ret]
            end,
     lists:foldl(Fun3, [Header_1, Header_2, Header_1], AssignedInfo) ++ ?CRLF.
+
+
+%% @doc Format a NFS mount key
+nfs_mnt_key(Key) ->
+    io_lib:format("~s\r\n", [Key]).
 
 
 %% @doc Format a history list
