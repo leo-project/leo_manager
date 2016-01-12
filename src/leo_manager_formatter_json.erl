@@ -37,7 +37,8 @@
          credential/2, users/1, endpoints/1,
          buckets/1, bucket_by_access_key/1,
          acls/1, cluster_status/1,
-         whereis/1, histories/1,
+         whereis/1, nfs_mnt_key/1,
+         histories/1,
          authorized/0, user_id/0, password/0
         ]).
 
@@ -638,6 +639,11 @@ whereis(AssignedInfo) ->
                               ]}
                      end, AssignedInfo),
     gen_json({[{<<"assigned_info">>, JSON}]}).
+
+
+%% @doc Format a NFS mount key
+nfs_mnt_key(Key) ->
+    gen_json({[{nfs_mnt_key, list_to_binary(Key)}]}).
 
 
 %% @doc Format a history list
