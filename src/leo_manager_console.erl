@@ -722,7 +722,7 @@ handle_call(_Socket, <<?CMD_UPDATE_CONSISTENCY_LEVEL, ?SPACE, Option/binary>> = 
     Reply = invoke(?CMD_UPDATE_LOG_LEVEL, Formatter, Fun),
     {reply, Reply, State};
 
-%% Command: "update-consistency-level ${NODE} ${WRITE_QUORUM} ${READ_QUORUM} ${DELETE_QUORUM}"
+%% Command: "gen-nfs-mnt-key ${BUCKET} ${ACCESS-KEY-ID} ${IP-ADDRESS}"
 handle_call(_Socket, <<?CMD_GEN_NFS_MNT_KEY, ?SPACE, Option/binary>> = Command,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
