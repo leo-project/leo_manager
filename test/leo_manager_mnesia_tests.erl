@@ -54,9 +54,7 @@ all_(_) ->
     ok = leo_manager_mnesia:create_storage_nodes(ram_copies, [node()]),
     ok = leo_manager_mnesia:create_gateway_nodes(ram_copies, [node()]),
     ok = leo_manager_mnesia:create_rebalance_info(ram_copies, [node()]),
-    ok = leo_manager_mnesia:create_histories(ram_copies, [node()]),
     ok = leo_manager_mnesia:create_available_commands(ram_copies, [node()]),
-    ok = leo_manager_mnesia:create_erasure_code_profiles(ram_copies, [node()]),
     ok = leo_s3_auth:create_table(ram_copies, [node()]),
     ok = leo_s3_bucket:create_table(ram_copies, [node()]),
     ok = leo_s3_endpoint:create_table(ram_copies, [node()]),
@@ -73,8 +71,6 @@ all_(_) ->
     not_found = leo_manager_mnesia:get_gateway_node_by_name(node()),
     not_found = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_rebalance_info_by_node(node()),
-    not_found = leo_manager_mnesia:get_erasure_code_profiles(),
-    not_found = leo_manager_mnesia:get_erasure_code_profile("RAID5"),
 
     %%
     %% put/get
@@ -91,12 +87,12 @@ all_(_) ->
 
     ok = leo_manager_mnesia:update_storage_node_status(update, NodeState0),
     {ok, Res1} = leo_manager_mnesia:get_storage_nodes_all(),
-    ?assertEqual([#node_state{node  = Node0,
+    ?assertEqual([#node_state{node = Node0,
                               state = undefined,
                               ring_hash_new = "-1",
                               ring_hash_old = "-1",
-                              when_is       = 0,
-                              error         = 0}], Res1),
+                              when_is = 0,
+                              error = 0}], Res1),
 
     ok = leo_manager_mnesia:update_storage_node_status(keep_state, NodeState0),
     {ok, Res2} = leo_manager_mnesia:get_storage_nodes_all(),
@@ -129,15 +125,15 @@ all_(_) ->
                               state = State1,
                               ring_hash_new = "-1",
                               ring_hash_old = "-1",
-                              when_is       = 0,
-                              error         = 0}], Res6),
+                              when_is = 0,
+                              error = 0}], Res6),
 
     %% rebalance-info
-    RebalanceInfo = #rebalance_info{vnode_id         = 255,
-                                    node             = Node1,
+    RebalanceInfo = #rebalance_info{vnode_id = 255,
+                                    node = Node1,
                                     total_of_objects = 128,
-                                    num_of_remains   = 64,
-                                    when_is          = 0},
+                                    num_of_remains = 64,
+                                    when_is = 0},
     ok = leo_manager_mnesia:update_rebalance_info(RebalanceInfo),
     {ok, [Res7|_]} = leo_manager_mnesia:get_rebalance_info_all(),
     ?assertEqual(RebalanceInfo, Res7),
@@ -145,16 +141,6 @@ all_(_) ->
     {ok, [Res8|_]} = leo_manager_mnesia:get_rebalance_info_by_node(Node1),
     ?assertEqual(RebalanceInfo, Res8),
     not_found = leo_manager_mnesia:get_rebalance_info_by_node(Node0),
-
-    %% erasure-code profiles
-    [ok = leo_manager_mnesia:update_erasure_code_profile(ECProf)
-     || ECProf <- ?DEF_ERASURE_CODE_PROFILES],
-
-    {ok, ECProfL_1} = leo_manager_mnesia:get_erasure_code_profiles(),
-    ?assertEqual(8, length(ECProfL_1)),
-    {ok, ECProf} = leo_manager_mnesia:get_erasure_code_profile("RAID5"),
-    ?assertEqual(#erasure_code_profile{id = 1, name = "RAID5", k = 3,  m = 1, method = 'vandrs'},
-                 ECProf),
 
     %%
     %% delete
@@ -171,12 +157,6 @@ all_(_) ->
     {ok, Res6} = leo_manager_mnesia:get_gateway_nodes_all(),
     {ok, [Res7|_]} = leo_manager_mnesia:get_rebalance_info_all(),
     not_found = leo_manager_mnesia:get_storage_nodes_all(),
-
-    %% erasure-code profile
-    ok = leo_manager_mnesia:delete_erasure_code_profile("RAID5"),
-    {ok, ECProfL_2} = leo_manager_mnesia:get_erasure_code_profiles(),
-    ?assertEqual(7, length(ECProfL_2)),
-    not_found =leo_manager_mnesia:get_erasure_code_profile("RAID5"),
     ok.
 
 -endif.

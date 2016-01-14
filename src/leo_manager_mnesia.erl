@@ -32,9 +32,7 @@
 -export([create_storage_nodes/2,
          create_gateway_nodes/2,
          create_rebalance_info/2,
-         create_histories/2,
          create_available_commands/2,
-         create_erasure_code_profiles/2,
 
          get_storage_nodes_all/0,
          get_storage_node_by_name/1,
@@ -43,26 +41,18 @@
          get_gateway_node_by_name/1,
          get_rebalance_info_all/0,
          get_rebalance_info_by_node/1,
-         get_histories_all/0,
-         get_histories/0,
-         get_histories/1,
          get_available_commands_all/0,
          get_available_command_by_name/1,
-         get_erasure_code_profiles/0,
-         get_erasure_code_profile/1,
 
          update_storage_node_status/1,
          update_storage_node_status/2,
          update_gateway_node/1,
          update_rebalance_info/1,
-         update_erasure_code_profile/1,
 
-         insert_history/1,
          insert_available_command/2,
 
          delete_storage_node/1,
          delete_gateway_node/1,
-         delete_erasure_code_profile/1,
 
          delete_all/0,
          backup/1,
@@ -76,7 +66,6 @@
 %% Create Table
 %%-----------------------------------------------------------------------
 %% @doc Create storage-nodes table
-%%
 -spec(create_storage_nodes(atom(), list()) ->
              ok | {error, any()}).
 create_storage_nodes(Mode, Nodes) ->
@@ -103,7 +92,6 @@ create_storage_nodes(Mode, Nodes) ->
 
 
 %% @doc Create gateway-nodes table
-%%
 -spec(create_gateway_nodes(atom(), list()) ->
              ok | {error, any()}).
 create_gateway_nodes(Mode, Nodes) ->
@@ -130,7 +118,6 @@ create_gateway_nodes(Mode, Nodes) ->
 
 
 %% @doc Create rebalance-info table
-%%
 -spec(create_rebalance_info(atom(), list()) ->
              ok | {error, any()}).
 create_rebalance_info(Mode, Nodes) ->
@@ -146,29 +133,6 @@ create_rebalance_info(Mode, Nodes) ->
               {total_of_objects, {integer,   undefined},  false, undefined, undefined, undefined, integer},
               {num_of_remains,   {integer,   undefined},  false, undifined, undefined, undefined, integer},
               {when_is,          {integer,   undefined},  false, undifined, undefined, undefined, integer}
-             ]}
-           ]) of
-        {atomic, ok} ->
-            ok;
-        {aborted, Reason} ->
-            {error, Reason}
-    end.
-
-
-%% @doc Create histories table
--spec(create_histories(atom(), list()) ->
-             ok | {error, any()}).
-create_histories(Mode, Nodes) ->
-    case mnesia:create_table(
-           ?TBL_HISTORIES,
-           [{Mode, Nodes},
-            {type, set},
-            {record_name, history},
-            {attributes, record_info(fields, history)},
-            {user_properties,
-             [{id,      {integer,   undefined},  false, primary,   undefined, undefined, integer},
-              {command, {varchar,   undefined},  false, undefined, undefined, identity,  string },
-              {created, {integer,   undefined},  false, undifined, undefined, undefined, integer}
              ]}
            ]) of
         {atomic, ok} ->
@@ -201,29 +165,10 @@ create_available_commands(Mode, Nodes) ->
     end.
 
 
-%% @doc Create erasure-code profile table
--spec(create_erasure_code_profiles(atom(), list()) ->
-             ok | {error, any()}).
-create_erasure_code_profiles(Mode, Nodes) ->
-    case mnesia:create_table(
-           ?TBL_EC_PROFILES,
-           [{Mode, Nodes},
-            {type, set},
-            {record_name, erasure_code_profile},
-            {attributes, record_info(fields, erasure_code_profile)}
-           ]) of
-        {atomic, ok} ->
-            ok;
-        {aborted, Reason} ->
-            {error, Reason}
-    end.
-
-
 %%-----------------------------------------------------------------------
 %% GET
 %%-----------------------------------------------------------------------
 %% @doc Retrieve all storage nodes
-%%
 -spec(get_storage_nodes_all() ->
              {ok, [#node_state{}]} | not_found | {error, any()}).
 get_storage_nodes_all() ->
@@ -243,7 +188,6 @@ get_storage_nodes_all() ->
 
 
 %% @doc Retrieve a storage node by node-name
-%%
 -spec(get_storage_node_by_name(atom()) ->
              {ok, #node_state{}} | not_found | {error, any()}).
 get_storage_node_by_name(Node) ->
@@ -269,7 +213,6 @@ get_storage_node_by_name(Node) ->
 
 
 %% @doc Retrieve storage nodes by status
-%%
 -spec(get_storage_nodes_by_status(atom()) ->
              {ok, [#node_state{}]} | not_found | {error, any()}).
 get_storage_nodes_by_status(Status) ->
@@ -290,7 +233,6 @@ get_storage_nodes_by_status(Status) ->
 
 
 %% @doc Retrieve all gateway nodes
-%%
 -spec(get_gateway_nodes_all() ->
              {ok, [#node_state{}]} | not_found | {error, any()}).
 get_gateway_nodes_all() ->
@@ -310,7 +252,6 @@ get_gateway_nodes_all() ->
 
 
 %% @doc Retrieve gateway node info by node-name
-%%
 -spec(get_gateway_node_by_name(atom()) ->
              {ok, #node_state{}} | not_found | {error, any()}).
 get_gateway_node_by_name(Node) ->
@@ -336,7 +277,6 @@ get_gateway_node_by_name(Node) ->
 
 
 %% @doc Retrieve rebalance info
-%%
 -spec(get_rebalance_info_all() ->
              {ok, [#rebalance_info{}]} | not_found | {error, any()}).
 get_rebalance_info_all() ->
@@ -356,7 +296,6 @@ get_rebalance_info_all() ->
 
 
 %% @doc Retrieve rebalance info by node
-%%
 -spec(get_rebalance_info_by_node(atom()) ->
              {ok, [#rebalance_info{}]} | not_found | {error, any()}).
 get_rebalance_info_by_node(Node) ->
@@ -376,56 +315,7 @@ get_rebalance_info_by_node(Node) ->
     end.
 
 
-%% @doc Retrieve all histories
-%%
--spec(get_histories_all() ->
-             {ok, [#history{}]} | not_found | {error, any()}).
-get_histories_all() ->
-    Tbl = ?TBL_HISTORIES,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            F = fun() ->
-                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
-                        Q2 = qlc:sort(Q1, [{order, ascending}]),
-                        qlc:e(Q2)
-                end,
-            leo_mnesia:read(F)
-    end.
-
-%% @doc Retrieve histories with default
-%%
--spec(get_histories() ->
-             {ok, [#history{}]} | not_found | {error, any()}).
-get_histories() ->
-    get_histories(?env_console_num_of_histories()).
-
-%% @doc Retrieve histories with specified number
-%%
--spec(get_histories(pos_integer()) ->
-             {ok, [#history{}]} | not_found | {error, any()}).
-get_histories(Count) ->
-    Tbl = ?TBL_HISTORIES,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            F = fun() ->
-                        Total = mnesia:table_info(Tbl, size),
-                        StartPos = Total - Count + 1,
-                        Q1 = qlc:q([X || {_, ID, _, _} = X <- mnesia:table(Tbl), ID >= StartPos]),
-                        Q2 = qlc:sort(Q1, [{order, ascending}]),
-                        qlc:e(Q2)
-                end,
-            leo_mnesia:read(F)
-    end.
-
-
 %% @doc Retrieve all available commands
-%%
 -spec(get_available_commands_all() ->
              {ok, [#cmd_state{}]} | not_found | {error, any()}).
 get_available_commands_all() ->
@@ -445,7 +335,6 @@ get_available_commands_all() ->
 
 
 %% @doc Retrieve available command by name
-%%
 -spec(get_available_command_by_name(string()) ->
              {ok, [#cmd_state{}]} | not_found | {error, any()}).
 get_available_command_by_name(Name) ->
@@ -465,58 +354,10 @@ get_available_command_by_name(Name) ->
     end.
 
 
-%% @doc Retrieve erasure-code profiles
-%%
--spec(get_erasure_code_profiles() ->
-             {ok, [#erasure_code_profile{}]} | not_found | {error, any()}).
-get_erasure_code_profiles() ->
-    Tbl = ?TBL_EC_PROFILES,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            F = fun() ->
-                        Q1 = qlc:q([X || X <- mnesia:table(Tbl)]),
-                        Q2 = qlc:sort(Q1, [{order, ascending}]),
-                        qlc:e(Q2)
-                end,
-            leo_mnesia:read(F)
-    end.
-
-
-%% @doc Retrieve erasure-code profiles by the name
-%%
--spec(get_erasure_code_profile(ErasureCodeProfileName) ->
-             {ok, [#erasure_code_profile{}]} | not_found | {error, any()}
-                 when ErasureCodeProfileName::string()).
-get_erasure_code_profile(ErasureCodeProfileName) ->
-    Tbl = ?TBL_EC_PROFILES,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            F = fun() ->
-                        Q1 = qlc:q([X || X <- mnesia:table(Tbl),
-                                         X#erasure_code_profile.name =:= ErasureCodeProfileName]),
-                        Q2 = qlc:sort(Q1, [{order, ascending}]),
-                        qlc:e(Q2)
-                end,
-            case leo_mnesia:read(F) of
-                {ok, [H|_]} ->
-                    {ok, H};
-                Other ->
-                    Other
-            end
-    end.
-
-
 %%-----------------------------------------------------------------------
 %% UPDATE
 %%-----------------------------------------------------------------------
 %% @doc Modify storage-node status
-%%
 -spec(update_storage_node_status(#node_state{}) ->
              ok | {error, any()}).
 update_storage_node_status(NodeState) ->
@@ -587,7 +428,6 @@ update_storage_node_status(_, _) ->
 
 
 %% @doc Modify gateway-node status
-%%
 -spec(update_gateway_node(#node_state{}) ->
              ok | {error, any()}).
 update_gateway_node(NodeState) ->
@@ -603,7 +443,6 @@ update_gateway_node(NodeState) ->
 
 
 %% @doc Modify rebalance-info
-%%
 -spec(update_rebalance_info(#rebalance_info{}) ->
              ok | {error, any()}).
 update_rebalance_info(RebalanceInfo) ->
@@ -618,52 +457,7 @@ update_rebalance_info(RebalanceInfo) ->
     end.
 
 
-%% @doc Modify rebalance-info
-%%
--spec(update_erasure_code_profile(ErasureCodeProfile) ->
-             ok | {error, any()} when ErasureCodeProfile::#erasure_code_profile{}).
-update_erasure_code_profile(ErasureCodeProfile) ->
-    Tbl = ?TBL_EC_PROFILES,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            F = fun()-> mnesia:write(Tbl, ErasureCodeProfile, write) end,
-            leo_mnesia:write(F)
-    end.
-
-
-%% @doc Modify bucket-info
-%%
--spec(insert_history(binary()) ->
-             ok | {error, any()}).
-insert_history(Command) ->
-    [NewCommand|_] = string:tokens(binary_to_list(Command), "\r\n"),
-    Id = case get_histories_all() of
-             {ok, List} -> length(List) + 1;
-             not_found  -> 1;
-             {_, Cause} -> {error, Cause}
-         end,
-
-    case Id of
-        {error, Reason} ->
-            {error, Reason};
-        _ ->
-            Tbl = ?TBL_HISTORIES,
-
-            case catch mnesia:table_info(Tbl, all) of
-                {'EXIT', _Cause} ->
-                    {error, ?ERROR_MNESIA_NOT_START};
-                _ ->
-                    F = fun() -> mnesia:write(?TBL_HISTORIES, #history{id = Id,
-                                                                       command = NewCommand,
-                                                                       created = leo_date:now()}, write) end,
-                    leo_mnesia:write(F)
-            end
-    end.
-
-
+%% @doc
 insert_available_command(Command, Help) ->
     Tbl = ?TBL_AVAILABLE_CMDS,
 
@@ -730,40 +524,15 @@ delete_gateway_node(Node) ->
     end.
 
 
--spec(delete_erasure_code_profile(ErasureCodeProfileName) ->
-             ok | {error, any()} when ErasureCodeProfileName::string()).
-delete_erasure_code_profile(ErasureCodeProfileName) ->
-    Tbl = ?TBL_EC_PROFILES,
-
-    case catch mnesia:table_info(Tbl, all) of
-        {'EXIT', _Cause} ->
-            {error, ?ERROR_MNESIA_NOT_START};
-        _ ->
-            case get_erasure_code_profile(ErasureCodeProfileName) of
-                {ok, ErasureCodeProfile} ->
-                    F = fun() ->
-                                mnesia:delete_object(Tbl, ErasureCodeProfile, write)
-                        end,
-                    leo_mnesia:delete(F);
-                not_found ->
-                    ok;
-                {error, Cause} ->
-                    {error, Cause}
-            end
-    end.
-
-
 %% @doc Delete all tables
 -spec(delete_all() ->
              ok | {error, any()}).
 delete_all() ->
-    {atomic, ok} = mnesia:delete_table(?TBL_HISTORIES),
     {atomic, ok} = mnesia:delete_table(?TBL_SYSTEM_CONF),
     {atomic, ok} = mnesia:delete_table(?TBL_GATEWAY_NODES),
     {atomic, ok} = mnesia:delete_table(?TBL_STORAGE_NODES),
     {atomic, ok} = mnesia:delete_table(?TBL_AVAILABLE_CMDS),
     {atomic, ok} = mnesia:delete_table(?TBL_REBALANCE_INFO),
-    {atomic, ok} = mnesia:delete_table(?TBL_EC_PROFILES),
     ok.
 
 %% @doc Backup mnesia tables
@@ -773,13 +542,11 @@ backup(DstFilePath) ->
     {ok, Name, _Nodes} = mnesia:activate_checkpoint(
                            [{ram_overrides_dump, true},
                             {name, "backup"},
-                            {max,[?TBL_HISTORIES,
-                                  ?TBL_SYSTEM_CONF,
+                            {max,[?TBL_SYSTEM_CONF,
                                   ?TBL_GATEWAY_NODES,
                                   ?TBL_STORAGE_NODES,
                                   ?TBL_AVAILABLE_CMDS,
                                   ?TBL_REBALANCE_INFO,
-                                  ?TBL_EC_PROFILES,
                                   ?ENDPOINT_TABLE,
                                   ?AUTH_TABLE,
                                   ?BUCKET_TABLE,
@@ -805,19 +572,17 @@ restore(DstFilePath) ->
 %% @private validate restored tables
 validate_restored_tables(RestoredTabs) ->
     TableSet = sets:new(),
-    TableSet2 = sets:add_element(?TBL_HISTORIES, TableSet),
-    TableSet3 = sets:add_element(?TBL_SYSTEM_CONF, TableSet2),
-    TableSet4 = sets:add_element(?TBL_GATEWAY_NODES, TableSet3),
-    TableSet5 = sets:add_element(?TBL_STORAGE_NODES, TableSet4),
-    TableSet6 = sets:add_element(?TBL_AVAILABLE_CMDS, TableSet5),
-    TableSet7 = sets:add_element(?TBL_REBALANCE_INFO, TableSet6),
-    TableSet8 = sets:add_element(?TBL_EC_PROFILES, TableSet7),
-    TableSet9 = sets:add_element(?ENDPOINT_TABLE, TableSet8),
-    TableSet10 = sets:add_element(?AUTH_TABLE, TableSet9),
-    TableSet11 = sets:add_element(?BUCKET_TABLE, TableSet10),
-    TableSet12 = sets:add_element(?USERS_TABLE, TableSet11),
-    TableSet13 = sets:add_element(?USER_CREDENTIAL_TABLE, TableSet12),
-    validate_restored_tables(RestoredTabs, TableSet13).
+    TableSet2 = sets:add_element(?TBL_SYSTEM_CONF, TableSet),
+    TableSet3 = sets:add_element(?TBL_GATEWAY_NODES, TableSet2),
+    TableSet4 = sets:add_element(?TBL_STORAGE_NODES, TableSet3),
+    TableSet5 = sets:add_element(?TBL_AVAILABLE_CMDS, TableSet4),
+    TableSet6 = sets:add_element(?TBL_REBALANCE_INFO, TableSet5),
+    TableSet7 = sets:add_element(?ENDPOINT_TABLE, TableSet6),
+    TableSet8 = sets:add_element(?AUTH_TABLE, TableSet7),
+    TableSet9 = sets:add_element(?BUCKET_TABLE, TableSet8),
+    TableSet10 = sets:add_element(?USERS_TABLE, TableSet9),
+    TableSet11 = sets:add_element(?USER_CREDENTIAL_TABLE, TableSet10),
+    validate_restored_tables(RestoredTabs, TableSet11).
 
 validate_restored_tables([], ExpectedTableSet) ->
     case sets:size(ExpectedTableSet) of
@@ -831,7 +596,6 @@ validate_restored_tables([T|Rest], ExpectedTableSet) ->
 
 
 %% @doc Update available commands
-%%
 -spec(update_available_commands(atom | list()) ->
              ok).
 update_available_commands(AvailableCommands) ->

@@ -57,7 +57,6 @@
 -define(TBL_REBALANCE_INFO, 'leo_rebalance_info').
 -define(TBL_HISTORIES, 'leo_histories').
 -define(TBL_AVAILABLE_CMDS, 'leo_available_commands').
--define(TBL_EC_PROFILES, 'leo_erasure_code_profiles').
 
 %% server-type
 -define(SERVER_TYPE_STORAGE, "S").
@@ -121,11 +120,6 @@
 -define(CMD_MQ_STATS, "mq-stats").
 -define(CMD_MQ_SUSPEND, "mq-suspend").
 -define(CMD_MQ_RESUME, "mq-resume").
-%% For Storage Erasure Code
--define(CMD_EC_GET_PROFILES, "get-erasure-code-profiles").
--define(CMD_EC_ADD_PROFILE, "add-erasure-code-profile").
--define(CMD_EC_UPDATE_PROFILE, "update-erasure-code-profile").
--define(CMD_EC_DEL_PROFILE, "delete-erasure-code-profile").
 
 %% For Gateway
 -define(CMD_PURGE, "purge").
@@ -185,11 +179,6 @@
                    {?CMD_MQ_STATS, "mq-stats <storage-node>"},
                    {?CMD_MQ_SUSPEND, "mq-suspend <storage-node> <mq-id>"},
                    {?CMD_MQ_RESUME, "mq-resume <storage-node> <mq-id>"},
-                   %% for Storage Erasure-code
-                   {?CMD_EC_GET_PROFILES, "get-erasure-code-profiles"},
-                   {?CMD_EC_ADD_PROFILE, "add-erasure-code-profile <name> <k> <m> <method>"},
-                   {?CMD_EC_UPDATE_PROFILE, "update-erasure-code-profile <name> <k> <m> <method>"},
-                   {?CMD_EC_DEL_PROFILE, "delete-erasure-code-profile <name>"},
                    %% for Gateway
                    {?CMD_PURGE, "purge <path>"},
                    {?CMD_REMOVE, "remove <gateway-node>"},
@@ -352,17 +341,6 @@
 %% MQ related:
 -define(QUEUE_ID_FAIL_REBALANCE, 'mq_fail_rebalance').
 
-%% Erasure Code related:
--define(DEF_ERASURE_CODE_PROFILES, [#erasure_code_profile{id = 1, name = "RAID5", k = 3,  m = 1, method = 'vandrs'}, %% 1.33
-                                    #erasure_code_profile{id = 2, name = "RAID6", k = 4,  m = 2, method = 'vandrs'}, %% 1.50
-                                    #erasure_code_profile{id = 3, name = "K5M2",  k = 5,  m = 2, method = 'vandrs'}, %% 1.40
-                                    #erasure_code_profile{id = 4, name = "K6M2",  k = 6,  m = 2, method = 'vandrs'}, %% 1.33
-                                    #erasure_code_profile{id = 5, name = "K7M3",  k = 7,  m = 3, method = 'vandrs'}, %% 1.43
-                                    #erasure_code_profile{id = 6, name = "K8M3",  k = 8,  m = 3, method = 'vandrs'}, %% 1.38
-                                    #erasure_code_profile{id = 7, name = "K9M4",  k = 9,  m = 4, method = 'vandrs'}, %% 1.56
-                                    #erasure_code_profile{id = 8, name = "K10M4", k = 10, m = 4, method = 'vandrs'}  %% 1.40
-                                   ]).
-
 
 %% ---------------------------------------------------------
 %% RECORDS
@@ -414,15 +392,6 @@
           rebalance_info = [] :: list(tuple()),
           timestamp = 0 :: pos_integer()
          }).
-
--record(erasure_code_profile, {
-          id = 1 :: pos_integer(),
-          name = [] :: string(),
-          k = 1 :: pos_integer(),
-          m = 1 :: pos_integer(),
-          method :: atom()
-         }).
-
 
 %% ---------------------------------------------------------
 %% MACROS
