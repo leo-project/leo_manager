@@ -99,6 +99,7 @@
 -define(CMD_ADD_BUCKET, "add-bucket").
 -define(CMD_GET_BUCKETS, "get-buckets").
 -define(CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket").
+-define(CMD_SET_RED_METHOD, "set-redundancy-method").
 -define(CMD_DELETE_BUCKET, "delete-bucket").
 -define(CMD_CHANGE_BUCKET_OWNER, "chown-bucket").
 -define(CMD_UPDATE_ACL, "update-acl").
@@ -115,8 +116,7 @@
 -define(CMD_DIAGNOSE_DATA, "diagnose-data").
 -define(CMD_DU, "du").
 -define(CMD_WHEREIS, "whereis").
-
-%% For Storage-MQ
+%% For Storage MQ
 -define(CMD_MQ_STATS, "mq-stats").
 -define(CMD_MQ_SUSPEND, "mq-suspend").
 -define(CMD_MQ_RESUME, "mq-resume").
@@ -127,7 +127,6 @@
 -define(CMD_BACKUP_MNESIA, "backup-mnesia").
 -define(CMD_RESTORE_MNESIA, "restore-mnesia").
 -define(CMD_UPDATE_MANAGERS, "update-managers").
-
 %% For Maintenance
 -define(CMD_RECOVER, "recover").
 -define(CMD_HISTORY, "history").
@@ -135,7 +134,7 @@
 -define(CMD_UPDATE_LOG_LEVEL, "update-log-level").
 -define(CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level").
 -define(CMD_UPDATE_PROP, "update-property").
-
+-define(CMD_GEN_NFS_MNT_KEY, "gen-nfs-mnt-key").
 %% For MDC-Replication
 -define(CMD_JOIN_CLUSTER, "join-cluster").
 -define(CMD_REMOVE_CLUSTER, "remove-cluster").
@@ -149,15 +148,15 @@
 -define(COMMANDS, [{?CMD_HELP, "help"},
                    {?CMD_QUIT, "quit"},
                    {?CMD_VERSION, "version"},
-                   {?CMD_STATUS, "status [<storage-node>|<gateway-node>]"},
-                   {?CMD_HISTORY, "history"},
-                   {?CMD_DUMP_RING, "dump-ring (<manager-node>|<storage-node>|<gateway-node>)"},
+                   {?CMD_STATUS,  "status [<storage-node>|<gateway-node>]"},
+                   {?CMD_DUMP_RING, "dump-ring <manager-node>|<storage-node>|<gateway-node>"},
                    {?CMD_UPDATE_LOG_LEVEL, "update-log-level (<storage-node>|<gateway-node>) (debug|info|warn|error)"},
                    {?CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level (<storage-node>|<gateway-node>) <write-quorum> <read-quorum> <delete-quorum>"},
                    %% for Cluster
                    {?CMD_WHEREIS, "whereis <path>"},
                    {?CMD_RECOVER, lists:append(
                                     ["recover file <path>", ?CRLF,
+                                     "recover dir [<path>]", ?CRLF,
                                      "recover node <storage-node>", ?CRLF,
                                      "recover ring <storage-node>", ?CRLF,
                                      "recover cluster <cluster-id>"
@@ -170,14 +169,14 @@
                    {?CMD_REBALANCE, "rebalance"},
                    %% for Storage
                    {?CMD_COMPACT, lists:append(
-                                    ["compact start <storage-node> (all|<num_of_targets>) [<num_of_compact_procs>]", ?CRLF,
+                                    ["compact start <storage-node> all|<num_of_targets> [<num_of_compact_procs>]", ?CRLF,
                                      "compact suspend <storage-node>", ?CRLF,
-                                     "compact resume <storage-node>", ?CRLF,
-                                     "compact status <storage-node>"
+                                     "compact resume  <storage-node>", ?CRLF,
+                                     "compact status  <storage-node>"
                                     ])},
                    {?CMD_DIAGNOSE_DATA, "diagnose-data <storage-node>"},
                    {?CMD_DU, "du <storage-node>"},
-                   %% for Storage-mq
+                   %% for Storage MQ
                    {?CMD_MQ_STATS, "mq-stats <storage-node>"},
                    {?CMD_MQ_SUSPEND, "mq-suspend <storage-node> <mq-id>"},
                    {?CMD_MQ_RESUME, "mq-resume <storage-node> <mq-id>"},
@@ -204,6 +203,8 @@
                    {?CMD_GET_BUCKETS, "get-buckets"},
                    {?CMD_GET_BUCKET_BY_ACCESS_KEY, "get-bucket <access-key-id>"},
                    {?CMD_CHANGE_BUCKET_OWNER, "chown-bucket <bucket> <new-access-key-id>"},
+                   {?CMD_SET_RED_METHOD, "set-redundancy-method <bucket> <access-key-id> <redundancy-method>"},
+                   {?CMD_GEN_NFS_MNT_KEY, "gen-nfs-mnt-key <bucket> <access-key-id> <client-ip-address>"},
                    %% - acl-related
                    {?CMD_UPDATE_ACL, "update-acl <bucket> <access-key-id> private|public-read|public-read-write"},
                    %% - multi-dc replication
@@ -230,12 +231,12 @@
 -define(COMPACT_STATUS, "status").
 -define(COMPACT_TARGET_ALL, "all").
 
-
 %% recover type
 -define(RECOVER_FILE, "file").
 -define(RECOVER_NODE, "node").
 -define(RECOVER_RING, "ring").
 -define(RECOVER_REMOTE_CLUSTER, "cluster").
+-define(RECOVER_DIR, "dir").
 
 %% membership
 -define(DEF_NUM_OF_ERROR_COUNT, 2).
@@ -286,16 +287,16 @@
 -define(ERROR_FAILED_UPDATE_MANAGERS, "Failed to update the manager nodes").
 -define(ERROR_COULD_NOT_GET_CONF, "Could not get the system-config").
 -define(ERROR_MEMBER_NOT_FOUND, "Member not found").
--define(ERROR_COULD_NOT_GET_MEMBER, "Could not get member").
+-define(ERROR_COULD_NOT_GET_MEMBER, "Could not get members (storage-nodes)").
 -define(ERROR_COULD_NOT_GET_GATEWAY, "Could not get gateway(s)").
 -define(ERROR_NOT_NEED_REBALANCE, "Not need rebalance").
--define(ERROR_FAIL_REBALANCE, "Failed to do data-rebalance").
--define(ERROR_FAIL_TO_ASSIGN_NODE, "Failed to assign node(s)").
--define(ERROR_FAIL_TO_REMOVE_NODE, "Failed to remove a node").
--define(ERROR_FAIL_TO_SYNCHRONIZE_RING, "Failed to synchronize RING").
--define(ERROR_FAIL_TO_UPDATE_ACL, "Failed to update acl of a bucket").
--define(ERROR_FAIL_ACCESS_MNESIA, "Failed to access mnesia").
--define(ERROR_ALREADY_HAS_SAME_CLUSTER, "Already has a same name of cluster").
+-define(ERROR_FAIL_REBALANCE, "Fail rebalance").
+-define(ERROR_FAIL_TO_ASSIGN_NODE, "Fail to assign node(s)").
+-define(ERROR_FAIL_TO_REMOVE_NODE, "Fail to remove a node").
+-define(ERROR_FAIL_TO_SYNCHRONIZE_RING, "Fail to synchronize RING").
+-define(ERROR_FAIL_TO_UPDATE_ACL, "Fail to update acl of a bucket").
+-define(ERROR_FAIL_ACCESS_MNESIA, "Fail to access mnesia").
+-define(ERROR_ALREADY_HAS_SAME_CLUSTER, "Already has a same neme of cluster").
 -define(ERROR_COULD_NOT_GET_CLUSTER_INFO,"Could not get cluster info").
 -define(ERROR_OVER_MAX_CLUSTERS, "Over max number of clusters").
 -define(ERROR_UPDATED_SYSTEM_CONF, "Updated the system configuration").
@@ -307,7 +308,6 @@
 -define(MOD_TEXT_FORMATTER, 'leo_manager_formatter_text').
 -define(MOD_JSON_FORMATTER, 'leo_manager_formatter_json').
 
-
 %% test values and default values
 -define(TEST_USER_ID, <<"_test_leofs">>).
 -define(TEST_ACCESS_KEY, <<"05236">>).
@@ -317,14 +317,35 @@
 -define(DEF_ENDPOINT_2, <<"s3.amazonaws.com">>).
 
 -define(PROP_MNESIA_NODES, 'leo_manager_mnesia_nodes').
+-define(DEF_MNESIA_DIR, "./work/mnesia/127.0.0.1").
+-define(DEF_QUEUE_DIR, "./work/queue/").
+-define(DEF_LOG_DIR, "./log/").
+
+%% Command history related
+-define(LOG_GROUP_ID_HISTORY, 'log_grp_history_log').
+-define(LOG_ID_HISTORY, 'log_id_history_log').
+-define(LOG_FILENAME_HISTORY, "cmd_history").
+-define(put_cmd_history(_CmdBody),
+        begin
+            leo_logger_client_base:append(
+              {?LOG_ID_HISTORY,
+               #message_log{format  = "~s\t~w\t~s",
+                            message = [leo_date:date_format(),
+                                       leo_date:clock(),
+                                       binary_to_list(_CmdBody)
+                                      ]}
+              })
+        end).
+
 
 
 %% MQ related:
 -define(QUEUE_ID_FAIL_REBALANCE, 'mq_fail_rebalance').
 
 
-%% records
-%%
+%% ---------------------------------------------------------
+%% RECORDS
+%% ---------------------------------------------------------
 -define(AUTH_NOT_YET, 0).
 -define(AUTH_USERID_1, 1).
 -define(AUTH_USERID_2, 2).
@@ -373,9 +394,9 @@
           timestamp = 0 :: pos_integer()
          }).
 
-
-%% macros
-%%
+%% ---------------------------------------------------------
+%% MACROS
+%% ---------------------------------------------------------
 -define(env_mode_of_manager(),
         case application:get_env(leo_manager, manager_mode) of
             {ok, EnvModeOfManager} -> EnvModeOfManager;
@@ -456,7 +477,6 @@
             _ -> true
         end).
 
--define(DEF_LOG_DIR, "./log/").
 -define(env_log_dir(),
         case application:get_env(leo_manager, log_appender) of
             {ok, [{file, Options}|_]} ->
@@ -465,7 +485,6 @@
                 ?DEF_LOG_DIR
         end).
 
--define(DEF_QUEUE_DIR, "./work/queue/").
 -define(env_queue_dir(),
         case application:get_env(leo_manager, queue_dir) of
             {ok, _EnvQueueDir} ->
@@ -473,8 +492,6 @@
             _ ->
                 ?DEF_QUEUE_DIR
         end).
-
--define(DEF_MNESIA_DIR, "./work/mnesia/127.0.0.1").
 
 
 %% @doc Plugin-related macros
@@ -496,3 +513,15 @@
 %%
 -define(BOOL_TO_ENABLE, [{true,  enabled},
                          {false, disabled}]).
+
+%% @doc Retrieve tokens
+%%
+-define(get_tokens(_Option,_ErrMsg),
+        begin
+            case string:tokens(binary_to_list(_Option), ?COMMAND_DELIMITER) of
+                [] ->
+                    {error,_ErrMsg};
+                _Tokens ->
+                    {ok, _Tokens}
+            end
+        end).
