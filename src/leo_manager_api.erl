@@ -33,6 +33,12 @@
 
 -compile(nowarn_deprecated_type).
 
+-ifdef(namespaced_types).
+-type otp_dict() :: dict:dict().
+-else.
+-type otp_dict() :: dict().
+-endif.
+
 -define(API_STORAGE, leo_storage_api).
 -define(API_GATEWAY, leo_gateway_api).
 
@@ -967,7 +973,7 @@ rebalance_1(true, Nodes) ->
     end.
 
 %% @private
--spec(rebalance_2(dict(), [{integer(), atom()}]) ->
+-spec(rebalance_2(otp_dict(), [{integer(), atom()}]) ->
              {ok, [{integer(), atom()}]} | {erorr, any()}).
 rebalance_2(TblDict, []) ->
     Ret = case dict:to_list(TblDict) of
