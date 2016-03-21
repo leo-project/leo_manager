@@ -21,6 +21,13 @@
 %% -------------------------------------------------------------------
 -include_lib("eunit/include/eunit.hrl").
 
+-ifdef(namespaced_types).
+-type mgr_dict() :: dict:dict().
+-else.
+-type mgr_dict() :: dict().
+-endif.
+
+
 %% constants
 -define(SHUTDOWN_WAITING_TIME, 2000).
 -define(MAX_RESTART, 5).

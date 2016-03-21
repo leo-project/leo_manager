@@ -966,7 +966,7 @@ rebalance_1(true, Nodes) ->
     end.
 
 %% @private
--spec(rebalance_2(dict(), [{integer(), atom()}]) ->
+-spec(rebalance_2(mgr_dict(), [{integer(), atom()}]) ->
              {ok, [{integer(), atom()}]} | {erorr, any()}).
 rebalance_2(TblDict, []) ->
     Ret = case dict:to_list(TblDict) of
