@@ -457,7 +457,7 @@ update_rebalance_info(RebalanceInfo) ->
     end.
 
 
-%% @doc
+%% @doc Insert available commands
 insert_available_command(Command, Help) ->
     Tbl = ?TBL_AVAILABLE_CMDS,
 
