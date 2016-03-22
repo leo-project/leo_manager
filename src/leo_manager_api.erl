@@ -904,6 +904,22 @@ rebalance(Socket) ->
                 {error, _} ->
                     {error, ?ERROR_NOT_NEED_REBALANCE};
                 {State, Nodes} ->
+                    {CanTakeover, TookOverNode} =
+                        case (erlang:length(Nodes) == 2) of
+                            true ->
+                                [{State_1,Node_1},{State_2,Node_2}] = Nodes,
+                                case State_1 of
+                                    attached when State_2 == detached ->
+                                        {true, Node_1};
+                                    detached when State_2 == attached ->
+                                        {true, Node_2};
+                                    _ ->
+                                        {false, undefined}
+                                end;
+                            false ->
+                                {false, undefined}
+                        end,
+
                     %% Execute the data-reblanace
                     ok = output_message_to_console(
                            Socket, << "Generating rebalance-list..." >>),
@@ -924,7 +940,8 @@ rebalance(Socket) ->
                                             ok = output_message_to_console(
                                                    Socket, <<"Distributing rebalance-list to the storage nodes">>),
                                             ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
-                                            rebalance_4_loop(Socket, 0, length(MembersCur));
+                                            rebalance_4_loop(Socket, 0, length(MembersCur),
+                                                            {CanTakeover, TookOverNode});
                                         {error, Cause}->
                                             {error, Cause}
                                     end;
@@ -1079,9 +1096,12 @@ rebalance_4(Pid, [#member{node = Node}|T], RebalanceProcInfo) ->
 
 %% @doc receive the results of rebalance
 %% @private
-rebalance_4_loop(_Socket, TotalMembers, TotalMembers) ->
+rebalance_4_loop(_Socket, TotalMembers, TotalMembers,
+                 {true, TookOverNode}) ->
+    recover(?RECOVER_NODE, TookOverNode, true);
+rebalance_4_loop(_Socket, TotalMembers, TotalMembers,_TakeoverInfo) ->
     ok;
-rebalance_4_loop(Socket, NumOfNodes, TotalMembers) ->
+rebalance_4_loop(Socket, NumOfNodes, TotalMembers, TakeoverInfo) ->
     receive
         Msg ->
             {Node_1, State} =
@@ -1116,7 +1136,7 @@ rebalance_4_loop(Socket, NumOfNodes, TotalMembers) ->
             Ratio   = lists:append([integer_to_list(round((NewNumOfNodes / TotalMembers) * 100)), "%"]),
             SendMsg = lists:append([string:right(Ratio, 5), " - ", atom_to_list(Node_1)]),
             ok = output_message_to_console(Socket, State, list_to_binary(SendMsg)),
-            rebalance_4_loop(Socket, NewNumOfNodes, TotalMembers)
+            rebalance_4_loop(Socket, NewNumOfNodes, TotalMembers, TakeoverInfo)
     after
         infinity ->
             ok
