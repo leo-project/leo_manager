@@ -85,10 +85,12 @@ start_link() ->
             ok = leo_manager_console:start_link(leo_manager_formatter_json, JSON_Console, PluginModConsole),
 
             %% Launch Logger
-            LogDir   = ?env_log_dir(),
+            LogDir = ?env_log_dir(),
             LogLevel = ?env_log_level(leo_manager),
             ok = leo_logger_client_message:new(
                    LogDir, LogLevel, log_file_appender()),
+            ok = leo_logger_client_base:new(?LOG_GROUP_ID_HISTORY, ?LOG_ID_HISTORY,
+                                            LogDir, ?LOG_FILENAME_HISTORY),
 
             %% Launch MQ
             ok = leo_manager_mq_client:start(?MODULE, [], ?env_queue_dir()),

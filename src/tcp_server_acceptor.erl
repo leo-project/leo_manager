@@ -159,12 +159,15 @@ call(Active, Socket, Data, #state{plugin_mod = PluginMod} = State, Module, Optio
 
 call_1(HasCommand, Active, Socket, Data, State, Module, Option) ->
     Module_1 = case HasCommand of
-                   true  -> State#state.plugin_mod;
-                   false -> Module
+                   true ->
+                       State#state.plugin_mod;
+                   false ->
+                       Module
                end,
 
     case Module_1:handle_call(Socket, Data, State) of
         {reply, DataToSend, NewState} ->
+            ?put_cmd_history(Data),
             gen_tcp:send(Socket, DataToSend),
             recv(Active, Socket, NewState, Module, Option);
         {noreply, NewState} ->

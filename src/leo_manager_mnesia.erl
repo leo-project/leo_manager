@@ -545,27 +545,20 @@ update_rebalance_info(RebalanceInfo) ->
              ok | {error, any()}).
 insert_history(Command) ->
     [NewCommand|_] = string:tokens(binary_to_list(Command), "\r\n"),
-    Id = case get_histories_all() of
-             {ok, List} -> length(List) + 1;
-             not_found  -> 1;
-             {_, Cause} -> {error, Cause}
-         end,
 
-    case Id of
-        {error, Reason} ->
-            {error, Reason};
-        _ ->
-            Tbl = ?TBL_HISTORIES,
-
-            case catch mnesia:table_info(Tbl, all) of
-                {'EXIT', _Cause} ->
-                    {error, ?ERROR_MNESIA_NOT_START};
-                _ ->
-                    F = fun() -> mnesia:write(?TBL_HISTORIES, #history{id = Id,
-                                                                       command = NewCommand,
-                                                                       created = leo_date:now()}, write) end,
-                    leo_mnesia:write(F)
-            end
+    Tbl = ?TBL_HISTORIES,
+    case catch mnesia:table_info(Tbl, size) of
+        {'EXIT', _Cause} ->
+            {error, ?ERROR_MNESIA_NOT_START};
+        Size ->
+            Id = Size + 1,
+            F = fun() ->
+                        mnesia:write(?TBL_HISTORIES,
+                                     #history{id = Id,
+                                              command = NewCommand,
+                                              created = leo_date:now()}, write)
+                end,
+            leo_mnesia:write(F)
     end.
 
 
