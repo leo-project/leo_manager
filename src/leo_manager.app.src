@@ -28,7 +28,7 @@
   {registered,   []},
   {applications, [kernel, stdlib, crypto]},
   {mod, {leo_manager_app, []}},
-  {env, [{system_version,"1.2.20"},
+  {env, [{system_version,"1.4.0-pre.3"},
          {system, [{dc_id,'dc_1'},
                    {cluster_id,'leofs_1'},
                    {n, 1},
