@@ -927,26 +927,28 @@ rebalance(Socket) ->
                         {ok, RetRebalance} ->
                             ok = output_message_to_console(
                                    Socket, << "Generated rebalance-list" >>),
-                            case get_members_of_all_versions() of
-                                {ok, {MembersCur, MembersPrev}} ->
-                                    {ok, SystemConf} = leo_cluster_tbl_conf:get(),
-                                    RebalanceProcInfo = #rebalance_proc_info{
+                            {ok, SystemConf} = leo_cluster_tbl_conf:get(),
+                            RebalanceProcInfo = #rebalance_proc_info{
+                                                   system_conf = SystemConf,
+                                                   rebalance_list = RetRebalance},
+                            case rebalance_3(Nodes, SystemConf) of
+                                ok ->
+                                    ok = output_message_to_console(
+                                           Socket, <<"Distributing rebalance-list to the storage nodes">>),
+
+                                    case get_members_of_all_versions() of
+                                        {ok, {MembersCur, MembersPrev}} ->
+                                        ok = rebalance_4(self(), MembersCur,
+                                                         RebalanceProcInfo#rebalance_proc_info{
                                                            members_cur = MembersCur,
-                                                           members_prev = MembersPrev,
-                                                           system_conf = SystemConf,
-                                                           rebalance_list = RetRebalance},
-                                    case rebalance_3(Nodes, RebalanceProcInfo) of
-                                        ok ->
-                                            ok = output_message_to_console(
-                                                   Socket, <<"Distributing rebalance-list to the storage nodes">>),
-                                            ok = rebalance_4(self(), MembersCur, RebalanceProcInfo),
-                                            rebalance_4_loop(Socket, 0, length(MembersCur),
-                                                            {CanTakeover, TookOverNode});
-                                        {error, Cause}->
-                                            {error, Cause}
+                                                           members_prev = MembersPrev}),
+                                        rebalance_4_loop(Socket, 0, length(MembersCur),
+                                                         {CanTakeover, TookOverNode});
+                                        {error,_Cause} ->
+                                            {error, ?ERROR_COULD_NOT_GET_MEMBER}
                                     end;
-                                {error,_Cause} ->
-                                    {error, ?ERROR_COULD_NOT_GET_MEMBER}
+                                {error, Cause}->
+                                    {error, Cause}
                             end;
                         {error, Cause} ->
                             {error, Cause}
@@ -1008,12 +1010,31 @@ rebalance_2(TblDict, [Item|T]) ->
     rebalance_2(TblDict_1, T).
 
 %% @private
-rebalance_3([], _RebalanceProcInfo) ->
+rebalance_3([],_SystemConf) ->
     ok;
-rebalance_3([{?STATE_ATTACHED, Node}|Rest],
-            #rebalance_proc_info{members_cur  = MembersCur,
-                                 members_prev = MembersPrev,
-                                 system_conf  = SystemConf} = RebalanceProcInfo) ->
+rebalance_3([{?STATE_ATTACHED, Node}|Rest], SystemConf) ->
+    Ret = case get_members_of_all_versions() of
+              {ok, {MembersCur, MembersPrev}} ->
+                  {ok, {MembersCur, MembersPrev}};
+              {error,_Cause} ->
+                  {error, ?ERROR_COULD_NOT_GET_MEMBER}
+          end,
+    rebalance_3_1(Ret, Node, Rest, SystemConf);
+
+rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
+    case leo_manager_mnesia:get_storage_node_by_name(Node) of
+        {ok, NodeInfo} ->
+            _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
+            rebalance_3(Rest, RebalanceProcInfo);
+        {error, Cause} ->
+            ?error("rebalance_3/2", [{cause, Cause}]),
+            {error, ?ERROR_FAIL_TO_REMOVE_NODE}
+    end.
+
+%% @private
+rebalance_3_1({error, Cause},_Node,_Rest,_SystemConf) ->
+    {error, Cause};
+rebalance_3_1({ok, {MembersCur, MembersPrev}}, Node, Rest, SystemConf) ->
     %% Send a launch-message to new storage node
     Ret = case rpc:call(Node, ?API_STORAGE, start,
                         [MembersCur, MembersPrev, SystemConf], ?DEF_TIMEOUT) of
@@ -1048,25 +1069,17 @@ rebalance_3([{?STATE_ATTACHED, Node}|Rest],
         {error, Reason} ->
             ?error("rebalance_3/2", [{cause, Reason}])
     end,
-    rebalance_3(Rest, RebalanceProcInfo);
+    rebalance_3(Rest, SystemConf).
 
-rebalance_3([{?STATE_DETACHED, Node}|Rest], RebalanceProcInfo) ->
-    case leo_manager_mnesia:get_storage_node_by_name(Node) of
-        {ok, NodeInfo} ->
-            _ = leo_manager_mnesia:delete_storage_node(NodeInfo),
-            rebalance_3(Rest, RebalanceProcInfo);
-        {error, Cause} ->
-            ?error("rebalance_3/2", [{cause, Cause}]),
-            {error, ?ERROR_FAIL_TO_REMOVE_NODE}
-    end.
 
 %% @private
 rebalance_4(_Pid, [],_) ->
     ok;
-rebalance_4( Pid, [#member{node  = Node,
+rebalance_4( Pid, [#member{node = Node,
                            state = ?STATE_RUNNING}|T], RebalanceProcInfo) ->
-    MembersCur    = RebalanceProcInfo#rebalance_proc_info.members_cur,
-    MembersPrev   = RebalanceProcInfo#rebalance_proc_info.members_prev,
+    %% @TODO MembersCur and MembersPrev
+    MembersCur = RebalanceProcInfo#rebalance_proc_info.members_cur,
+    MembersPrev = RebalanceProcInfo#rebalance_proc_info.members_prev,
     RebalanceList = RebalanceProcInfo#rebalance_proc_info.rebalance_list,
     RebalanceList_1 = leo_misc:get_value(Node, RebalanceList, []),
 
