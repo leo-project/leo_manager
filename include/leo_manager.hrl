@@ -69,6 +69,14 @@
 -define(SERVER_TYPE_STORAGE, "S").
 -define(SERVER_TYPE_GATEWAY, "G").
 
+%% Mnesia tables to be created when booting a cluster for the first time
+-define(MNESIA_TABLES_TO_BE_CREATED,
+       [leo_s3_user_credential,leo_s3_users,leo_s3_buckets,
+        leo_s3_endpoints,leo_s3_credentials,leo_members_prev,
+        leo_members_cur,leo_ring_prv,leo_ring_cur,leo_cluster_member,
+        leo_cluster_manager,leo_cluster_stat,leo_cluster_info,
+        leo_system_conf,leo_available_commands,leo_histories,
+        leo_rebalance_info,leo_gateway_nodes,leo_storage_nodes,schema]).
 
 %% command-related
 -define(COMMAND_ERROR, "Command Error").
