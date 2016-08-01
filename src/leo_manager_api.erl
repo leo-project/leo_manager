@@ -74,7 +74,7 @@
          synchronize/1, synchronize/2, synchronize/3,
          set_endpoint/1, delete_endpoint/1,
          add_bucket/2, add_bucket/3, delete_bucket/2, update_bucket/1,
-         update_acl/3
+         update_acl/3, gen_nfs_mnt_key/3
         ]).
 
 -export([join_cluster/2,
@@ -2351,6 +2351,8 @@ update_acl(?CANNED_ACL_AUTHENTICATED_READ = Permission, AccessKey, Bucket) ->
 update_acl(_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
+gen_nfs_mnt_key(Bucket, AccessKey, IP) ->
+    leo_s3_bucket:gen_nfs_mnt_key(Bucket, AccessKey, IP).
 
 %% @doc RPC call for Gateway-nodes
 %% @private
