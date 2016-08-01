@@ -1180,7 +1180,9 @@ whereis(AssignedInfo) ->
                    {"ring address", 36},
                    {"size", 10},
                    {"checksum", 12},
-                   {"redundancy method", 36},
+                   %% === NOTE: for 1.4 >>>
+                   %% {"redundancy method", 36},
+                   %% <<<
                    {"has children", 14},
                    {"total chunks", 14},
                    {"clock", 14},
@@ -1220,7 +1222,9 @@ whereis(AssignedInfo) ->
                                                string:left([], lists:nth(6,LenPerCol)), ?SEPARATOR,
                                                string:left([], lists:nth(7,LenPerCol)), ?SEPARATOR,
                                                string:left([], lists:nth(8,LenPerCol)), ?SEPARATOR,
-                                               string:left([], lists:nth(9,LenPerCol)), ?SEPARATOR,
+                                               %% === NOTE: for 1.4 >>>
+                                               %% string:left([], lists:nth(9,LenPerCol)), ?SEPARATOR,
+                                               %% <<<
                                                ?CRLF]);
                              {Node, ItemL} ->
                                  VNodeId = leo_misc:get_value('addr_id', ItemL),
@@ -1229,26 +1233,32 @@ whereis(AssignedInfo) ->
                                  Clock = leo_misc:get_value('clock', ItemL),
                                  Timestamp = leo_misc:get_value('timestamp', ItemL),
                                  Checksum = leo_misc:get_value('checksum', ItemL),
-                                 RedMethod = leo_misc:get_value('redundancy_method', ItemL),
-                                 %% CPParams = leo_misc:get_value('cp_params', ItemL),
-                                 ECLib = leo_misc:get_value('ec_lib', ItemL),
-                                 ECParams = leo_misc:get_value('ec_params', ItemL),
+
+                                 %% === NOTE: for 1.4 >>>
+                                 %% RedMethod = leo_misc:get_value('redundancy_method', ItemL),
+                                 %% ECLib = leo_misc:get_value('ec_lib', ItemL),
+                                 %% ECParams = leo_misc:get_value('ec_params', ItemL),
+                                 %% <<<
+
                                  CSize = leo_misc:get_value('csize', ItemL),
-                                 HasChildren = leo_misc:get_value('has_children', ItemL),
+                                 HasChildren = leo_misc:get_value('has_children', ItemL, false),
                                  DelFlag = leo_misc:get_value('del', ItemL),
 
-                                 RedMethodStr = atom_to_list(RedMethod),
-                                 RedMethod_1 = case RedMethod of
-                                                   'erasure_code' ->
-                                                       {ECParam_K, ECParam_M} = ECParams,
-                                                       lists:append([RedMethodStr, ", ",
-                                                                     "{k:", integer_to_list(ECParam_K), ","
-                                                                     " m:", integer_to_list(ECParam_M), ","
-                                                                     " ", atom_to_list(ECLib),
-                                                                     "}"]);
-                                                   'copy' ->
-                                                       RedMethodStr
-                                               end,
+                                 %% === NOTE: for 1.4 >>>
+                                 %% RedMethodStr = atom_to_list(RedMethod),
+                                 %% RedMethod_1 = case RedMethod of
+                                 %%                   'erasure_code' ->
+                                 %%                       {ECParam_K, ECParam_M} = ECParams,
+                                 %%                       lists:append([RedMethodStr, ", ",
+                                 %%                                     "{k:", integer_to_list(ECParam_K), ","
+                                 %%                                     " m:", integer_to_list(ECParam_M), ","
+                                 %%                                     " ", atom_to_list(ECLib),
+                                 %%                                     "}"]);
+                                 %%                   'copy' ->
+                                 %%                       RedMethodStr
+                                 %%               end,
+                                 %% <<<
+
                                  HasChildren_1 = (HasChildren andalso CSize > 0),
                                  FormattedDate = leo_date:date_format(Timestamp),
                                  DelStr = case DelFlag of
@@ -1261,10 +1271,17 @@ whereis(AssignedInfo) ->
                                                string:right(leo_file:dsize(DSize), lists:nth(4, LenPerCol)), ?SEPARATOR,
                                                string:right(string:sub_string(leo_hex:integer_to_hex(Checksum, 8), 1, 10),
                                                             lists:nth(5,LenPerCol)), ?SEPARATOR,
-                                               string:left(RedMethod_1, lists:nth(6,LenPerCol)), ?SEPARATOR,
-                                               string:left(atom_to_list(HasChildren_1), lists:nth(7,LenPerCol)), ?SEPARATOR,
-                                               string:right(integer_to_list(ChunkedObjs), lists:nth(8, LenPerCol)), ?SEPARATOR,
-                                               string:left(leo_hex:integer_to_hex(Clock, 8), lists:nth(9, LenPerCol)), ?SEPARATOR,
+                                               %% === NOTE: for 1.4 >>>
+                                               %% string:left(RedMethod_1, lists:nth(6,LenPerCol)), ?SEPARATOR,
+                                               %% string:left(atom_to_list(HasChildren_1), lists:nth(7,LenPerCol)), ?SEPARATOR,
+                                               %% string:right(integer_to_list(ChunkedObjs), lists:nth(8, LenPerCol)), ?SEPARATOR,
+                                               %% string:left(leo_hex:integer_to_hex(Clock, 8), lists:nth(9, LenPerCol)), ?SEPARATOR,
+                                               %% <<<
+                                               %% === NOTE: for 1.3 >>>
+                                               string:left(atom_to_list(HasChildren_1), lists:nth(6,LenPerCol)), ?SEPARATOR,
+                                               string:right(integer_to_list(ChunkedObjs), lists:nth(7, LenPerCol)), ?SEPARATOR,
+                                               string:left(leo_hex:integer_to_hex(Clock, 8), lists:nth(8, LenPerCol)), ?SEPARATOR,
+                                               %% <<<
                                                FormattedDate,
                                                ?CRLF])
                          end,

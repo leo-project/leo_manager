@@ -610,18 +610,24 @@ whereis(AssignedInfo) ->
                              Clock = leo_misc:get_value('clock', ItemL),
                              Timestamp = leo_misc:get_value('timestamp', ItemL),
                              Checksum = leo_misc:get_value('checksum', ItemL),
-                             RedMethod = leo_misc:get_value('redundancy_method', ItemL),
-                             ECLib = leo_misc:get_value('ec_lib', ItemL),
-                             ECParams = leo_misc:get_value('ec_params', ItemL),
+                             %% === NOTE: for 1.4 >>>
+                             %% RedMethod = leo_misc:get_value('redundancy_method', ItemL),
+                             %% ECLib = leo_misc:get_value('ec_lib', ItemL),
+                             %% ECParams = leo_misc:get_value('ec_params', ItemL),
+                             %% <<<
                              CSize = leo_misc:get_value('csize', ItemL),
                              HasChildren = leo_misc:get_value('has_children', ItemL),
                              DelFlag = leo_misc:get_value('del', ItemL),
-                             {ECParam_K, ECParam_M} = case ECParams of
-                                                          {_,_} ->
-                                                              ECParams;
-                                                          _ ->
-                                                              {0,0}
-                                                      end,
+
+                             %% === NOTE: for 1.4 >>>
+                             %% {ECParam_K, ECParam_M} = case ECParams of
+                             %%                              {_,_} ->
+                             %%                                  ECParams;
+                             %%                              _ ->
+                             %%                                  {0,0}
+                             %%                          end,
+                             %% <<<
+
                              {[{<<"node">>, leo_misc:any_to_binary(Node)},
                                {<<"vnode_id">>, leo_misc:any_to_binary(leo_hex:integer_to_hex(VNodeId, 8))},
                                {<<"size">>, DSize},
@@ -629,10 +635,12 @@ whereis(AssignedInfo) ->
                                {<<"clock">>, leo_misc:any_to_binary(leo_hex:integer_to_hex(Clock, 8))},
                                {<<"checksum">>, leo_misc:any_to_binary(leo_hex:integer_to_hex(Checksum, 8))},
                                {<<"timestamp">>, leo_misc:any_to_binary(leo_date:date_format(Timestamp))},
-                               {<<"redundancy_method">>, list_to_binary(atom_to_list(RedMethod))},
-                               {<<"erasure_code_lib">>, list_to_binary(atom_to_list(ECLib))},
-                               {<<"erasure_param_k">>, ECParam_K},
-                               {<<"erasure_param_m">>, ECParam_M},
+                               %% === NOTE: for 1.4 >>>
+                               %% {<<"redundancy_method">>, list_to_binary(atom_to_list(RedMethod))},
+                               %% {<<"erasure_code_lib">>, list_to_binary(atom_to_list(ECLib))},
+                               %% {<<"erasure_param_k">>, ECParam_K},
+                               %% {<<"erasure_param_m">>, ECParam_M},
+                               %% <<<
                                {<<"chunk_size">>, CSize},
                                {<<"has_children">>, list_to_binary(atom_to_list(HasChildren))},
                                {<<"delete">>, DelFlag}
