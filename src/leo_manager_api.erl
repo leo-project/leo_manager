@@ -67,13 +67,14 @@
 
 -export([register/4, register/7, register/8,
          notify/3, notify/4, purge/1, remove/1,
-         whereis/2, recover/3,
+         whereis/2, recover/3, rebuild_dir_metadata/2,
          compact/2, compact/4, diagnose_data/1,
          stats/2,
          mq_stats/1, mq_suspend/2, mq_resume/2,
          synchronize/1, synchronize/2, synchronize/3,
-         set_endpoint/1, delete_endpoint/1, add_bucket/2, add_bucket/3, delete_bucket/2,
-         update_acl/3
+         set_endpoint/1, delete_endpoint/1,
+         add_bucket/2, add_bucket/3, delete_bucket/2, update_bucket/1,
+         update_acl/3, gen_nfs_mnt_key/3
         ]).
 
 -export([join_cluster/2,
@@ -1438,15 +1439,10 @@ whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
             RPCKey  = rpc:async_call(Node, leo_object_storage_api, head, [{AddrId, Key}]),
             Reply   = case rpc:nb_yield(RPCKey, ?DEF_TIMEOUT) of
                           {value, {ok, MetaBin}} ->
-                              #?METADATA{addr_id   = AddrId,
-                                         dsize     = DSize,
-                                         cnumber   = ChunkedObjs,
-                                         clock     = Clock,
-                                         timestamp = Timestamp,
-                                         checksum  = Checksum,
-                                         del       = DelFlag} = binary_to_term(MetaBin),
-                              {NodeStr, AddrId, DSize, ChunkedObjs, Clock,
-                               Timestamp, Checksum, DelFlag};
+                              Metadata = binary_to_term(MetaBin),
+                              {NodeStr,
+                               lists:zip(record_info(fields, ?METADATA),
+                                         tl(tuple_to_list(Metadata)))};
                           _ ->
                               {NodeStr, not_found}
                       end,
@@ -1532,7 +1528,7 @@ recover(?RECOVER_REMOTE_CLUSTER, ClusterId, true) when is_list(ClusterId) ->
 recover(?RECOVER_REMOTE_CLUSTER, ClusterId, true) ->
     case is_allow_to_distribute_command() of
         {true, Members} ->
-            case rpc:multicall(Members, leo_storage_handle_sync, force_sync,
+            case rpc:multicall(Members, leo_storage_handler_sync, force_sync,
                                [ClusterId], ?DEF_TIMEOUT) of
                 {_RetL, []} ->
                     ok;
@@ -1574,6 +1570,48 @@ recover_node_2(true, Members, Node) ->
     end;
 recover_node_2(false,_,_) ->
     {error, ?ERROR_NOT_SATISFY_CONDITION}.
+
+
+%% @doc Rebuild every directory's metadata
+%%
+-spec(rebuild_dir_metadata(pid(), [string()]) ->
+             ok | {error, any()}).
+rebuild_dir_metadata(Socket, []) ->
+    ok = output_message_to_console(
+           Socket, << "Start rebuidling every dir's metadata..." >>),
+    case leo_manager_mnesia:get_storage_nodes_all() of
+        {ok, Nodes} ->
+            Nodes_1 = [{N, S} || #node_state{node  = N,
+                                             state = S} <- Nodes],
+            rebuild_dir_metadata_1(Socket, Nodes_1, []);
+        _Error ->
+            {error, ?ERROR_COULD_NOT_GET_MEMBER}
+    end;
+%% @TODO: Support specific parameters
+rebuild_dir_metadata(_Socket,_Prms) ->
+    ok.
+
+%% @private
+rebuild_dir_metadata_1(_Socket, [], []) ->
+    ok;
+rebuild_dir_metadata_1(_Socket, [], Error) ->
+    {error, Error};
+rebuild_dir_metadata_1(Socket, [{Node, running}|Rest], Error) ->
+    {SendMsg, Error_1} =
+        case rpc:call(Node, ?API_STORAGE, diagnose_data, [], ?DEF_TIMEOUT) of
+            ok ->
+                {lists:append(["OK: ", atom_to_list(Node)]),
+                 Error};
+            {error, Cause} ->
+                {lists:append(["ERROR: ", atom_to_list(Node), ", Reason:badrpc"]),
+                 [{Node, Cause}|Error]}
+        end,
+    ok = output_message_to_console(Socket, list_to_binary(SendMsg)),
+    rebuild_dir_metadata_1(Socket,Rest, Error_1);
+rebuild_dir_metadata_1(Socket, [{Node, State}|Rest], Error) ->
+    SendMsg = lists:append(["Skip: ", atom_to_list(Node), " because of ", atom_to_list(State)]),
+    ok = output_message_to_console(Socket, list_to_binary(SendMsg)),
+    rebuild_dir_metadata_1(Socket, Rest, Error).
 
 
 %% @doc Do compact.
@@ -2204,6 +2242,8 @@ add_bucket_1(AccessKeyBin, BucketBin, CannedACL) ->
         {error, _Cause} ->
             {error, ?ERROR_COULD_NOT_STORE}
     end.
+
+
 %% @doc Remove a bucket from storage-cluster and manager
 -spec(delete_bucket(binary(), binary()) ->
              ok | {error, any()}).
@@ -2234,7 +2274,7 @@ delete_bucket_1(AccessKeyBin, BucketBin) ->
                                       Node
                               end, Members),
             case rpc:multicall(Nodes, leo_storage_handler_directory,
-                               delete_objects_in_parent_dir,
+                               delete,
                                [BucketBin], ?DEF_TIMEOUT) of
                 {_, []} -> void;
                 {_, BadNodes} ->
@@ -2255,6 +2295,21 @@ delete_bucket_2(AccessKeyBin, BucketBin) ->
             {error, ?ERROR_INVALID_BUCKET_FORMAT};
         {error, _Cause} ->
             {error, ?ERROR_COULD_NOT_STORE}
+    end.
+
+
+%% @doc Update a bucket
+%%
+-spec(update_bucket(BucketName) ->
+             ok | {error, any()} when BucketName::binary()).
+update_bucket(BucketName) ->
+    case leo_s3_bucket:find_bucket_by_name(BucketName) of
+        {ok, #?BUCKET{} = Bucket} ->
+            rpc_call_for_gateway(update_bucket, [Bucket]);
+        not_found = Cause ->
+            {error, Cause};
+        Error ->
+            Error
     end.
 
 
@@ -2296,6 +2351,8 @@ update_acl(?CANNED_ACL_AUTHENTICATED_READ = Permission, AccessKey, Bucket) ->
 update_acl(_,_,_) ->
     {error, ?ERROR_INVALID_ARGS}.
 
+gen_nfs_mnt_key(Bucket, AccessKey, IP) ->
+    leo_s3_bucket:gen_nfs_mnt_key(Bucket, AccessKey, IP).
 
 %% @doc RPC call for Gateway-nodes
 %% @private

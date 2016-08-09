@@ -261,7 +261,6 @@ create_mnesia_tables_1(master = Mode, Nodes) ->
                 leo_manager_mnesia:create_storage_nodes(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_gateway_nodes(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_rebalance_info(disc_copies, Nodes_1),
-                leo_manager_mnesia:create_histories(disc_copies, Nodes_1),
                 leo_manager_mnesia:create_available_commands(disc_copies, Nodes_1),
 
                 leo_cluster_tbl_conf:create_table(disc_copies, Nodes_1),

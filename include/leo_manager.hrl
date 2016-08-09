@@ -136,7 +136,6 @@
 -define(CMD_UPDATE_MANAGERS, "update-managers").
 %% For Maintenance
 -define(CMD_RECOVER, "recover").
--define(CMD_HISTORY, "history").
 -define(CMD_DUMP_RING, "dump-ring").
 -define(CMD_UPDATE_LOG_LEVEL, "update-log-level").
 -define(CMD_UPDATE_CONSISTENCY_LEVEL, "update-consistency-level").

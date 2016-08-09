@@ -33,7 +33,6 @@
 %% API
 -export([start_link/2, start_link/3, stop/0]).
 -export([init/1, handle_call/3]).
--export([whereis/1]).
 
 
 %%----------------------------------------------------------------------
@@ -521,6 +520,22 @@ handle_call(_Socket, <<?CMD_CHANGE_BUCKET_OWNER, ?SPACE, Option/binary>>,
     {reply, Reply, State};
 
 
+%% Command: "set-redundancy-method ${bucket} ${access-key-id} ${redundancy-method}"
+%%
+handle_call(_Socket, <<?CMD_SET_RED_METHOD, ?SPACE, Option/binary>>,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case set_redundancy_method(Option) of
+                      ok ->
+                          Formatter:ok();
+                      {error, Cause} ->
+                          Formatter:error(Cause)
+                  end
+          end,
+    Reply = invoke(?CMD_SET_RED_METHOD, Formatter, Fun),
+    {reply, Reply, State};
+
+
 %% Command: "update-acl ${bucket} ${canned_acl}"
 handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>>,
             #state{formatter = Formatter} = State) ->
@@ -540,7 +555,7 @@ handle_call(_Socket, <<?CMD_UPDATE_ACL, ?SPACE, Option/binary>>,
 handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>>,
             #state{formatter = Formatter} = State) ->
     Fun = fun() ->
-                  case ?MODULE:whereis(Option) of
+                  case get_assignments(Option) of
                       {ok, AssignedInfo} ->
                           Formatter:whereis(AssignedInfo);
                       {error, Cause} ->
@@ -552,10 +567,16 @@ handle_call(_Socket, <<?CMD_WHEREIS, ?SPACE, Option/binary>>,
 
 
 %% Command: "recover file|node ${PATH}|${NODE}"
-handle_call(_Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>>,
+handle_call(Socket, <<?CMD_RECOVER, ?SPACE, Option/binary>>,
             #state{formatter = Formatter} = State) ->
+    Socket_1 = case Formatter of
+                   ?MOD_TEXT_FORMATTER ->
+                       Socket;
+                   _ ->
+                       null
+               end,
     Fun = fun() ->
-                  case recover(Option) of
+                  case recover(Socket_1, Option) of
                       ok ->
                           Formatter:ok();
                       {error, Cause} ->
@@ -641,20 +662,21 @@ handle_call(_Socket, <<?CMD_UPDATE_MANAGERS, ?SPACE, Option/binary>>,
     {reply, Reply, State};
 
 
-%% Command: "history"
-handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
-    Fun = fun() ->
-                  case leo_manager_mnesia:get_histories() of
-                      {ok, Histories} ->
-                          Formatter:histories(Histories);
-                      not_found ->
-                          Formatter:histories([]);
-                      {error, Cause} ->
-                          Formatter:error(Cause)
-                  end
-          end,
-    Reply = invoke(?CMD_HISTORY, Formatter, Fun),
-    {reply, Reply, State};
+%% @deplicated
+%% %% Command: "history"
+%% handle_call(_Socket, <<?CMD_HISTORY, ?CRLF>>, #state{formatter = Formatter} = State) ->
+%%     Fun = fun() ->
+%%                   case leo_manager_mnesia:get_histories() of
+%%                       {ok, Histories} ->
+%%                           Formatter:histories(Histories);
+%%                       not_found ->
+%%                           Formatter:histories([]);
+%%                       {error, Cause} ->
+%%                           Formatter:error(Cause)
+%%                   end
+%%           end,
+%%     Reply = invoke(?CMD_HISTORY, Formatter, Fun),
+%%     {reply, Reply, State};
 
 
 %% Command: "dump-ring ${NODE}"
@@ -698,6 +720,20 @@ handle_call(_Socket, <<?CMD_UPDATE_CONSISTENCY_LEVEL, ?SPACE, Option/binary>>,
                   end
           end,
     Reply = invoke(?CMD_UPDATE_LOG_LEVEL, Formatter, Fun),
+    {reply, Reply, State};
+
+%% Command: "gen-nfs-mnt-key ${BUCKET} ${ACCESS-KEY-ID} ${IP-ADDRESS}"
+handle_call(_Socket, <<?CMD_GEN_NFS_MNT_KEY, ?SPACE, Option/binary>>,
+            #state{formatter = Formatter} = State) ->
+    Fun = fun() ->
+                  case gen_nfs_mnt_key(Option) of
+                      {ok, Key} ->
+                          Formatter:nfs_mnt_key(Key);
+                      {error,_Cause} ->
+                          Formatter:error(?ERROR_INVALID_ARGS)
+                  end
+          end,
+    Reply = invoke(?CMD_GEN_NFS_MNT_KEY, Formatter, Fun),
     {reply, Reply, State};
 
 
@@ -845,12 +881,15 @@ rebalance(Socket, Formatter) ->
 %% </p>
 %% @private
 update_property(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Node, PropertyName, PropertyValue|_] ->
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_COMMAND) of
+        {ok, [Node, PropertyName, PropertyValue|_]} ->
             update_property_1(Node, PropertyName, PropertyValue);
-        _ ->
-            {error, ?ERROR_NOT_SPECIFIED_COMMAND}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
     end.
+
 
 %% @private
 update_property_1(Node, "watchdog.cpu_enabled","true") ->
@@ -988,11 +1027,11 @@ update_property_2(Node, Method, Args) ->
 -spec(backup_mnesia(binary()) ->
              ok | {error, any()}).
 backup_mnesia(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        [BackupFile|_] ->
-            leo_manager_mnesia:backup(BackupFile)
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [BackupFile|_]} ->
+            leo_manager_mnesia:backup(BackupFile);
+        Error ->
+            Error
     end.
 
 
@@ -1001,11 +1040,11 @@ backup_mnesia(Option) ->
 -spec(restore_mnesia(binary()) ->
              ok | {error, any()}).
 restore_mnesia(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        [BackupFile|_] ->
-            leo_manager_mnesia:restore(BackupFile)
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [BackupFile|_]} ->
+            leo_manager_mnesia:restore(BackupFile);
+        Error ->
+            Error
     end.
 
 
@@ -1014,23 +1053,24 @@ restore_mnesia(Option) ->
 -spec(update_manager_nodes(binary()) ->
              ok | {error, any()}).
 update_manager_nodes(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Master, Slave|_] ->
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [Master, Slave|_]} ->
             leo_manager_api:update_manager_nodes(
               [list_to_atom(Master), list_to_atom(Slave)]);
-        _ ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE}
+        Error ->
+            Error
     end.
 
 
 %% @doc Output ring of a targe node
 %% @private
 dump_ring(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Node|_] ->
-            rpc:call(list_to_atom(Node), leo_redundant_manager_api, dump, [both]);
-        _ ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE}
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [Node|_]} ->
+            rpc:call(list_to_atom(Node),
+                     leo_redundant_manager_api, dump, [both]);
+        Error ->
+            Error
     end.
 
 
@@ -1105,6 +1145,18 @@ update_consistency_level_1({ok, {W, R, D} = ConsistencyLevel}) ->
     end.
 
 
+%% @private
+gen_nfs_mnt_key(Option) ->
+    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
+        [Bucket, AccessKey, IP|_] ->
+            leo_s3_bucket:gen_nfs_mnt_key(list_to_binary(Bucket),
+                                          list_to_binary(AccessKey),
+                                          list_to_binary(IP));
+        _ ->
+            {error, ?ERROR_INVALID_ARGS}
+    end.
+
+
 %% @doc Join a cluster
 %% @private
 join_cluster(Option) ->
@@ -1130,10 +1182,8 @@ join_cluster(Option) ->
 -spec(join_cluster_1(binary()) ->
              {ok, atom()} | {error, any()}).
 join_cluster_1(Bin) ->
-    case string:tokens(binary_to_list(Bin), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        Nodes ->
+    case ?get_tokens(Bin, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, Nodes} ->
             Nodes_1 = lists:map(fun(N) ->
                                         list_to_atom(N)
                                 end, Nodes),
@@ -1142,8 +1192,11 @@ join_cluster_1(Bin) ->
                     leo_manager_api:update_cluster_manager(Nodes_1, ClusterId);
                 Other ->
                     Other
-            end
+            end;
+        Error ->
+            Error
     end.
+
 
 %% @private
 -spec(join_cluster_2([atom()]) ->
@@ -1206,13 +1259,14 @@ join_cluster_2([Node|Rest] = RemoteNodes) ->
 %% @doc Remove a cluster
 %% @private
 remove_cluster(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        Nodes ->
-            remove_cluster_1(Nodes)
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, Nodes} ->
+            remove_cluster_1(Nodes);
+        Error ->
+            Error
     end.
 
+%% @private
 remove_cluster_1([]) ->
     {error, ?ERROR_COULD_NOT_CONNECT};
 remove_cluster_1([Node|Rest]) ->
@@ -1298,11 +1352,8 @@ version() ->
 -spec(login(binary()) ->
              {ok, #?S3_USER{}, [tuple()]} | {error, any()}).
 login(Option) ->
-    Token = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
-
-    case (erlang:length(Token) == 2) of
-        true ->
-            [UserId, Password] = Token,
+    case ?get_tokens(Option, invalid_args) of
+        {ok, [UserId, Password]} ->
             UserIdBin = list_to_binary(UserId),
             PasswordBin = list_to_binary(Password),
 
@@ -1317,7 +1368,7 @@ login(Option) ->
                 Error ->
                     Error
             end;
-        false ->
+        _ ->
             {error, invalid_args}
     end.
 
@@ -1409,6 +1460,29 @@ status({node_state, Node}) ->
             {ok, {Type, State}};
         {error, Cause} ->
             {error, Cause}
+    end;
+status(Option) ->
+    Tokens = string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER),
+    case (Tokens == []) of
+        true ->
+            %% Reload and store system-conf
+            case ?env_mode_of_manager() of
+                'master' ->
+                    case leo_cluster_tbl_conf:get() of
+                        {ok, SystemConf} ->
+                            SystemConf;
+                        _ ->
+                            void
+                    end;
+                _ ->
+                    void
+            end,
+
+            %% Retrieve the status
+            status(node_list);
+        false ->
+            [Node|_] = Tokens,
+            status({node_state, Node})
     end.
 
 
@@ -1449,10 +1523,8 @@ start(Socket) ->
 detach(Option) ->
     {ok, SystemConf} = leo_cluster_tbl_conf:get(),
 
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        [Node|_] ->
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [Node|_]} ->
             %% target-node is 'attached', then removed it from 'member-table'
             NodeAtom = list_to_atom(Node),
             case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
@@ -1486,7 +1558,9 @@ detach(Option) ->
                         Error ->
                             Error
                     end
-            end
+            end;
+        Error ->
+            Error
     end.
 
 
@@ -1541,17 +1615,17 @@ allow_to_detach_node_2(N, NodeAtom) ->
 -spec(suspend(binary()) ->
              ok | {error, any()}).
 suspend(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        [Node|_] ->
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [Node|_]} ->
             NodeAtom = list_to_atom(Node),
             case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
                 {ok, #member{state = ?STATE_RUNNING}} ->
                     leo_manager_api:suspend(NodeAtom);
                 _ ->
                     {error, ?ERROR_COULD_NOT_SUSPEND_NODE}
-            end
+            end;
+        Error ->
+            Error
     end.
 
 
@@ -1560,10 +1634,8 @@ suspend(Option) ->
 -spec(resume(binary()) ->
              ok | {error, any()}).
 resume(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        [Node|_] ->
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [Node|_]} ->
             NodeAtom = list_to_atom(Node),
             case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
                 {ok, #member{state = ?STATE_RUNNING}} ->
@@ -1576,7 +1648,9 @@ resume(Option) ->
                     {error, ?ERROR_COULD_NOT_RESUME_NODE};
                 _ ->
                     leo_manager_api:resume(NodeAtom)
-            end
+            end;
+        Error ->
+            Error
     end.
 
 
@@ -1585,10 +1659,8 @@ resume(Option) ->
 -spec(rollback(binary()) ->
              ok | {error, any()}).
 rollback(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        [Node|_] ->
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, [Node|_]} ->
             NodeAtom = list_to_atom(Node),
             case leo_redundant_manager_api:get_member_by_node(NodeAtom) of
                 {ok, #member{state = ?STATE_RUNNING}} ->
@@ -1597,7 +1669,9 @@ rollback(Option) ->
                     leo_manager_api:rollback(NodeAtom);
                 _ ->
                     {error, ?ERROR_COULD_NOT_ROLLBACK}
-            end
+            end;
+        Error ->
+            Error
     end.
 
 
@@ -1606,11 +1680,11 @@ rollback(Option) ->
 -spec(purge(binary()) ->
              ok | {error, any()}).
 purge(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_INVALID_PATH};
-        [Key|_] ->
-            leo_manager_api:purge(Key)
+    case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
+        {ok, [Key|_]} ->
+            leo_manager_api:purge(Key);
+        Error ->
+            Error
     end.
 
 
@@ -1619,11 +1693,11 @@ purge(Option) ->
 -spec(remove(binary()) ->
              ok | {error, any()}).
 remove(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_INVALID_PATH};
-        [Node|_] ->
-            leo_manager_api:remove(Node)
+    case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
+        {ok, [Node|_]} ->
+            leo_manager_api:remove(Node);
+        Error ->
+            Error
     end.
 
 
@@ -1632,10 +1706,8 @@ remove(Option) ->
 -spec(du(binary()) ->
              ok | {error, any()}).
 du(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE};
-        Tokens ->
+    case ?get_tokens(Option, ?ERROR_NOT_SPECIFIED_NODE) of
+        {ok, Tokens} ->
             Mode = case length(Tokens) of
                        1 ->
                            {summary, lists:nth(1, Tokens)};
@@ -1659,7 +1731,9 @@ du(Option) ->
                         {error, Cause} ->
                             {error, Cause}
                     end
-            end
+            end;
+        Error ->
+            Error
     end.
 
 
@@ -1668,10 +1742,8 @@ du(Option) ->
 -spec(compact(binary()) ->
              ok | {ok,_} | {error, any()}).
 compact(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_NO_CMODE_SPECIFIED};
-        [Mode, Node|Rest] ->
+    case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
+        {ok, [Mode, Node|Rest]} ->
             %% command patterns:
             %%   compact start ${storage-node} all | ${num_of_targets} [${num_of_compact_procs}]
             %%   compact suspend ${storage-node}
@@ -1685,8 +1757,10 @@ compact(Option) ->
                 {_, Cause} ->
                     {error, Cause}
             end;
-        [_Mode|_Rest] ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE}
+        {ok, [_Mode|_Rest]} ->
+            {error, ?ERROR_NOT_SPECIFIED_NODE};
+        Error ->
+            Error
     end.
 
 %% @private
@@ -1726,55 +1800,55 @@ compact(_,_,_,_) ->
 
 %% @doc Execute data-diagnosis
 diagnose_data(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Node|_] ->
+    case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
+        {ok, [Node|_]} ->
             leo_manager_api:diagnose_data(list_to_atom(Node));
-        _ ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE}
+        Error ->
+            Error
     end.
 
 
 %% @doc Execute data-diagnosis
 mq_stats(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Node|_] ->
+    case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
+        {ok, [Node|_]} ->
             leo_manager_api:mq_stats(list_to_atom(Node));
-        _ ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE}
+        Error ->
+            Error
     end.
 
 
 %% @doc Execute data-diagnosis
 mq_suspend(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Node, MQId|_] ->
+    case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
+        {ok, [Node, MQId|_]} ->
             leo_manager_api:mq_suspend(
               list_to_atom(Node), list_to_atom(MQId));
-        _ ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE}
+        Error ->
+            Error
     end.
 
 
 %% @doc Execute data-diagnosis
 mq_resume(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Node, MQId|_] ->
+    case ?get_tokens(Option, ?ERROR_NO_CMODE_SPECIFIED) of
+        {ok, [Node, MQId|_]} ->
             leo_manager_api:mq_resume(
               list_to_atom(Node), list_to_atom(MQId));
-        _ ->
-            {error, ?ERROR_NOT_SPECIFIED_NODE}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
     end.
 
 
 %% @doc Retrieve information of an Assigned object
 %% @private
--spec(whereis(binary()) ->
+-spec(get_assignments(binary()) ->
              ok | {error, any()}).
-whereis(Option) ->
-    case string:tokens(binary_to_list(Option), ?CRLF) of
-        [] ->
-            {error, ?ERROR_INVALID_PATH};
-        [Key|_]->
+get_assignments(Option) ->
+    case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
+        {ok, [Key|_]}->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
             Key2 = escape_large_obj_sep(Key),
 
@@ -1783,7 +1857,9 @@ whereis(Option) ->
                     {ok, AssignedInfo};
                 {_, Cause} ->
                     {error, Cause}
-            end
+            end;
+        Error ->
+            Error
     end.
 
 %% @private
@@ -1800,15 +1876,16 @@ escape_large_obj_sep(SrcKey) ->
 
 %% @doc Recover object(s) by a key/node
 %% @private
--spec(recover(binary()) ->
+-spec(recover(pid(), binary()) ->
              ok | {error, any()}).
-recover(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_INVALID_PATH};
-        [Op, Key |Rest] when Rest == [] ->
+recover(Socket, Option) ->
+    case ?get_tokens(Option, ?ERROR_INVALID_PATH) of
+        {ok, [?RECOVER_DIR]} ->
+            leo_manager_api:rebuild_dir_metadata(Socket, []);
+        {ok, [?RECOVER_DIR|Prms]} ->
+            leo_manager_api:rebuild_dir_metadata(Socket, Prms);
+        {ok, [Op, Key |Rest]} when Rest == [] ->
             HasRoutingTable = (leo_redundant_manager_api:checksum(ring) >= 0),
-
             case catch leo_manager_api:recover(Op, Key, HasRoutingTable) of
                 ok ->
                     ok;
@@ -1825,14 +1902,16 @@ recover(Option) ->
 -spec(create_user(binary()) ->
              {ok, [tuple()]} | {error, any()}).
 create_user(Option) ->
-    Ret = case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-              [UserId] ->
+    Ret = case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+              {ok, [UserId]} ->
                   {ok, {list_to_binary(UserId), <<>>}};
-              [UserId, Password] ->
+              {ok, [UserId, Password]} ->
                   {ok, {list_to_binary(UserId),
                         list_to_binary(Password)}};
-              _ ->
-                  {error, ?ERROR_INVALID_ARGS}
+              {ok,_} ->
+                  {error, ?ERROR_INVALID_ARGS};
+              Error ->
+                  Error
           end,
 
     case Ret of
@@ -1865,8 +1944,8 @@ create_user(Option) ->
 -spec(update_user_role(binary()) ->
              ok | {error, any()}).
 update_user_role(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [UserId, RoleId|_] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [UserId, RoleId|_]} ->
             case leo_s3_user:update(#?S3_USER{id       = list_to_binary(UserId),
                                               role_id  = list_to_integer(RoleId),
                                               password = <<>>}) of
@@ -1875,8 +1954,10 @@ update_user_role(Option) ->
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_UPDATE_USER}
             end;
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
     end.
 
 
@@ -1885,8 +1966,8 @@ update_user_role(Option) ->
 -spec(update_user_password(binary()) ->
              ok | {error, any()}).
 update_user_password(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [UserId, Password|_] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [UserId, Password|_]} ->
             UserIdBin   = list_to_binary(UserId),
             PasswordBin = list_to_binary(Password),
             case leo_s3_user:find_by_id(UserIdBin) of
@@ -1899,8 +1980,10 @@ update_user_password(Option) ->
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_GET_USER}
             end;
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
     end.
 
 
@@ -1909,16 +1992,16 @@ update_user_password(Option) ->
 -spec(delete_user(binary()) ->
              ok | {error, any()}).
 delete_user(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [UserId|_] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [UserId|_]} ->
             case leo_s3_user:delete(list_to_binary(UserId)) of
                 ok ->
                     ok;
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_REMOVE_USER}
             end;
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        Error ->
+            Error
     end.
 
 
@@ -1955,12 +2038,12 @@ get_users_1() ->
 -spec(set_endpoint(binary()) ->
              ok | {error, any()}).
 set_endpoint(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_INVALID_ARGS};
-        [EndPoint|_] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [EndPoint|_]} ->
             EndPointBin = list_to_binary(EndPoint),
-            leo_manager_api:set_endpoint(EndPointBin)
+            leo_manager_api:set_endpoint(EndPointBin);
+        Error ->
+            Error
     end.
 
 
@@ -1996,12 +2079,12 @@ get_endpoints_1() ->
 -spec(delete_endpoint(binary()) ->
              ok | {error, any()}).
 delete_endpoint(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [] ->
-            {error, ?ERROR_INVALID_ARGS};
-        [EndPoint|_] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [EndPoint|_]} ->
             EndPointBin = list_to_binary(EndPoint),
-            leo_manager_api:delete_endpoint(EndPointBin)
+            leo_manager_api:delete_endpoint(EndPointBin);
+        Error ->
+            Error
     end.
 
 
@@ -2010,13 +2093,15 @@ delete_endpoint(Option) ->
 -spec(add_bucket(binary()) ->
              ok | {error, any()}).
 add_bucket(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket, AccessKey] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [Bucket, AccessKey]} ->
             BucketBin = list_to_binary(Bucket),
             AccessKeyBin = list_to_binary(AccessKey),
             leo_manager_api:add_bucket(AccessKeyBin, BucketBin);
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
     end.
 
 
@@ -2025,13 +2110,15 @@ add_bucket(Option) ->
 -spec(delete_bucket(binary()) ->
              ok | {error, any()}).
 delete_bucket(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket, AccessKey] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [Bucket, AccessKey]} ->
             BucketBin = list_to_binary(Bucket),
             AccessKeyBin = list_to_binary(AccessKey),
             leo_manager_api:delete_bucket(AccessKeyBin, BucketBin);
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
     end.
 
 
@@ -2066,11 +2153,11 @@ get_buckets_1() ->
 -spec(get_bucket_by_access_key(binary()) ->
              ok | {error, any()}).
 get_bucket_by_access_key(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [AccessKey] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [AccessKey|_]} ->
             leo_s3_bucket:find_buckets_by_id(list_to_binary(AccessKey));
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        Error ->
+            Error
     end.
 
 
@@ -2079,10 +2166,11 @@ get_bucket_by_access_key(Option) ->
 -spec(change_bucket_owner(binary()) ->
              ok | {error, any()}).
 change_bucket_owner(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket, NewAccessKeyId] ->
-            case leo_s3_bucket:change_bucket_owner(list_to_binary(NewAccessKeyId),
-                                                   list_to_binary(Bucket)) of
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [Bucket, NewAccessKeyId]} ->
+            case leo_s3_bucket:change_bucket_owner(
+                   list_to_binary(NewAccessKeyId),
+                   list_to_binary(Bucket)) of
                 ok ->
                     ok;
                 not_found ->
@@ -2090,8 +2178,53 @@ change_bucket_owner(Option) ->
                 {error,_Cause} ->
                     {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
             end;
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
+    end.
+
+%% #doc Set redundancy method of a bucket
+set_redundancy_method(Option) ->
+    Ret = case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+              {ok, [Bucket, AccessKeyId, ?RED_METHOD_STR_COPY = RedMethod]} ->
+                  {ok, [Bucket, AccessKeyId, RedMethod, "0", "0"]};
+              {ok, [Bucket, AccessKeyId, ?RED_METHOD_STR_EC = RedMethod, ECParam_K, ECParam_M]} ->
+                  {ok, [Bucket, AccessKeyId, RedMethod, ECParam_K, ECParam_M]};
+              {ok,_} ->
+                  {error, ?ERROR_INVALID_ARGS};
+              Error ->
+                  Error
+          end,
+
+    case Ret of
+        {ok, [Bucket_1, AccessKeyId_1,
+              RedMethod_1, ECParam_K_1, ECParam_M_1]} ->
+            AccessKeyId_2 = list_to_binary(AccessKeyId_1),
+            Bucket_2 = list_to_binary(Bucket_1),
+            StrToInt = fun(_StrInt) ->
+                               case catch list_to_integer(_StrInt) of
+                                   {'EXIT',_} ->
+                                       void;
+                                   _Int ->
+                                       _Int
+                               end
+                       end,
+            ECParam_K_2 = StrToInt(ECParam_K_1),
+            ECParam_M_2 = StrToInt(ECParam_M_1),
+
+            case leo_s3_bucket:set_redundancy_method(
+                   AccessKeyId_2, Bucket_2, RedMethod_1,
+                   'vandrs', {ECParam_K_2, ECParam_M_2}) of
+                ok ->
+                    leo_manager_api:update_bucket(Bucket_2);
+                not_found ->
+                    {error, ?ERROR_BUCKET_NOT_FOUND};
+                {error,_Cause} ->
+                    {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
+            end;
+        Error_1 ->
+            Error_1
     end.
 
 
@@ -2100,8 +2233,8 @@ change_bucket_owner(Option) ->
 -spec(update_acl(binary()) ->
              ok | {error, any()}).
 update_acl(Option) ->
-    case string:tokens(binary_to_list(Option), ?COMMAND_DELIMITER) of
-        [Bucket, AccessKey, Permission] ->
+    case ?get_tokens(Option, ?ERROR_INVALID_ARGS) of
+        {ok, [Bucket, AccessKey, Permission]} ->
             BucketBin = list_to_binary(Bucket),
             case leo_s3_bucket:find_bucket_by_name(BucketBin) of
                 {ok,_} ->
@@ -2118,6 +2251,8 @@ update_acl(Option) ->
                 _ ->
                     {error, ?ERROR_COULD_NOT_UPDATE_BUCKET}
             end;
-        _ ->
-            {error, ?ERROR_INVALID_ARGS}
+        {ok,_} ->
+            {error, ?ERROR_INVALID_ARGS};
+        Error ->
+            Error
     end.
