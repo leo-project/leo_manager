@@ -1,4 +1,4 @@
-.PHONY: all compile xref eunit check_plt build_plt dialyzer doc callgraph graphviz clean distclean
+.PHONY: all deps compile xref eunit check_plt build_plt dialyzer doc callgraph graphviz clean distclean
 
 REBAR := ./rebar
 APPS = erts kernel stdlib sasl crypto compiler inets mnesia public_key runtime_tools snmp syntax_tools tools xmerl webtool ssl
@@ -9,14 +9,12 @@ PLT_FILE = .leo_manager_dialyzer_plt
 DOT_FILE = leo_manager.dot
 CALL_GRAPH_FILE = leo_manager.png
 
-all:
-	@$(REBAR) update-deps
+all: deps compile xref eunit
+deps:
 	@$(REBAR) get-deps
-	@$(REBAR) compile
-	@$(REBAR) xref skip_deps=true
-	@$(REBAR) eunit skip_deps=true
 compile:
-	@$(REBAR) compile skip_deps=true
+	find . -name rebar.config|xargs sed -i 's/require_otp_vsn,\s\+"\(.\+\)"/require_otp_vsn, "R16B*|17|18|19"/g'
+	@$(REBAR) compile
 xref:
 	@$(REBAR) xref skip_deps=true
 eunit:
@@ -37,7 +35,7 @@ callgraph: graphviz
 graphviz:
 	$(if $(shell which dot),,$(error "To make the depgraph, you need graphviz installed"))
 clean:
-	@$(REBAR) clean skip_deps=true
+	@$(REBAR) clean
 distclean:
 	@$(REBAR) delete-deps
 	@$(REBAR) clean
