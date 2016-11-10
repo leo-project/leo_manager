@@ -10,3 +10,4 @@ log/
 leo_manager.dot
 leo_manager.png
 .rebar/
+rel/leo_manager/
