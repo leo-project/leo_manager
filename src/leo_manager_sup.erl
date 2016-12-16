@@ -302,35 +302,47 @@ create_mnesia_tables_1(slave,_Nodes) ->
 -spec(create_mnesia_tables_2(master | slave, list()) ->
              ok | {error, any()}).
 create_mnesia_tables_2(Mode,_Nodes) ->
-    application:start(mnesia),
+    ok = application:start(mnesia),
     Ret = case catch mnesia:system_info(tables) of
+              {'EXIT', {aborted, Reason}} ->
+                  ?error("create_mnesia_tables_2/2", [{cause, Reason}]),
+                  {error, ?ERROR_MNESIA_GET_TABLE_INFO_ERROR};
               Tbls when length(Tbls) > 1 ->
-                  ok = mnesia:wait_for_tables(Tbls, 60000),
-                  try
-                      %% Execute to migrate data
-                      case Mode of
-                          master ->
-                              ok = migrate_mnesia_tables();
-                          _ ->
-                              void
-                      end,
-                      %% Launch Statistics
-                      ok = leo_statistics_api:start_link(leo_manager),
-                      ok = leo_metrics_vm:start_link(
-                             ?SNMP_SYNC_INTERVAL_10S, (Mode == slave)),
-                      ok
-                  catch
-                      _:Cause ->
-                          ?error("create_mnesia_tables_2/0", [{cause, Cause}]),
-                          {error, ?ERROR_MNESIA_PROC_FAILURE}
+                  case mnesia:wait_for_tables(Tbls, timer:seconds(180)) of
+                      ok ->
+                          try
+                              %% Execute to migrate data
+                              case Mode of
+                                  master ->
+                                      ok = migrate_mnesia_tables();
+                                  _ ->
+                                      void
+                              end,
+
+                              %% Launch Statistics
+                              ok = leo_statistics_api:start_link(leo_manager),
+                              ok = leo_metrics_vm:start_link(
+                                     ?SNMP_SYNC_INTERVAL_10S, (Mode == slave)),
+                              ok
+                          catch
+                              _:Cause ->
+                                  ?error("create_mnesia_tables_2/2", [{cause, Cause}]),
+                                  {error, ?ERROR_MNESIA_PROC_FAILURE}
+                          end;
+                      {timeout, BadTabList} ->
+                          Cause = ?ERROR_MNESIA_WAIT_FOR_TABLE_TIMEOUT,
+                          ?error("create_mnesia_tables_2/2",
+                                 [{cause, Cause},
+                                  {bad_tables, BadTabList}]),
+                          {error, Cause};
+                      {error, Reason} ->
+                          ?error("create_mnesia_tables_2/2", [{cause, Reason}]),
+                          {error, ?ERROR_MNESIA_WAIT_FOR_TABLE_ERROR}
                   end;
-              Tbls when length(Tbls) =< 1 ->
+              _Tbls ->
                   Cause = ?ERROR_TABLE_NOT_EXISTS,
-                  ?error("create_mnesia_tables_2/0", [{cause, Cause}]),
-                  {error, Cause};
-              Error ->
-                  ?error("create_mnesia_tables_2/0", [{cause, Error}]),
-                  Error
+                  ?error("create_mnesia_tables_2/2", [{cause, Cause}]),
+                  {error, Cause}
           end,
 
     case Ret of

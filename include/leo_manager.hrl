@@ -272,6 +272,9 @@
 -define(ERROR_COULD_NOT_UPDATE_CONF, "Could not update the system conf").
 -define(ERROR_COULD_NOT_CREATE_RING, "Could not create RING").
 -define(ERROR_MNESIA_PROC_FAILURE, "Mnesia processing failure").
+-define(ERROR_MNESIA_WAIT_FOR_TABLE_TIMEOUT, "Mnesia: timeout of waiting for table").
+-define(ERROR_MNESIA_WAIT_FOR_TABLE_ERROR, "Mnesia: failure of waiting for table").
+-define(ERROR_MNESIA_GET_TABLE_INFO_ERROR, "Mnesia: failure of retrieving table-info").
 -define(ERROR_NOT_SPECIFIED_COMMAND, "Command not exist").
 -define(ERROR_NOT_SPECIFIED_NODE, "Not specified node").
 -define(ERROR_NO_CMODE_SPECIFIED, "Not specified compaction mode").
