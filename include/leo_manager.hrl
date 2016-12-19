@@ -249,6 +249,7 @@
 
 %% error
 -define(ERROR_COULD_NOT_CONNECT, "Could not connect").
+-define(ERROR_COULD_NOT_RECOVER, "Could not recover").
 -define(ERROR_NODE_NOT_EXISTS, "Node not exist").
 -define(ERROR_TABLE_NOT_EXISTS, "Tables not exist").
 -define(ERROR_FAILED_COMPACTION, "Failed compaction").

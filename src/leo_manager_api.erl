@@ -1452,14 +1452,22 @@ whereis_1(AddrId, Key, [RedundantNode|T], Acc) ->
     end.
 
 %% @private recover remote
-recover_remote([], _, _) ->
-    {error, ?ERROR_COULD_NOT_CONNECT};
-recover_remote([Node|Rest], AddrId, Key) ->
+recover_remote([],_,_, Errors) ->
+    FilteredList = lists:filter(fun(X) ->
+                                        X /= not_found
+                                end, Errors),
+    case FilteredList of
+        [] ->
+            ok;
+        _ ->
+            {error, ?ERROR_COULD_NOT_RECOVER}
+    end;
+recover_remote([Node|Rest], AddrId, Key, Errors) ->
     case rpc:call(Node, ?API_STORAGE, recover_remote, [AddrId, Key], ?DEF_TIMEOUT) of
         ok ->
             ok;
-        _Other ->
-            recover_remote(Rest, AddrId, Key)
+        {error, Cause} ->
+            recover_remote(Rest, AddrId, Key, [Cause|Errors])
     end.
 
 %% @doc Recover key/node
@@ -1473,7 +1481,7 @@ recover(?RECOVER_FILE, Key, true) ->
             case rpc:multicall(Nodes, ?API_STORAGE, synchronize,
                                [Key1, 'error_msg_replicate_data'], ?DEF_TIMEOUT) of
                 {_ResL, []} ->
-                    recover_remote(Nodes, AddrId, Key1);
+                    recover_remote(Nodes, AddrId, Key1, []);
                 {_, BadNodes} ->
                     {error, BadNodes}
             end;
