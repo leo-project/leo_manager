@@ -202,6 +202,7 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   %% config-1
                   {<<"version">>, leo_misc:any_to_binary(Version)},
                   {<<"log_dir">>, leo_misc:any_to_binary(leo_misc:get_value('log', Directories, []))},
+
                   %% config-2
                   {<<"ring_cur">>,  leo_misc:any_to_binary(
                                       leo_hex:integer_to_hex(
@@ -218,6 +219,7 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   {<<"limit_of_procs">>,   leo_misc:get_value('process_limit',    Statistics, 0)},
                   {<<"kernel_poll">>,      leo_misc:any_to_binary(leo_misc:get_value('kernel_poll', Statistics, false))},
                   {<<"thread_pool_size">>, leo_misc:get_value('thread_pool_size', Statistics, 0)},
+
                   %% config-2
                   {<<"handler">>,                  leo_misc:any_to_binary(leo_misc:get_value('handler', HttpConf, ''))},
                   {<<"port">>,                     leo_misc:get_value('port',             HttpConf, 0)},
@@ -234,12 +236,16 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                   {<<"cache_disc_dir_journal">>,   leo_misc:any_to_binary(
                                                      leo_misc:get_value('cache_disc_dir_journal', HttpConf, ""))},
                   {<<"cache_max_content_len">>,    leo_misc:get_value('cache_max_content_len', HttpConf, 0)},
+
                   %% large-object
-                  {<<"max_chunked_objs">>,         MaxChunkedObjs},
-                  {<<"chunked_obj_len">>,          ChunkedObjLen},
-                  {<<"max_len_for_obj">>,          MaxObjLen},
-                  {<<"reading_chunked_obj_len">>,  leo_misc:get_value('reading_chunked_obj_len', HttpConf, 0)},
-                  {<<"threshold_of_chunk_len">>,   leo_misc:get_value('threshold_of_chunk_len',  HttpConf, 0)},
+                  {<<"max_chunked_objs">>,           MaxChunkedObjs},
+                  {<<"chunked_obj_len">>,            ChunkedObjLen},
+                  {<<"max_len_for_obj">>,            MaxObjLen},
+                  {<<"reading_chunked_obj_len">>,    leo_misc:get_value('reading_chunked_obj_len', HttpConf, 0)},
+                  {<<"threshold_of_chunk_len">>,     leo_misc:get_value('threshold_of_chunk_len',  HttpConf, 0)},
+                  {<<"loh_put_worker_pool_size">>,   leo_misc:get_value('loh_put_worker_pool_size',  HttpConf, 0)},
+                  {<<"loh_put_worker_buffer_size">>, leo_misc:get_value('loh_put_worker_buffer_size',  HttpConf, 0)},
+
                   %% watchdog
                   {<<"wd_rex_interval">>,                leo_misc:get_value('rex_interval',                WatchdogProps)},
                   {<<"wd_rex_threshold_mem_capacity">>,  leo_misc:get_value('rex_threshold_mem_capacity',  WatchdogProps)},
