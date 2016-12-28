@@ -1,8 +1,7 @@
 ##======================================================================
 ## LeoFS - Manager Configuration (MASTER)
 ##
-## See: http://www.leofs.org/docs/configuration.html#leofs-manager-master
-## See: http://www.leofs.org/docs/configuration.html#leofs-manager-slave
+## See: http://leo-project.net/leofs/docs/configuration/configuration_1.html
 #======================================================================
 ## --------------------------------------------------------------------
 ## SASL
@@ -61,7 +60,7 @@ system.cluster_id = leofs_1
 ## --------------------------------------------------------------------
 ## MANAGER - Consistency Level
 ##     * Only set its configurations to **Manager-master**
-##     * See: http://www.leofs.org/docs/configuration.html#the-consistency-level
+##     * See: http://leo-project.net/leofs/docs/configuration/configuration_1.html
 ## --------------------------------------------------------------------
 ## A number of replicas
 consistency.num_of_replicas = 3

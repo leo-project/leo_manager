@@ -376,6 +376,9 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                                 "             max object length | ~w\r\n",
                                 "     reading  chunk obj length | ~w\r\n",
                                 "     threshold of chunk length | ~w\r\n",
+                                "                               | \r\n",
+                                "      [PUT] worker pool size   | ~w\r\n",
+                                "      [PUT] worker buffer size | ~w\r\n",
                                 "-------------------------------+------------------\r\n",
                                 " Config-2: watchdog\r\n",
                                 "-------------------------------+------------------\r\n",
@@ -439,6 +442,9 @@ node_stat(?SERVER_TYPE_GATEWAY, State) ->
                    MaxObjLen,
                    leo_misc:get_value('reading_chunked_obj_len', HttpConf, 0),
                    leo_misc:get_value('threshold_of_chunk_len', HttpConf, 0),
+                   leo_misc:get_value('loh_put_worker_pool_size', HttpConf, 0),
+                   leo_misc:get_value('loh_put_worker_buffer_size', HttpConf, 0),
+
                    %% config-3:watchdog
                    leo_misc:get_value('rex_interval', WatchdogProps),
                    leo_misc:get_value('rex_threshold_mem_capacity', WatchdogProps),

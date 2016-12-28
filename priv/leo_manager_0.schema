@@ -97,7 +97,7 @@
  "leo_manager.system_version",
  [
   {datatype, string},
-  {default, "1.3.0"}
+  {default, "1.3.1"}
  ]}.
 
 %% @doc Mode of Manager: [master|slave]
@@ -642,7 +642,7 @@
 
 
 %% @doc configuration path of the LeoFS manager's snmp-agent
-%% See: http://www.leofs.org/docs/configuration.html#snmpa-setup
+%% See: http://leo-project.net/leofs/docs/configuration/configuration_4.html#index-1
 {mapping,
  "snmp_conf",
  "vm_args.-config",
