@@ -302,10 +302,22 @@ create_mnesia_tables_1(slave,_Nodes) ->
 -spec(create_mnesia_tables_2(master | slave, list()) ->
              ok | {error, any()}).
 create_mnesia_tables_2(Mode,_Nodes) ->
-    ok = application:start(mnesia),
+    case application:start(mnesia) of
+        ok ->
+            create_mnesia_tables_2(Mode);
+        {error, {already_started, mnesia}} ->
+            %% https://github.com/leo-project/leofs/issues/560
+            %% happend when starting a cluster for the first time.
+            %% as mnesia can be started via rpc:multicall at master at this point.
+            create_mnesia_tables_2(Mode);
+        Error ->
+            ?error("create_mnesia_tables_2/2", [{cause, Error}]),
+            init:stop()
+    end.
+create_mnesia_tables_2(Mode) ->
     Ret = case catch mnesia:system_info(tables) of
               {'EXIT', {aborted, Reason}} ->
-                  ?error("create_mnesia_tables_2/2", [{cause, Reason}]),
+                  ?error("create_mnesia_tables_2/1", [{cause, Reason}]),
                   {error, ?ERROR_MNESIA_GET_TABLE_INFO_ERROR};
               Tbls when length(Tbls) > 1 ->
                   case mnesia:wait_for_tables(Tbls, timer:seconds(180)) of
@@ -326,22 +338,22 @@ create_mnesia_tables_2(Mode,_Nodes) ->
                               ok
                           catch
                               _:Cause ->
-                                  ?error("create_mnesia_tables_2/2", [{cause, Cause}]),
+                                  ?error("create_mnesia_tables_2/1", [{cause, Cause}]),
                                   {error, ?ERROR_MNESIA_PROC_FAILURE}
                           end;
                       {timeout, BadTabList} ->
                           Cause = ?ERROR_MNESIA_WAIT_FOR_TABLE_TIMEOUT,
-                          ?error("create_mnesia_tables_2/2",
+                          ?error("create_mnesia_tables_2/1",
                                  [{cause, Cause},
                                   {bad_tables, BadTabList}]),
                           {error, Cause};
                       {error, Reason} ->
-                          ?error("create_mnesia_tables_2/2", [{cause, Reason}]),
+                          ?error("create_mnesia_tables_2/1", [{cause, Reason}]),
                           {error, ?ERROR_MNESIA_WAIT_FOR_TABLE_ERROR}
                   end;
               _Tbls ->
                   Cause = ?ERROR_TABLE_NOT_EXISTS,
-                  ?error("create_mnesia_tables_2/2", [{cause, Cause}]),
+                  ?error("create_mnesia_tables_2/1", [{cause, Cause}]),
                   {error, Cause}
           end,
 
@@ -351,7 +363,6 @@ create_mnesia_tables_2(Mode,_Nodes) ->
         _ ->
             init:stop()
     end.
-
 
 %% @doc Function migrating datas
 %%      Should be called on the leo_manager master after all partner nodes finished initialization processes
